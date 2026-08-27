@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 394 198" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <g transform="matrix(0.625217,0,0,0.625217,80.397786,62.457625)">
+        <text x="79px" y="177px" style="font-family:'ArialMT', 'Arial', sans-serif;font-size:40.485px;fill:rgb(134,200,174);">global smile</text>
+        <g transform="matrix(40.485344,0,0,40.485344,225.265167,212.489691)">
+        </g>
+        <text x="146.509px" y="212.49px" style="font-family:'ArialMT', 'Arial', sans-serif;font-size:40.485px;fill:rgb(134,200,174);">care</text>
+    </g>
+    <g>
+        <g transform="matrix(1.173554,0,0,1.173554,-105.190083,57.330579)">
+            <path d="M257.5,-48C290.891,-48 318,-20.891 318,12.5C318,45.891 290.891,73 257.5,73C224.109,73 197,45.891 197,12.5C197,-20.891 224.109,-48 257.5,-48ZM257.5,-36.861C284.743,-36.861 306.861,-14.743 306.861,12.5C306.861,39.743 284.743,61.861 257.5,61.861C230.257,61.861 208.139,39.743 208.139,12.5C208.139,-14.743 230.257,-36.861 257.5,-36.861Z" style="fill:rgb(134,200,174);"/>
+        </g>
+        <g transform="matrix(0.893938,0,0,0.825148,-33.189121,57.764202)">
+            <path d="M217.827,42.661C226.935,54.619 241.323,62.343 257.5,62.343C273.677,62.343 288.065,54.619 297.173,42.661L304.492,50.59C293.396,64.259 276.461,73 257.5,73C238.539,73 221.604,64.259 210.508,50.59L217.827,42.661Z" style="fill:rgb(134,200,174);"/>
+        </g>
+        <g transform="matrix(1.374154,1.376302,-1.945553,1.942517,122.744169,-307.623987)">
+            <circle cx="159.852" cy="94.648" r="1.682" style="fill:rgb(134,200,174);"/>
+        </g>
+        <g transform="matrix(-1.374154,1.376302,1.945553,1.942517,271.255833,-307.623987)">
+            <circle cx="159.852" cy="94.648" r="1.682" style="fill:rgb(134,200,174);"/>
+        </g>
+    </g>
+</svg>

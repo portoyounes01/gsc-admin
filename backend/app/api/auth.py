@@ -1,0 +1,49 @@
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.api.deps import get_current_user
+from app.core.security import create_access_token, hash_password, verify_password
+from app.db.session import get_db
+from app.models import User
+from app.schemas import LoginIn, TokenOut, UserOut
+from app.services.audit import add_audit_log
+
+router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+def ensure_bootstrap_admin(db: Session, email: str, password: str) -> None:
+    normalized_email = email.strip().lower()
+    if not normalized_email or not password:
+        return
+    existing = db.scalar(select(User).where(User.email == normalized_email))
+    if existing:
+        return
+    db.add(
+        User(
+            email=normalized_email,
+            password_hash=hash_password(password),
+            role="admin",
+            is_active=True,
+        )
+    )
+    db.commit()
+
+
+@router.post("/login", response_model=TokenOut)
+def login(payload: LoginIn, db: Session = Depends(get_db)) -> TokenOut:
+    email = payload.email.strip().lower()
+    user = db.scalar(select(User).where(User.email == email, User.is_active.is_(True)))
+    if not user or not verify_password(payload.password, user.password_hash):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Ongeldige login.")
+    add_audit_log(db, user, "Login", "Aangemeld")
+    db.commit()
+    return TokenOut(access_token=create_access_token(user.email, user.role))
+
+
+@router.get("/me", response_model=UserOut)
+def me(current_user: User = Depends(get_current_user)) -> User:
+    return current_user
+

@@ -1,0 +1,161 @@
+# Global Smile Care Dashboard Beta
+
+Nieuwe beta zonder Streamlit.
+
+Stack:
+- React + Vite frontend
+- FastAPI backend
+- PostgreSQL database
+- Docker Compose voor lokale en Linux-testomgeving
+
+## Privacy uitgangspunten
+
+- Geen patientendatabank naast DentAdmin.
+- INSZ, medicatie en patientdetails worden niet in audit logs opgeslagen.
+- Wachtwoorden worden gehasht opgeslagen.
+- Secrets staan in `.env`, niet in code.
+- Audit logs zijn metadata en bedoeld voor korte bewaartermijn.
+
+## Lokaal starten
+
+1. Maak `.env` aan op basis van `.env.example`.
+2. Start de stack:
+
+```bash
+docker compose up --build
+```
+
+3. Open:
+
+```text
+Frontend: http://localhost:5173
+Backend health: http://localhost:8000/health
+Geocoding health: http://localhost:8000/health/geocoding
+API docs: http://localhost:8000/docs
+```
+
+Bij eerste start maakt de backend automatisch een admingebruiker aan via:
+
+```text
+BOOTSTRAP_ADMIN_EMAIL
+BOOTSTRAP_ADMIN_PASSWORD
+```
+
+Gebruik dit enkel voor beta/test en wijzig het servermatig in `.env`.
+
+## Bestaande data migreren
+
+Vanuit de map `backend`:
+
+```bash
+DATABASE_URL=postgresql+psycopg://gsc:gsc@localhost:5432/gsc_dashboard \
+python -m app.scripts.import_legacy \
+  --workbook "../../data/WZC_evaluatie_overzicht_Global_Smile_Care.xlsx" \
+  --team-profiles "../../data/team_profiles.json"
+```
+
+Deze migratie importeert:
+- WZC masterdata
+- WZC prospecties
+- teamprofielen
+
+Niet automatisch geimporteerd:
+- mondzorgdossiergegevens
+- patientdata uit losse PDFs
+- plaintext wachtwoorden
+
+## Eerste beta-scope
+
+Aanwezig in deze scaffold:
+- login + rollen
+- WZC masterdatabase
+- WZC kaart met urgentie-indicator
+- prospectie pipeline
+- urgenties aanmaken en afronden
+- urgenties routeplanning op basis van geselecteerde open meldingen
+- behandelplanning PDF-preview
+- behandelplanning bewaren
+- Excel export
+- admin users
+- user log
+
+Nog uit te werken voor server-beta:
+- productie reverse proxy + HTTPS
+- echte database migraties met Alembic
+- backups en restoreprocedure
+- strengere rollen/machtigingen per module
+- betere kaartlaag met MapLibre of Leaflet
+- uitgebreidere validatie/testen
+
+## Serververeisten voor adresherkenning
+
+Voor het automatisch invullen van latitude/longitude moet de Linux-server outbound HTTPS toelaten:
+
+- TCP 443 naar `geo.api.vlaanderen.be`
+- TCP 443 naar `photon.komoot.io`
+- TCP 443 naar `nominatim.openstreetmap.org`
+- DNS-resolutie vanaf de server
+
+Dit staat in de app expliciet aan met:
+
+```text
+GEOCODING_OUTBOUND_ENABLED=true
+```
+
+Controleer dit na deployment via:
+
+```text
+http://localhost:8000/health/geocoding
+```
+
+Deze check gebruikt alleen een publiek testadres en verstuurt geen patient-, dossier- of WZC-data.
+
+## Kaartlaag
+
+De WZC-kaart en routekaart gebruiken standaard de CARTO **Positron vector basemap** via MapLibre. Dit is de vector-equivalent van de vroegere CARTO `light_all` rasterkaart en blijft scherper bij inzoomen en op retina-schermen. Als de vectorlaag niet kan laden, valt de app terug op de CARTO `light_all` rasterlaag.
+
+CARTO vereist voor basemaps sinds augustus 2026 een gratis basemap API key. Vraag de key aan via:
+
+```text
+https://carto.com/basemaps/apikey/
+```
+
+Zet daarna in `.env`:
+
+```text
+VITE_CARTO_BASEMAP_KEY=...
+```
+
+Herstart de frontend nadat deze waarde is aangepast. Vite leest `VITE_` variabelen bij het starten/bouwen van de frontend.
+
+## Routeplanning bij urgenties
+
+In de beta zit routeplanning in het onderdeel **Urgenties**. De berekening gebeurt server-side via:
+
+- geselecteerde open urgenties
+- WZC latitude/longitude
+- vast startpunt: Global Smile Lokeren of Praktijk Antwerpen
+- optioneel eindpunt
+- aantal routes
+- standaard bezoektijd per urgentie
+- optionele maximale duur per route
+
+Standaard staat de routeprovider op `estimate`. Dat houdt de beta lokaal bruikbaar zonder externe API, maar de UI markeert dit duidelijk als benaderde rijtijdmatrix. Voor echte rijtijden over het wegennet kan een OSRM-server worden gebruikt. OSRM is snel en goed voor een vaste wegennetmatrix, maar bevat geen actuele verkeersdrukte:
+
+```text
+ROUTING_PROVIDER=osrm
+ROUTING_OUTBOUND_ENABLED=true
+ROUTING_OSRM_BASE_URL=https://router.project-osrm.org
+```
+
+Voor een volgorde die rekening houdt met actuele verkeersduur is `google_routes` de meest praktische productie-optie:
+
+```text
+ROUTING_PROVIDER=google_routes
+ROUTING_OUTBOUND_ENABLED=true
+ROUTING_GOOGLE_API_KEY=...
+ROUTING_GOOGLE_ROUTING_PREFERENCE=TRAFFIC_AWARE
+ROUTING_MATRIX_CACHE_SECONDS=300
+```
+
+De planner stuurt alleen coordinaten naar de provider, geen patientnamen, klachten of opmerkingen. Matrixresultaten worden kort gecachet via `ROUTING_MATRIX_CACHE_SECONDS`. Bij een ontbrekende of falende provider valt de backend terug op `estimate` en toont de UI dat als schatting.
