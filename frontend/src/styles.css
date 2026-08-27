@@ -788,6 +788,18 @@ label {
   text-decoration: none;
 }
 
+.compactActionButton:disabled {
+  cursor: not-allowed;
+  border-color: #dce6e8;
+  background: #f7faf9;
+  color: #8a929c;
+}
+
+.dangerActionButton {
+  border-color: #efcdcd;
+  color: #a23d3d;
+}
+
 .portfolioRow {
   flex-direction: column;
   align-items: flex-start;
@@ -1013,6 +1025,79 @@ label {
   font-size: 12px;
 }
 
+.savedRoutesPanel {
+  display: grid;
+  gap: 12px;
+}
+
+.savedRouteDateField {
+  min-width: min(230px, 100%);
+  color: #2c3037;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.savedRouteList {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.savedRouteCard {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #e2e7eb;
+  border-radius: 8px;
+  background: #fbfcfd;
+}
+
+.savedRouteHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: start;
+}
+
+.savedRouteHeader div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.savedRouteHeader strong,
+.savedRouteHeader span,
+.savedRouteMiniList span {
+  overflow-wrap: anywhere;
+}
+
+.savedRouteHeader span {
+  color: #66707a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.savedRouteMiniList {
+  display: grid;
+  gap: 6px;
+}
+
+.savedRouteMiniList span {
+  display: grid;
+  gap: 2px;
+  padding-top: 6px;
+  border-top: 1px solid #eef2f3;
+  color: #66707a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.savedRouteMiniList strong {
+  color: #2c3037;
+  font-size: 12px;
+}
+
 .routePlannerPanel {
   display: grid;
   gap: 0;
@@ -1182,6 +1267,238 @@ label {
   display: grid;
   gap: 14px;
   margin-top: 16px;
+}
+
+.routeResultBar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid #dce6e8;
+  border-radius: 8px;
+  background: #f7faf9;
+}
+
+.routeResultBar div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.routeResultBar strong,
+.routeResultBar span {
+  overflow-wrap: anywhere;
+}
+
+.routeResultBar span {
+  color: #66707a;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.routeResultActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.routeSourceBadge {
+  white-space: nowrap;
+}
+
+.successNotice {
+  padding: 10px 12px;
+  border: 1px solid #b9dfd0;
+  border-radius: 8px;
+  background: #eef8f4;
+  color: #216656;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.routeWarningsDisclosure {
+  padding: 10px 12px;
+  border: 1px solid #efd6b0;
+  border-radius: 8px;
+  background: #fffaf2;
+}
+
+.routeWarningsDisclosure summary {
+  cursor: pointer;
+  color: #8a5518;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.routeWarningsDisclosure[open] summary {
+  margin-bottom: 8px;
+}
+
+.routeDispatchGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.routeDispatchList {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  max-height: 520px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.routeDispatchCard {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #e2e7eb;
+  border-left: 4px solid #2e6f95;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.routeDispatchHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: start;
+}
+
+.routeDispatchHeader div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.routeDispatchHeader strong,
+.routeDispatchHeader span {
+  overflow-wrap: anywhere;
+}
+
+.routeDispatchHeader strong {
+  color: #1d1d1f;
+  font-size: 14px;
+}
+
+.routeDispatchHeader span,
+.routeMobileNote {
+  color: #66707a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.routeColorDot {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  margin-top: 5px;
+  border-radius: 999px;
+}
+
+.routeDispatchSummary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.routeDispatchSummary span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  padding: 8px;
+  border: 1px solid #e2e7eb;
+  border-radius: 8px;
+  background: #fbfcfd;
+  color: #66707a;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.routeDispatchSummary strong {
+  color: #2c3037;
+  font-size: 13px;
+}
+
+.routeActionRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.primaryRouteLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 8px 12px;
+  border: 1px solid #216656;
+  border-radius: 8px;
+  background: #216656;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 850;
+  text-decoration: none;
+}
+
+.routeLinkLimit {
+  color: #8a5518;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.routeStopList {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding-left: 24px;
+}
+
+.routeStopList li {
+  min-width: 0;
+  color: #2c3037;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.routeStopList li::marker {
+  color: #216656;
+  font-weight: 900;
+}
+
+.routeStopList strong,
+.routeStopList span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.routeStopList span {
+  color: #66707a;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.routeDetails {
+  padding-top: 9px;
+  border-top: 1px solid #eef2f3;
+}
+
+.routeDetails summary {
+  cursor: pointer;
+  color: #216656;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.routeDetails[open] summary {
+  margin-bottom: 10px;
 }
 
 .routePlanHeader {
@@ -2374,24 +2691,36 @@ label {
   .savedPlanningLayout,
   .planningKindSelector,
   .planningSetupGrid,
-  .planningPreviewRow,
-  .extraContactRow,
-  .routePlannerGrid,
-  .routeConfigFields,
-  .routeOrderGrid,
-  .routeCards,
-  .routeSummaryGrid,
-  .urgencyForm,
-  .urgencyRow,
-  .formGrid,
-  .formGrid.compact {
+	  .planningPreviewRow,
+	  .extraContactRow,
+	  .savedRouteList,
+	  .routePlannerGrid,
+	  .routeConfigFields,
+	  .routeDispatchGrid,
+	  .routeOrderGrid,
+	  .routeCards,
+	  .routeDispatchSummary,
+	  .routeSummaryGrid,
+	  .urgencyForm,
+	  .urgencyRow,
+	  .formGrid,
+	  .formGrid.compact {
     grid-template-columns: 1fr;
   }
 
-  .routePlanHeader,
-  .routeCardHeader {
-    display: grid;
-  }
+	  .routeResultBar,
+	  .savedRouteHeader,
+	  .routePlanHeader,
+	  .routeDispatchHeader,
+	  .routeCardHeader {
+	    display: grid;
+	  }
+
+	  .routeDispatchList {
+	    max-height: none;
+	    overflow: visible;
+	    padding-right: 0;
+	  }
 
   .previewHeader {
     display: grid;

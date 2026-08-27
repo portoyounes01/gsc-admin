@@ -238,6 +238,7 @@ class RoutePlanLocation(BaseModel):
 
 class UrgencyRoutePlanRequest(BaseModel):
     urgency_ids: list[int] = Field(min_length=1, max_length=100)
+    execution_date: date = Field(default_factory=date.today)
     start_location: RoutePlanLocation
     end_location: RoutePlanLocation | None = None
     return_to_start: bool = True
@@ -290,6 +291,7 @@ class UrgencyRouteUnassignedOut(BaseModel):
 
 class UrgencyRoutePlanOut(BaseModel):
     generated_at: datetime
+    execution_date: date
     provider: str
     uses_real_road_network: bool
     uses_live_traffic: bool = False
@@ -300,6 +302,22 @@ class UrgencyRoutePlanOut(BaseModel):
     routes: list[UrgencyRouteOut]
     unassigned_urgencies: list[UrgencyRouteUnassignedOut] = []
     warnings: list[str] = []
+
+
+class SavedUrgencyRoutePlanCreate(BaseModel):
+    execution_date: date
+    title: str = ""
+    plan: UrgencyRoutePlanOut
+
+
+class SavedUrgencyRoutePlanOut(BaseModel):
+    id: int
+    execution_date: date
+    title: str
+    created_by: str
+    created_at: datetime
+    updated_at: datetime
+    plan: UrgencyRoutePlanOut
 
 
 class PlanningRowBase(BaseModel):

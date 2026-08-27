@@ -50,6 +50,7 @@ class RoutingServiceTests(unittest.TestCase):
     def route_payload(self, urgency_ids: list[int], route_count: int = 2) -> UrgencyRoutePlanRequest:
         return UrgencyRoutePlanRequest(
             urgency_ids=urgency_ids,
+            execution_date=date(2026, 8, 25),
             start_location=RoutePlanLocation(
                 label="Global Smile Lokeren",
                 latitude=51.07847323810345,
@@ -74,6 +75,7 @@ class RoutingServiceTests(unittest.TestCase):
         assigned_count = sum(len(route.stops) for route in plan.routes)
         self.assertEqual(assigned_count, 4)
         self.assertEqual(len(plan.routes), 2)
+        self.assertEqual(plan.execution_date, date(2026, 8, 25))
         self.assertEqual(plan.unassigned_urgencies, [])
         self.assertFalse(plan.uses_real_road_network)
         self.assertTrue(any("benadering" in warning for warning in plan.warnings))

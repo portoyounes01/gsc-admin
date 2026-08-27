@@ -8,7 +8,7 @@ import time
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Sequence
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -281,7 +281,7 @@ def parse_google_duration_seconds(value: object) -> float:
     return float(match.group(1))
 
 
-def google_departure_time_for_start(start_time: str | None) -> tuple[str | None, list[str]]:
+def google_departure_time_for_start(start_time: str | None, execution_date: date | None = None) -> tuple[str | None, list[str]]:
     if not start_time:
         return None, []
     try:
@@ -297,7 +297,15 @@ def google_departure_time_for_start(start_time: str | None) -> tuple[str | None,
 
     now = datetime.now(local_timezone)
     hours, minutes = divmod(start_minutes, 60)
-    planned_departure = now.replace(hour=hours, minute=minutes, second=0, microsecond=0)
+    planned_date = execution_date or now.date()
+    planned_departure = datetime(
+        planned_date.year,
+        planned_date.month,
+        planned_date.day,
+        hours,
+        minutes,
+        tzinfo=local_timezone,
+    )
     if planned_departure <= now + timedelta(minutes=2):
         return None, ["Google Routes gebruikt het huidige vertrekmoment omdat het ingestelde vertrekuur niet meer in de toekomst ligt."]
     return planned_departure.isoformat(), []
@@ -308,8 +316,8 @@ class GoogleRoutesRoutingProvider:
     uses_real_road_network = True
     uses_live_traffic = True
 
-    def __init__(self, start_time: str | None = None) -> None:
-        self.departure_time, self.departure_warnings = google_departure_time_for_start(start_time)
+    def __init__(self, start_time: str | None = None, execution_date: date | None = None) -> None:
+        self.departure_time, self.departure_warnings = google_departure_time_for_start(start_time, execution_date)
         cache_ttl = max(60, int(settings.routing_matrix_cache_seconds or 300))
         cache_bucket = self.departure_time or f"now-{int(time.time() // cache_ttl)}"
         self.cache_name = f"{self.name}:{cache_bucket}"
@@ -431,7 +439,11 @@ def matrix_has_size(value: object, size: int) -> bool:
     return all(isinstance(row, list) and len(row) == size for row in value)
 
 
-def build_travel_matrix(coordinates: Sequence[Coordinates], start_time: str | None = None) -> MatrixResult:
+def build_travel_matrix(
+    coordinates: Sequence[Coordinates],
+    start_time: str | None = None,
+    execution_date: date | None = None,
+) -> MatrixResult:
     max_locations = max(2, int(settings.routing_max_locations or 100))
     if len(coordinates) > max_locations:
         raise RoutePlanningError(f"Te veel locaties voor een routeplan: maximum {max_locations}, ontvangen {len(coordinates)}.")
@@ -439,7 +451,7 @@ def build_travel_matrix(coordinates: Sequence[Coordinates], start_time: str | No
     provider_name = settings.routing_provider.strip().lower() or "estimate"
     if provider_name in {"google", "google_routes", "google-routes"}:
         try:
-            return GoogleRoutesRoutingProvider(start_time).travel_time_matrix(coordinates)
+            return GoogleRoutesRoutingProvider(start_time, execution_date).travel_time_matrix(coordinates)
         except RoutingProviderError as exc:
             LOGGER.warning("Routingprovider google_routes faalde zonder patientgegevens: %s", exc)
             return EstimatedRoutingProvider().travel_time_matrix(
@@ -798,6 +810,7 @@ def build_urgency_route_plan(
         warnings.append("Geen routeerbare urgenties in de selectie.")
         return UrgencyRoutePlanOut(
             generated_at=datetime.now(timezone.utc),
+            execution_date=payload.execution_date,
             provider="none",
             uses_real_road_network=False,
             uses_live_traffic=False,
@@ -809,7 +822,7 @@ def build_urgency_route_plan(
             warnings=warnings,
         )
 
-    matrix = build_travel_matrix(coordinates, payload.start_time)
+    matrix = build_travel_matrix(coordinates, payload.start_time, payload.execution_date)
     warnings.extend(matrix.warnings)
     warnings.append("Het huidige urgentiemodel heeft geen afzonderlijk prioriteitsveld; planning gebruikt daarom geen prioriteitsconstraint.")
 
@@ -850,6 +863,7 @@ def build_urgency_route_plan(
 
     return UrgencyRoutePlanOut(
         generated_at=datetime.now(timezone.utc),
+        execution_date=payload.execution_date,
         provider=matrix.provider,
         uses_real_road_network=matrix.uses_real_road_network,
         uses_live_traffic=matrix.uses_live_traffic,

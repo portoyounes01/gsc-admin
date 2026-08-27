@@ -108,6 +108,18 @@ class Urgency(Base):
     wzc: Mapped[Wzc | None] = relationship(back_populates="urgencies")
 
 
+class SavedUrgencyRoutePlan(Base):
+    __tablename__ = "saved_urgency_route_plans"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    execution_date: Mapped[date] = mapped_column(Date, index=True)
+    title: Mapped[str] = mapped_column(String(255), default="")
+    plan_json: Mapped[str] = mapped_column(Text)
+    created_by: Mapped[str] = mapped_column(String(255), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+
 class Planning(Base):
     __tablename__ = "plannings"
 

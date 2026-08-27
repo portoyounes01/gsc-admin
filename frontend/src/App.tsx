@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { api, clearToken, getToken } from "./api";
-import type { AuditLog, DossierPreviewRow, Planning, PlanningRow, Prospect, TeamProfile, Urgency, UrgencyRoutePlan, User, Wzc } from "./types";
+import type { AuditLog, DossierPreviewRow, Planning, PlanningRow, Prospect, SavedUrgencyRoutePlan, TeamProfile, Urgency, UrgencyRoutePlan, User, Wzc } from "./types";
 
 type Section = "Home" | "Behandelplanning" | "Mondzorgdossiers" | "Urgenties" | "WZC opvolging" | "WZC database";
 type FollowupMode = "Prospectie" | "Actieve WZC's";
@@ -101,6 +101,23 @@ function formatDuration(minutes: number) {
   return remainingMinutes ? `${hours}u ${remainingMinutes}min` : `${hours}u`;
 }
 
+function arrivalWindowLabel(value: string) {
+  const [hourText, minuteText] = value.split(":");
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  if (!Number.isInteger(hour) || !Number.isInteger(minute)) return value;
+  const arrivalMinutes = hour * 60 + minute;
+  const startMinutes = Math.floor(arrivalMinutes / 30) * 30;
+  const endMinutes = startMinutes + 60;
+  const formatWindowTime = (totalMinutes: number) => {
+    const minutesInDay = ((totalMinutes % (24 * 60)) + (24 * 60)) % (24 * 60);
+    const windowHour = Math.floor(minutesInDay / 60);
+    const windowMinute = minutesInDay % 60;
+    return `${String(windowHour).padStart(2, "0")}:${String(windowMinute).padStart(2, "0")}`;
+  };
+  return `tussen ${formatWindowTime(startMinutes)} en ${formatWindowTime(endMinutes)}`;
+}
+
 function formatDistance(kilometers: number) {
   if (kilometers < 1) return `${Math.round(kilometers * 1000)} m`;
   return `${kilometers.toFixed(1).replace(".", ",")} km`;
@@ -138,6 +155,38 @@ function googleMapsRouteUrl(plan: UrgencyRoutePlan, route: UrgencyRoutePlan["rou
     params.set("waypoints", waypointStops.map((stop) => mapsCoordinate(stop.latitude, stop.longitude)).join("|"));
   }
   return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
+function googleMapsWaypointCount(plan: UrgencyRoutePlan, route: UrgencyRoutePlan["routes"][number]) {
+  if (!route.stops.length) return 0;
+  if (plan.end_location || plan.return_to_start) return route.stops.length;
+  return Math.max(0, route.stops.length - 1);
+}
+
+function routePlanSourceLabel(plan: UrgencyRoutePlan) {
+  if (plan.uses_live_traffic) return "Live verkeer";
+  if (plan.uses_real_road_network) return "Wegennet";
+  return "Schatting";
+}
+
+function routePlanSourceText(plan: UrgencyRoutePlan) {
+  if (plan.uses_live_traffic) return "Volgorde berekend met verkeersduur";
+  if (plan.uses_real_road_network) return "Volgorde berekend met wegennetrijtijden, zonder actuele files";
+  return "Volgorde lokaal geschat; Google Maps toont actuele rijtijd bij openen";
+}
+
+function routeShareText(plan: UrgencyRoutePlan, route: UrgencyRoutePlan["routes"][number]) {
+  const stops = route.stops
+    .map((stop) => `${stop.sequence}. ${stop.wzc_name} (${arrivalWindowLabel(stop.arrival_time)})`)
+    .join("\n");
+  return [
+    `${route.label} urgenties`,
+    `Start: ${plan.start_location.label} om ${route.estimated_start_time}`,
+    stops,
+    `Einde: ${route.end_location_label} om ${route.estimated_end_time}`,
+    `Totaal: ${formatDuration(route.total_duration_minutes)} · ${formatDistance(route.total_distance_km)}`,
+    "Patientgegevens staan bewust niet in deze link. Raadpleeg de app of DentAdmin voor details.",
+  ].filter(Boolean).join("\n");
 }
 
 function formatPostalCode(value?: string | null) {
@@ -1183,6 +1232,7 @@ function UrgenciesView({
   const [urgencyType, setUrgencyType] = useState(urgencyTypes[0]);
   const [reportedOn, setReportedOn] = useState(todayIso);
   const [remark, setRemark] = useState("");
+  const [routeExecutionDate, setRouteExecutionDate] = useState(todayIso);
   const [routePlannerOpen, setRoutePlannerOpen] = useState(false);
   const [selectedUrgencyIds, setSelectedUrgencyIds] = useState<Record<number, boolean>>({});
   const [startPresetKey, setStartPresetKey] = useState<typeof routeStartLocations[number]["key"]>(routeStartLocations[0].key);
@@ -1199,6 +1249,11 @@ function UrgenciesView({
   const [routePlan, setRoutePlan] = useState<UrgencyRoutePlan | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState("");
+  const [sharedRouteId, setSharedRouteId] = useState("");
+  const [savedRoutePlans, setSavedRoutePlans] = useState<SavedUrgencyRoutePlan[]>([]);
+  const [savedRouteLoading, setSavedRouteLoading] = useState(false);
+  const [saveRouteLoading, setSaveRouteLoading] = useState(false);
+  const [routeSaveMessage, setRouteSaveMessage] = useState("");
   const openUrgencies = urgencies.filter((urgency) => urgency.status !== "Afgerond");
   const todayUrgencies = openUrgencies.filter((urgency) => urgency.reported_on === todayIso);
   const urgentWzcCount = new Set(openUrgencies.map((urgency) => urgency.wzc_id || urgency.wzc_name).filter(Boolean)).size;
@@ -1218,6 +1273,24 @@ function UrgenciesView({
   useEffect(() => {
     setWzcId(preselectedWzc?.id || "");
   }, [preselectedWzc]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setSavedRouteLoading(true);
+    api.savedUrgencyRoutePlans(routeExecutionDate)
+      .then((plans) => {
+        if (!cancelled) setSavedRoutePlans(plans);
+      })
+      .catch((err) => {
+        if (!cancelled) setRouteError(err instanceof Error ? err.message : "Opgeslagen routes konden niet geladen worden.");
+      })
+      .finally(() => {
+        if (!cancelled) setSavedRouteLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [routeExecutionDate]);
 
   useEffect(() => {
     setSelectedUrgencyIds((current) => {
@@ -1253,6 +1326,7 @@ function UrgenciesView({
     const endLat = parseCoordinate(endLatitude);
     const endLon = parseCoordinate(endLongitude);
     setRouteError("");
+    setRouteSaveMessage("");
     setRoutePlan(null);
     if (!selectedIds.length) {
       setRouteError("Selecteer minstens een open urgentie.");
@@ -1266,6 +1340,7 @@ function UrgenciesView({
     try {
       const plan = await api.planUrgencyRoutes({
         urgency_ids: selectedIds,
+        execution_date: routeExecutionDate,
         start_location: {
           label: selectedStartLocation.label,
           latitude: selectedStartLocation.latitude,
@@ -1289,6 +1364,76 @@ function UrgenciesView({
       setRouteError(err instanceof Error ? err.message : "Routeplanning kon niet berekend worden.");
     } finally {
       setRouteLoading(false);
+    }
+  }
+
+  async function saveCurrentRoutePlan() {
+    if (!routePlan) return;
+    const assignedCount = routePlan.routes.reduce((total, route) => total + route.stops.length, 0);
+    setSaveRouteLoading(true);
+    setRouteSaveMessage("");
+    setRouteError("");
+    try {
+      const saved = await api.saveUrgencyRoutePlan({
+        execution_date: routePlan.execution_date || routeExecutionDate,
+        title: `Urgentieroute ${formatDate(routePlan.execution_date || routeExecutionDate)} (${assignedCount} urgenties)`,
+        plan: routePlan,
+      });
+      setSavedRoutePlans((current) => [saved, ...current.filter((item) => item.id !== saved.id)]);
+      setRouteSaveMessage("Route opgeslagen voor de uitvoeringsdatum.");
+    } catch (err) {
+      setRouteError(err instanceof Error ? err.message : "Route kon niet opgeslagen worden.");
+    } finally {
+      setSaveRouteLoading(false);
+    }
+  }
+
+  async function deleteSavedRoutePlan(savedRoutePlan: SavedUrgencyRoutePlan) {
+    setRouteError("");
+    try {
+      await api.deleteSavedUrgencyRoutePlan(savedRoutePlan.id);
+      setSavedRoutePlans((current) => current.filter((item) => item.id !== savedRoutePlan.id));
+      if (routePlan?.generated_at === savedRoutePlan.plan.generated_at) {
+        setRoutePlan(null);
+      }
+    } catch (err) {
+      setRouteError(err instanceof Error ? err.message : "Opgeslagen route kon niet verwijderd worden.");
+    }
+  }
+
+  function openSavedRoutePlan(savedRoutePlan: SavedUrgencyRoutePlan) {
+    setRoutePlan(savedRoutePlan.plan);
+    setRoutePlannerOpen(true);
+    setRouteSaveMessage("");
+    window.requestAnimationFrame(() => {
+      document.querySelector(".routePlanResult")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  async function shareRoute(route: UrgencyRoutePlan["routes"][number], googleUrl: string) {
+    if (!routePlan || !googleUrl) return;
+    const text = routeShareText(routePlan, route);
+    const sharePayload = {
+      title: `${route.label} urgenties`,
+      text,
+      url: googleUrl,
+    };
+    try {
+      if (navigator.share) {
+        await navigator.share(sharePayload);
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(`${text}\n${googleUrl}`);
+      } else {
+        window.open(googleUrl, "_blank", "noopener,noreferrer");
+      }
+      setSharedRouteId(route.route_id);
+      window.setTimeout(() => {
+        setSharedRouteId((current) => current === route.route_id ? "" : current);
+      }, 2400);
+    } catch (err) {
+      if (!(err instanceof DOMException && err.name === "AbortError")) {
+        setRouteError("Route-link kon niet gedeeld of gekopieerd worden.");
+      }
     }
   }
 
@@ -1341,6 +1486,53 @@ function UrgenciesView({
         <div className="kpi"><span>WZC's</span><strong>{urgentWzcCount}</strong></div>
         <div className="kpi"><span>Afgerond</span><strong>{urgencies.filter((urgency) => urgency.status === "Afgerond").length}</strong></div>
       </div>
+      <section className="panel savedRoutesPanel">
+        <div className="sectionTitle">
+          <div>
+            <h2>Aangemaakte routes</h2>
+            <p className="sectionHint">Routeplannen die voor de gekozen uitvoeringsdatum bewaard zijn.</p>
+          </div>
+          <label className="savedRouteDateField">Uitvoeringsdatum<input type="date" value={routeExecutionDate} onChange={(event) => setRouteExecutionDate(event.target.value || todayIso)} /></label>
+        </div>
+        {savedRouteLoading && <div className="empty compactEmpty">Routes laden...</div>}
+        {!savedRouteLoading && savedRoutePlans.length === 0 && (
+          <div className="empty compactEmpty">Nog geen opgeslagen urgentieroute voor {formatDate(routeExecutionDate)}.</div>
+        )}
+        {!savedRouteLoading && savedRoutePlans.length > 0 && (
+          <div className="savedRouteList">
+            {savedRoutePlans.map((savedRoutePlan) => {
+              const assignedCount = savedRoutePlan.plan.routes.reduce((total, route) => total + route.stops.length, 0);
+              return (
+                <article className="savedRouteCard" key={savedRoutePlan.id}>
+                  <div className="savedRouteHeader">
+                    <div>
+                      <strong>{savedRoutePlan.title}</strong>
+                      <span>{assignedCount} urgentie{assignedCount === 1 ? "" : "s"} · aangemaakt {formatDateTime(savedRoutePlan.created_at)}</span>
+                    </div>
+                    <span className={`softBadge ${savedRoutePlan.plan.uses_real_road_network ? "" : "warningBadge"}`}>
+                      {routePlanSourceLabel(savedRoutePlan.plan)}
+                    </span>
+                  </div>
+                  <div className="savedRouteMiniList">
+                    {savedRoutePlan.plan.routes.map((route) => (
+                      <span key={route.route_id}>
+                        <strong>{route.label}</strong>
+                        {route.stops.length
+                          ? `${route.stops.length} bezoeken · eerste ${arrivalWindowLabel(route.stops[0].arrival_time)} · klaar ${route.estimated_end_time}`
+                          : "geen bezoeken"}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="routeActionRow">
+                    <button className="compactActionButton" type="button" onClick={() => openSavedRoutePlan(savedRoutePlan)}>Openen</button>
+                    <button className="compactActionButton dangerActionButton" type="button" onClick={() => deleteSavedRoutePlan(savedRoutePlan)}>Verwijderen</button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
       <section className="panel routePlannerPanel">
         <div className="sectionTitle">
           <div>
@@ -1382,11 +1574,12 @@ function UrgenciesView({
               </div>
             </div>
             <div className="routeConfigBlock">
-              <div className="routeSubTitle">Instellingen</div>
-              <div className="routeConfigFields">
-                <label>Startpunt<select value={startPresetKey} onChange={(event) => setStartPresetKey(event.target.value as typeof routeStartLocations[number]["key"])}>
-                  {routeStartLocations.map((location) => <option key={location.key} value={location.key}>{location.label}</option>)}
-                </select></label>
+	              <div className="routeSubTitle">Instellingen</div>
+	              <div className="routeConfigFields">
+	                <label>Uitvoeringsdatum<input type="date" value={routeExecutionDate} onChange={(event) => setRouteExecutionDate(event.target.value || todayIso)} /></label>
+	                <label>Startpunt<select value={startPresetKey} onChange={(event) => setStartPresetKey(event.target.value as typeof routeStartLocations[number]["key"])}>
+	                  {routeStartLocations.map((location) => <option key={location.key} value={location.key}>{location.label}</option>)}
+	                </select></label>
                 <div className="routePresetInfo">
                   <strong>{selectedStartLocation.label}</strong>
                   <span>{selectedStartLocation.latitude}, {selectedStartLocation.longitude}</span>
@@ -1426,116 +1619,124 @@ function UrgenciesView({
             </div>
           </div>
         )}
-        {routePlan && (
-          <div className="routePlanResult">
-            <div className="routePlanHeader">
-              <div>
-                <strong>Aanbevolen volgorde · {routePlan.routes.reduce((total, route) => total + route.stops.length, 0)} ingepland</strong>
-                <span>{routePlan.routes.length} route(s) · provider: {routePlan.provider} · {routePlan.uses_live_traffic ? "actuele verkeersmatrix" : routePlan.uses_real_road_network ? "echte wegennetmatrix" : "benaderde rijtijdmatrix"}</span>
+        {routePlan && (() => {
+          const assignedCount = routePlan.routes.reduce((total, route) => total + route.stops.length, 0);
+          const routeAlreadySaved = savedRoutePlans.some((savedRoutePlan) => savedRoutePlan.plan.generated_at === routePlan.generated_at);
+          return (
+            <div className="routePlanResult">
+              <div className="routeResultBar">
+                <div>
+                  <strong>{assignedCount} urgentie{assignedCount === 1 ? "" : "s"} ingepland</strong>
+                  <span>{routePlan.routes.length} route(s) · {routePlanSourceText(routePlan)}</span>
+                </div>
+                <div className="routeResultActions">
+                  <button className="compactActionButton" type="button" disabled={saveRouteLoading || routeAlreadySaved} onClick={saveCurrentRoutePlan}>
+                    {saveRouteLoading ? "Opslaan..." : routeAlreadySaved ? "Opgeslagen" : `Opslaan voor ${formatDate(routePlan.execution_date)}`}
+                  </button>
+                  <span className={`softBadge routeSourceBadge ${routePlan.uses_real_road_network ? "" : "warningBadge"}`}>
+                    {routePlanSourceLabel(routePlan)}
+                  </span>
+                </div>
               </div>
-              <span className={`softBadge ${routePlan.uses_real_road_network ? "" : "warningBadge"}`}>
-                {routePlan.uses_live_traffic ? "Live verkeer" : routePlan.uses_real_road_network ? "Wegennet" : "Schatting"}
-              </span>
-            </div>
-            {routePlan.warnings.length > 0 && (
-              <div className="routeWarnings">
-                {routePlan.warnings.map((warning) => <span key={warning}>{warning}</span>)}
-              </div>
-            )}
-            <div className={`routeProviderNotice ${routePlan.uses_live_traffic ? "isLive" : routePlan.uses_real_road_network ? "isRoad" : "isEstimate"}`}>
-              {routePlan.uses_live_traffic
-                ? "Deze volgorde gebruikt actuele verkeersduur."
-                : routePlan.uses_real_road_network
-                  ? "Deze volgorde gebruikt wegennetrijtijden, zonder actuele verkeersdrukte."
-                  : "Deze volgorde is lokaal geschat. Gebruik Google Maps voor actuele rijtijden of activeer google_routes op de backend."}
-            </div>
-            <div className="routeOrderPanel">
-              <strong>Volgorde</strong>
-              <div className="routeOrderGrid">
-                {routePlan.routes.map((route) => {
-                  const googleUrl = googleMapsRouteUrl(routePlan, route);
-                  return (
-                    <div className="routeOrderColumn" key={route.route_id}>
-                      <div className="routeOrderHeader">
-                        <span>{route.label}</span>
-                        {googleUrl && <a className="compactActionButton" href={googleUrl} target="_blank" rel="noreferrer">Google Maps</a>}
-                      </div>
-                      <ol>
-                        {route.stops.map((stop) => (
-                          <li key={stop.urgency_id}>
-                            <strong>{stop.wzc_name}</strong>
-                            <span>{stop.arrival_time} · {stop.patient_name}</span>
-                          </li>
-                        ))}
-                      </ol>
-                      {route.stops.length === 0 && <small>Geen urgenties toegewezen.</small>}
-                      {!googleUrl && route.stops.length > 0 && <small>Google Maps link ondersteunt maximaal 9 tussenstops.</small>}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-            <RoutePlanMap plan={routePlan} />
-            <div className="routeCards">
-              {routePlan.routes.map((route) => {
-                const googleUrl = googleMapsRouteUrl(routePlan, route);
-                return (
-                  <article className="routeCard" key={route.route_id} style={{ borderTopColor: route.color }}>
-                    <div className="routeCardHeader">
-                      <div>
-                        <strong>{route.label}</strong>
-                        <span>{route.stops.length} bezoeken · einde {route.estimated_end_time}</span>
-                      </div>
-                      <div className="routeCardActions">
-                        <small>{formatDistance(route.total_distance_km)} · {formatDuration(route.total_duration_minutes)}</small>
-                        {googleUrl && <a className="compactActionButton" href={googleUrl} target="_blank" rel="noreferrer">Google Maps</a>}
-                      </div>
-                    </div>
-                    <div className="routeSummaryGrid">
-                      <span><strong>{formatDuration(route.total_driving_minutes)}</strong> rijtijd</span>
-                      <span><strong>{formatDuration(route.total_service_minutes)}</strong> bezoektijd</span>
-                      <span><strong>{formatDistance(route.total_distance_km)}</strong> afstand</span>
-                    </div>
-                    <div className="routeTimeline">
-                      <div className="routeTimelineRow">
-                        <time>{route.estimated_start_time}</time>
-                        <span>Vertrek {routePlan.start_location.label}</span>
-                      </div>
-                      {route.stops.map((stop) => (
-                        <div className="routeTimelineRow" key={stop.urgency_id}>
-                          <time>{stop.arrival_time}</time>
-                          <span>
-                            <strong>{stop.sequence}. {stop.wzc_name}</strong>
-                            <small>{stop.patient_name} · {stop.urgency_type} · +{formatDuration(stop.driving_minutes_from_previous)} rijden</small>
-                          </span>
-                        </div>
-                      ))}
-                      {(route.final_driving_minutes > 0 || routePlan.return_to_start || routePlan.end_location) && (
-                        <div className="routeTimelineRow">
-                          <time>{route.estimated_end_time}</time>
-                          <span>{route.end_location_label}{route.final_driving_minutes > 0 ? ` · +${formatDuration(route.final_driving_minutes)} rijden` : ""}</span>
-                        </div>
-                      )}
-                      {route.stops.length === 0 && <div className="empty compactEmpty">Geen urgenties toegewezen aan deze route.</div>}
-                    </div>
-                    {route.warnings.map((warning) => <div className="routeWarnings" key={warning}><span>{warning}</span></div>)}
-                  </article>
-                );
-              })}
-            </div>
-            {routePlan.unassigned_urgencies.length > 0 && (
-              <div className="unassignedPanel">
-                <strong>Niet ingepland</strong>
-                {routePlan.unassigned_urgencies.map((item) => (
-                  <div key={item.urgency_id}>
-                    <span>{item.wzc_name || "Geen WZC"} · {item.patient_name}</span>
-                    <small>{item.reason}</small>
+              {routeSaveMessage && <div className="successNotice">{routeSaveMessage}</div>}
+              {routePlan.warnings.length > 0 && (
+                <details className="routeWarningsDisclosure">
+                  <summary>{routePlan.warnings.length} aandachtspunt{routePlan.warnings.length === 1 ? "" : "en"}</summary>
+                  <div className="routeWarnings">
+                    {routePlan.warnings.map((warning) => <span key={warning}>{warning}</span>)}
                   </div>
-                ))}
+                </details>
+              )}
+              <div className="routeDispatchGrid">
+                <RoutePlanMap plan={routePlan} />
+                <div className="routeDispatchList">
+                  {routePlan.routes.map((route) => {
+                    const googleUrl = googleMapsRouteUrl(routePlan, route);
+                    const waypointCount = googleMapsWaypointCount(routePlan, route);
+                    return (
+                      <article className="routeDispatchCard" key={route.route_id} style={{ borderLeftColor: route.color }}>
+                        <div className="routeDispatchHeader">
+                          <div>
+                            <strong>{route.label}</strong>
+                            <span>{route.stops.length} bezoeken · klaar {route.estimated_end_time}</span>
+                          </div>
+                          <span className="routeColorDot" style={{ background: route.color }} />
+                        </div>
+                        <div className="routeDispatchSummary">
+                          <span><strong>{formatDuration(route.total_duration_minutes)}</strong> totaal</span>
+                          <span><strong>{formatDuration(route.total_driving_minutes)}</strong> rijden</span>
+                          <span><strong>{formatDistance(route.total_distance_km)}</strong> afstand</span>
+                        </div>
+                        <div className="routeActionRow">
+                          {googleUrl
+                            ? <a className="primaryRouteLink" href={googleUrl} target="_blank" rel="noreferrer">Open in Google Maps</a>
+                            : <span className="routeLinkLimit">Te veel tussenstops voor een Google Maps-link</span>}
+                          {googleUrl && (
+                            <button className="compactActionButton" type="button" onClick={() => shareRoute(route, googleUrl)}>
+                              {sharedRouteId === route.route_id ? "Link klaar" : "Deel/kopieer"}
+                            </button>
+                          )}
+                        </div>
+                        {googleUrl && waypointCount > 3 && (
+                          <small className="routeMobileNote">Bij veel tussenstops werkt openen in de Google Maps-app het betrouwbaarst.</small>
+                        )}
+                        <ol className="routeStopList">
+                          {route.stops.map((stop) => (
+                            <li key={stop.urgency_id}>
+                              <strong>{stop.wzc_name}</strong>
+                              <span>{arrivalWindowLabel(stop.arrival_time)} · {stop.patient_name}</span>
+                            </li>
+                          ))}
+                        </ol>
+                        {route.stops.length === 0 && <div className="empty compactEmpty">Geen urgenties toegewezen aan deze route.</div>}
+                        <details className="routeDetails">
+                          <summary>Timing en rijtijden</summary>
+                          <div className="routeTimeline">
+                            <div className="routeTimelineRow">
+                              <time>{route.estimated_start_time}</time>
+                              <span>Vertrek {routePlan.start_location.label}</span>
+                            </div>
+                            {route.stops.map((stop) => (
+                              <div className="routeTimelineRow" key={stop.urgency_id}>
+                                <time>{stop.arrival_time}</time>
+                                <span>
+                                  <strong>{stop.sequence}. {stop.wzc_name}</strong>
+                                  <small>{stop.patient_name} · {stop.urgency_type} · +{formatDuration(stop.driving_minutes_from_previous)} rijden</small>
+                                </span>
+                              </div>
+                            ))}
+                            {(route.final_driving_minutes > 0 || routePlan.return_to_start || routePlan.end_location) && (
+                              <div className="routeTimelineRow">
+                                <time>{route.estimated_end_time}</time>
+                                <span>{route.end_location_label}{route.final_driving_minutes > 0 ? ` · +${formatDuration(route.final_driving_minutes)} rijden` : ""}</span>
+                              </div>
+                            )}
+                          </div>
+                        </details>
+                        {route.warnings.length > 0 && (
+                          <div className="routeWarnings">
+                            {route.warnings.map((warning) => <span key={warning}>{warning}</span>)}
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
               </div>
-            )}
-          </div>
-        )}
+              {routePlan.unassigned_urgencies.length > 0 && (
+                <div className="unassignedPanel">
+                  <strong>Niet ingepland</strong>
+                  {routePlan.unassigned_urgencies.map((item) => (
+                    <div key={item.urgency_id}>
+                      <span>{item.wzc_name || "Geen WZC"} · {item.patient_name}</span>
+                      <small>{item.reason}</small>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </section>
       <section className="panel urgencyListPanel">
         <div className="sectionTitle">

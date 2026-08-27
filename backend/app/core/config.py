@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     routing_matrix_cache_seconds: int = 300
     routing_max_locations: int = 100
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     @property
     def cors_origin_list(self) -> list[str]:

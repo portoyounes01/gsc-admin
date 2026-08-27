@@ -139,6 +139,7 @@ In de beta zit routeplanning in het onderdeel **Urgenties**. De berekening gebeu
 - aantal routes
 - standaard bezoektijd per urgentie
 - optionele maximale duur per route
+- uitvoeringsdatum, zodat routeplannen per dag bewaard en teruggevonden kunnen worden
 
 Standaard staat de routeprovider op `estimate`. Dat houdt de beta lokaal bruikbaar zonder externe API, maar de UI markeert dit duidelijk als benaderde rijtijdmatrix. Voor echte rijtijden over het wegennet kan een OSRM-server worden gebruikt. OSRM is snel en goed voor een vaste wegennetmatrix, maar bevat geen actuele verkeersdrukte:
 
@@ -159,3 +160,7 @@ ROUTING_MATRIX_CACHE_SECONDS=300
 ```
 
 De planner stuurt alleen coordinaten naar de provider, geen patientnamen, klachten of opmerkingen. Matrixresultaten worden kort gecachet via `ROUTING_MATRIX_CACHE_SECONDS`. Bij een ontbrekende of falende provider valt de backend terug op `estimate` en toont de UI dat als schatting.
+
+Elke berekende route krijgt ook een Google Maps-link met `origin`, `destination`, `waypoints`, `travelmode=driving` en `dir_action=navigate`. Die link bevat alleen coordinaten en kan naar een telefoon gedeeld of gekopieerd worden. Google Maps gebruikt bij het openen zelf actuele navigatie-informatie, maar dat maakt de eerder berekende volgorde niet automatisch traffic-aware. Daarvoor moet de backend op `google_routes` draaien met een Google Maps Platform key.
+
+Berekende routes kunnen worden opgeslagen als dagsnapshot. De UI toont opgeslagen routeplannen onder **Aangemaakte routes** voor de gekozen uitvoeringsdatum. In het snelle overzicht toont elke stop een ruim aankomstvenster van ongeveer een uur, afgerond op halve uren, bijvoorbeeld `tussen 09:30 en 10:30`; de exacte berekende tijd blijft beschikbaar in de uitgeklapte timing.

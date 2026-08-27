@@ -1,4 +1,4 @@
-import type { AuditLog, DossierPreviewRow, Planning, PlanningRow, Prospect, TeamProfile, Urgency, UrgencyRoutePlan, UrgencyRoutePlanRequest, User, Wzc } from "./types";
+import type { AuditLog, DossierPreviewRow, Planning, PlanningRow, Prospect, SavedUrgencyRoutePlan, SavedUrgencyRoutePlanCreate, TeamProfile, Urgency, UrgencyRoutePlan, UrgencyRoutePlanRequest, User, Wzc } from "./types";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -93,6 +93,11 @@ export const api = {
   completeUrgency: (id: number) => request<Urgency>(`/urgencies/${id}/complete`, { method: "POST" }),
   planUrgencyRoutes: (payload: UrgencyRoutePlanRequest) =>
     request<UrgencyRoutePlan>("/urgencies/route-plan", { method: "POST", body: JSON.stringify(payload) }),
+  savedUrgencyRoutePlans: (executionDate = "") =>
+    request<SavedUrgencyRoutePlan[]>(`/urgencies/saved-route-plans${executionDate ? `?execution_date=${encodeURIComponent(executionDate)}` : ""}`),
+  saveUrgencyRoutePlan: (payload: SavedUrgencyRoutePlanCreate) =>
+    request<SavedUrgencyRoutePlan>("/urgencies/saved-route-plans", { method: "POST", body: JSON.stringify(payload) }),
+  deleteSavedUrgencyRoutePlan: (id: number) => request<{ status: string }>(`/urgencies/saved-route-plans/${id}`, { method: "DELETE" }),
   plannings: () => request<Planning[]>("/plannings"),
   previewPlanning: async (planningDate: string, files: File[]) => {
     const formData = new FormData();

@@ -92,6 +92,7 @@ export type RoutePlanLocation = {
 
 export type UrgencyRoutePlanRequest = {
   urgency_ids: number[];
+  execution_date: string;
   start_location: RoutePlanLocation;
   end_location?: RoutePlanLocation | null;
   return_to_start: boolean;
@@ -144,6 +145,7 @@ export type UrgencyRouteUnassigned = {
 
 export type UrgencyRoutePlan = {
   generated_at: string;
+  execution_date: string;
   provider: string;
   uses_real_road_network: boolean;
   uses_live_traffic: boolean;
@@ -154,6 +156,22 @@ export type UrgencyRoutePlan = {
   routes: UrgencyRoute[];
   unassigned_urgencies: UrgencyRouteUnassigned[];
   warnings: string[];
+};
+
+export type SavedUrgencyRoutePlan = {
+  id: number;
+  execution_date: string;
+  title: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  plan: UrgencyRoutePlan;
+};
+
+export type SavedUrgencyRoutePlanCreate = {
+  execution_date: string;
+  title?: string;
+  plan: UrgencyRoutePlan;
 };
 
 export type PlanningRow = {
