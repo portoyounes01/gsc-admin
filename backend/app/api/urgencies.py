@@ -136,7 +136,7 @@ def save_route_plan(
     plan_data = payload.plan.model_dump(mode="json")
     plan_data["execution_date"] = payload.execution_date.isoformat()
     assigned_count = sum(len(route.stops) for route in payload.plan.routes)
-    title = payload.title.strip() or f"Urgentieroute {payload.execution_date.strftime('%d/%m/%Y')} ({assigned_count} urgenties)"
+    title = payload.title.strip() or f"Urgentieroute {payload.execution_date.strftime('%d-%m-%Y')} ({assigned_count} urgenties)"
     saved_route_plan = SavedUrgencyRoutePlan(
         execution_date=payload.execution_date,
         title=title,

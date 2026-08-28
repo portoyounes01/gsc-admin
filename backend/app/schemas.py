@@ -343,8 +343,13 @@ class PlanningCreate(BaseModel):
     name: str
     planning_type: str = "Behandeling"
     planning_date: date
+    start_time: str = Field(default="09:00", pattern=r"^\d{2}:\d{2}$")
+    end_time: str = Field(default="16:00", pattern=r"^\d{2}:\d{2}$")
+    planning_status: str = "Concept"
+    team_label: str = ""
     location: str = ""
     wzc_id: int | None = None
+    note: str = ""
     rows: list[PlanningRowCreate]
 
 
@@ -352,8 +357,13 @@ class PlanningUpdate(BaseModel):
     name: str | None = None
     planning_type: str | None = None
     planning_date: date | None = None
+    start_time: str | None = Field(default=None, pattern=r"^\d{2}:\d{2}$")
+    end_time: str | None = Field(default=None, pattern=r"^\d{2}:\d{2}$")
+    planning_status: str | None = None
+    team_label: str | None = None
     location: str | None = None
     wzc_id: int | None = None
+    note: str | None = None
 
 
 class PlanningOut(BaseModel):
@@ -361,8 +371,13 @@ class PlanningOut(BaseModel):
     name: str
     planning_type: str = "Behandeling"
     planning_date: date
+    start_time: str = "09:00"
+    end_time: str = "16:00"
+    planning_status: str = "Concept"
+    team_label: str = ""
     location: str
     wzc_id: int | None = None
+    note: str = ""
     created_by: str = ""
     created_at: datetime
     updated_at: datetime

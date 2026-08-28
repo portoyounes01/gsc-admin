@@ -189,8 +189,16 @@ export type Planning = {
   name: string;
   planning_type: "Behandeling" | "Screening" | string;
   planning_date: string;
+  start_time: string;
+  end_time: string;
+  planning_status: string;
+  team_label: string;
   location: string;
   wzc_id: number | null;
+  note: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
   rows: PlanningRow[];
 };
 

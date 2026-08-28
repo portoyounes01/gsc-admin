@@ -71,6 +71,7 @@ Aanwezig in deze scaffold:
 - WZC masterdatabase
 - WZC kaart met urgentie-indicator
 - prospectie pipeline
+- planning-agenda voor screeningdagen en behandeldagen
 - urgenties aanmaken en afronden
 - urgenties routeplanning op basis van geselecteerde open meldingen
 - behandelplanning PDF-preview
@@ -164,3 +165,16 @@ De planner stuurt alleen coordinaten naar de provider, geen patientnamen, klacht
 Elke berekende route krijgt ook een Google Maps-link met `origin`, `destination`, `waypoints`, `travelmode=driving` en `dir_action=navigate`. Die link bevat alleen coordinaten en kan naar een telefoon gedeeld of gekopieerd worden. Google Maps gebruikt bij het openen zelf actuele navigatie-informatie, maar dat maakt de eerder berekende volgorde niet automatisch traffic-aware. Daarvoor moet de backend op `google_routes` draaien met een Google Maps Platform key.
 
 Berekende routes kunnen worden opgeslagen als dagsnapshot. De UI toont opgeslagen routeplannen onder **Aangemaakte routes** voor de gekozen uitvoeringsdatum. In het snelle overzicht toont elke stop een ruim aankomstvenster van ongeveer een uur, afgerond op halve uren, bijvoorbeeld `tussen 09:30 en 10:30`; de exacte berekende tijd blijft beschikbaar in de uitgeklapte timing.
+
+Datums worden zichtbaar Europees getoond als `dd-mm-yyyy`. HTML-datumvelden bewaren intern `yyyy-mm-dd`, zoals browsers en API's verwachten.
+
+## Planning-agenda
+
+De navigatie bevat een aparte tab **Planning** voor operationele dagplanning. Deze gebruikt dezelfde `plannings`-tabel als de bestaande **Behandelplanning**, aangevuld met agenda-velden:
+
+- type: screening of behandeldag
+- datum, startuur en einduur
+- status: concept, gepland, bevestigd, uitgevoerd of geannuleerd
+- WZC, teamlabel en interne notitie
+
+De **Planning**-tab geeft een maand- en lijstoverzicht. **Behandelplanning** blijft de aparte werkruimte om bewonerslijsten/PDF's in te lezen, te controleren en naar Excel te exporteren.

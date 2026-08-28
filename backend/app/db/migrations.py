@@ -21,3 +21,14 @@ def ensure_lightweight_schema() -> None:
         if "planning_type" not in planning_columns:
             with engine.begin() as connection:
                 connection.execute(text("ALTER TABLE plannings ADD COLUMN planning_type VARCHAR(40) DEFAULT 'Behandeling'"))
+        additive_planning_columns = {
+            "start_time": "VARCHAR(5) DEFAULT '09:00'",
+            "end_time": "VARCHAR(5) DEFAULT '16:00'",
+            "planning_status": "VARCHAR(80) DEFAULT 'Concept'",
+            "team_label": "VARCHAR(255) DEFAULT ''",
+            "note": "TEXT DEFAULT ''",
+        }
+        for column_name, column_sql in additive_planning_columns.items():
+            if column_name not in planning_columns:
+                with engine.begin() as connection:
+                    connection.execute(text(f"ALTER TABLE plannings ADD COLUMN {column_name} {column_sql}"))

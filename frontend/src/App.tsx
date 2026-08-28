@@ -1,13 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { FormEvent, ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import type { FormEvent, KeyboardEvent, ReactNode } from "react";
 import { api, clearToken, getToken } from "./api";
 import type { AuditLog, DossierPreviewRow, Planning, PlanningRow, Prospect, SavedUrgencyRoutePlan, TeamProfile, Urgency, UrgencyRoutePlan, User, Wzc } from "./types";
 
-type Section = "Home" | "Behandelplanning" | "Mondzorgdossiers" | "Urgenties" | "WZC opvolging" | "WZC database";
+type Section = "Home" | "Planning" | "Behandelplanning" | "Mondzorgdossiers" | "Urgenties" | "WZC opvolging" | "WZC database";
 type FollowupMode = "Prospectie" | "Actieve WZC's";
 type DatabaseTab = "WZC database" | "Teams" | "Gebruikers" | "User log";
 type PlanningTab = "Nieuwe planning" | "Voorgaande planningen";
 type PlanningKind = "Behandeling" | "Screening";
+type AgendaMode = "Maand" | "Lijst";
+type DropdownOption = {
+  value: string;
+  label: string;
+  meta?: string;
+};
 type ExtraContact = {
   name: string;
   role: string;
@@ -15,8 +21,9 @@ type ExtraContact = {
   email: string;
 };
 
-const sections: Section[] = ["Home", "Behandelplanning", "Mondzorgdossiers", "Urgenties", "WZC opvolging", "WZC database"];
+const sections: Section[] = ["Home", "Planning", "Behandelplanning", "Mondzorgdossiers", "Urgenties", "WZC opvolging", "WZC database"];
 const urgencyTypes = ["Tandpijn", "Gebit onvoldoende aansluitend / past niet", "Prothese gebroken", "Ontsteking", "Andere"];
+const planningStatusOptions = ["Concept", "Gepland", "Bevestigd", "Uitgevoerd", "Geannuleerd"];
 const todayIso = new Date().toISOString().slice(0, 10);
 const routeStartLocations = [
   {
@@ -78,7 +85,38 @@ function cleanFileName(value: string) {
 function formatDate(value?: string | null) {
   if (!value) return "";
   const [year, month, day] = value.split("-");
-  return year && month && day ? `${day}/${month}/${year}` : value;
+  return year && month && day ? `${day}-${month}-${year}` : value;
+}
+
+function localDateFromIso(value: string) {
+  const [yearText, monthText, dayText] = value.split("-");
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  if (!year || !month || !day) return new Date();
+  return new Date(year, month - 1, day);
+}
+
+function isoFromLocalDate(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function addMonthsIso(value: string, offset: number) {
+  const date = localDateFromIso(value);
+  return isoFromLocalDate(new Date(date.getFullYear(), date.getMonth() + offset, 1));
+}
+
+function monthLabel(value: string) {
+  const date = localDateFromIso(value);
+  return new Intl.DateTimeFormat("nl-BE", { month: "long", year: "numeric" }).format(date);
+}
+
+function weekdayShortLabel(value: string) {
+  const date = localDateFromIso(value);
+  return new Intl.DateTimeFormat("nl-BE", { weekday: "short" }).format(date);
 }
 
 function formatDateTime(value?: string | null) {
@@ -189,6 +227,32 @@ function routeShareText(plan: UrgencyRoutePlan, route: UrgencyRoutePlan["routes"
   ].filter(Boolean).join("\n");
 }
 
+function planningKindLabel(value: string) {
+  return value === "Screening" ? "Screening" : "Behandeldag";
+}
+
+function planningTypeForKind(kind: PlanningKind) {
+  return kind === "Screening" ? "Screening" : "Behandeling";
+}
+
+function planningStatusClass(status: string) {
+  const normalized = status.toLowerCase();
+  if (normalized.includes("bevestigd")) return "confirmed";
+  if (normalized.includes("uitgevoerd")) return "done";
+  if (normalized.includes("geannuleerd")) return "cancelled";
+  if (normalized.includes("gepland")) return "planned";
+  return "draft";
+}
+
+function planningWorkflowLabel(planning: Planning) {
+  return `${formatDate(planning.planning_date)} · ${planning.start_time || "09:00"} · ${planning.location || "Geen WZC"} · ${planningKindLabel(planning.planning_type)}`;
+}
+
+function planningWorkflowMeta(planning: Planning) {
+  const rowLabel = `${planning.rows.length} bewoner${planning.rows.length === 1 ? "" : "s"}`;
+  return `${planning.planning_status || "Concept"} · ${rowLabel}${planning.team_label ? ` · ${planning.team_label}` : ""}`;
+}
+
 function formatPostalCode(value?: string | null) {
   return String(value || "").replace(/\.0$/, "");
 }
@@ -285,7 +349,227 @@ function uniqueGroupOptions(values: string[]) {
 
 function applyGroupFilter(wzcs: Wzc[], groupFilter: string) {
   const records = actualWzcs(wzcs);
-  return groupFilter ? records.filter((wzc) => wzc.group_name === groupFilter) : records;
+  const cleanFilter = groupFilter.trim();
+  if (!cleanFilter) return records;
+  const exactMatchExists = records.some((wzc) => wzc.group_name === cleanFilter);
+  const normalizedFilter = normalizeSearch(cleanFilter);
+  return records.filter((wzc) => exactMatchExists
+    ? wzc.group_name === cleanFilter
+    : normalizeSearch(wzc.group_name || "").includes(normalizedFilter)
+  );
+}
+
+function baseWzcSearchLabel(wzc: Wzc) {
+  const cityLabel = [formatPostalCode(wzc.postal_code), wzc.city].filter(Boolean).join(" ");
+  return [wzc.name, wzc.group_name, cityLabel].filter(Boolean).join(" · ");
+}
+
+function wzcSearchOptions(wzcs: Wzc[]) {
+  const baseLabels = wzcs.map(baseWzcSearchLabel);
+  const counts = new Map<string, number>();
+  baseLabels.forEach((label) => counts.set(label, (counts.get(label) || 0) + 1));
+  return wzcs.map((wzc, index) => {
+    const baseLabel = baseLabels[index] || wzc.name;
+    const label = counts.get(baseLabel)! > 1 ? `${baseLabel} · ${wzc.external_id || wzc.id}` : baseLabel;
+    return { wzc, label };
+  });
+}
+
+function SearchableGroupSelect({
+  label,
+  value,
+  groups,
+  onChange,
+  placeholder = "Typ of kies groep",
+  className,
+  ariaLabel
+}: {
+  label?: string;
+  value: string;
+  groups: string[];
+  onChange: (value: string) => void;
+  placeholder?: string;
+  className?: string;
+  ariaLabel?: string;
+}) {
+  const options = useMemo(
+    () => groups.map((group) => ({ value: group, label: group })),
+    [groups]
+  );
+  return (
+    <SearchableDropdownField
+      label={label}
+      value={value}
+      options={options}
+      onInputChange={onChange}
+      onSelect={(option) => onChange(option.value)}
+      placeholder={placeholder}
+      className={className}
+      ariaLabel={ariaLabel}
+    />
+  );
+}
+
+function SearchableWzcSelect({
+  label,
+  value,
+  wzcs,
+  onChange,
+  placeholder = "Typ of kies WZC",
+  className
+}: {
+  label: string;
+  value: number | "";
+  wzcs: Wzc[];
+  onChange: (value: number | "") => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  const options = useMemo(() => wzcSearchOptions(wzcs), [wzcs]);
+  const optionByLabel = useMemo(() => new Map(options.map((option) => [option.label, option.wzc])), [options]);
+  const selectedLabel = value === "" ? "" : options.find((option) => option.wzc.id === Number(value))?.label || "";
+  const [inputValue, setInputValue] = useState(selectedLabel);
+
+  useEffect(() => {
+    setInputValue(selectedLabel);
+  }, [selectedLabel]);
+
+  function changeWzc(nextValue: string) {
+    setInputValue(nextValue);
+    const selectedOption = optionByLabel.get(nextValue)
+      || options.find((option) => normalizeSearch(option.label) === normalizeSearch(nextValue))?.wzc;
+    onChange(selectedOption ? selectedOption.id : "");
+  }
+
+  return (
+    <SearchableDropdownField
+      label={label}
+      value={inputValue}
+      options={options.map((option) => ({ value: String(option.wzc.id), label: option.label }))}
+      onInputChange={changeWzc}
+      onSelect={(option) => {
+        const selectedWzc = wzcs.find((wzc) => wzc.id === Number(option.value));
+        setInputValue(option.label);
+        onChange(selectedWzc ? selectedWzc.id : "");
+      }}
+      placeholder={placeholder}
+      className={className}
+    />
+  );
+}
+
+function SearchableDropdownField({
+  label,
+  value,
+  options,
+  onInputChange,
+  onSelect,
+  placeholder,
+  className,
+  ariaLabel,
+  emptyText = "Geen resultaten"
+}: {
+  label?: string;
+  value: string;
+  options: DropdownOption[];
+  onInputChange: (value: string) => void;
+  onSelect: (option: DropdownOption) => void;
+  placeholder?: string;
+  className?: string;
+  ariaLabel?: string;
+  emptyText?: string;
+}) {
+  const listId = useId();
+  const fieldRef = useRef<HTMLDivElement | null>(null);
+  const [open, setOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const normalizedValue = normalizeSearch(value);
+  const filteredOptions = useMemo(() => {
+    const filtered = normalizedValue
+      ? options.filter((option) => normalizeSearch([option.label, option.meta, option.value].filter(Boolean).join(" ")).includes(normalizedValue))
+      : options;
+    return filtered.slice(0, 12);
+  }, [normalizedValue, options]);
+
+  useEffect(() => {
+    setHighlightedIndex(0);
+  }, [value, options]);
+
+  useEffect(() => {
+    function closeOnOutsideClick(event: MouseEvent) {
+      if (!fieldRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    return () => document.removeEventListener("mousedown", closeOnOutsideClick);
+  }, []);
+
+  function chooseOption(option: DropdownOption) {
+    onSelect(option);
+    setOpen(false);
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setOpen(true);
+      setHighlightedIndex((index) => Math.min(index + 1, filteredOptions.length - 1));
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setOpen(true);
+      setHighlightedIndex((index) => Math.max(index - 1, 0));
+    }
+    if (event.key === "Enter" && open && filteredOptions[highlightedIndex]) {
+      event.preventDefault();
+      chooseOption(filteredOptions[highlightedIndex]);
+    }
+    if (event.key === "Escape") {
+      setOpen(false);
+    }
+  }
+
+  return (
+    <div className={`searchableDropdownField ${className || ""}`.trim()} ref={fieldRef}>
+      {label && <span className="searchableDropdownLabel">{label}</span>}
+      <div className="searchableDropdownControl">
+        <input
+          value={value}
+          onChange={(event) => {
+            onInputChange(event.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          role="combobox"
+          aria-expanded={open}
+          aria-controls={listId}
+          aria-label={ariaLabel || label}
+          autoComplete="off"
+        />
+        {open && (
+          <div className="searchableDropdownMenu" id={listId} role="listbox">
+            {filteredOptions.map((option, index) => (
+              <button
+                className={`searchableDropdownOption ${index === highlightedIndex ? "isHighlighted" : ""}`}
+                key={`${option.value}-${option.label}`}
+                type="button"
+                role="option"
+                aria-selected={index === highlightedIndex}
+                onMouseEnter={() => setHighlightedIndex(index)}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => chooseOption(option)}
+              >
+                <span>{option.label}</span>
+                {option.meta && <small>{option.meta}</small>}
+              </button>
+            ))}
+            {filteredOptions.length === 0 && <div className="searchableDropdownEmpty">{emptyText}</div>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function isBelgianCoordinatePair(latitude: number, longitude: number) {
@@ -1216,6 +1500,290 @@ function Home({
   );
 }
 
+function AgendaPlanningView({
+  wzcs,
+  plannings,
+  onSaved,
+  onOpenTreatmentPlanning
+}: {
+  wzcs: Wzc[];
+  plannings: Planning[];
+  onSaved: () => Promise<void>;
+  onOpenTreatmentPlanning: (planning: Planning) => void;
+}) {
+  const [agendaMode, setAgendaMode] = useState<AgendaMode>("Maand");
+  const [calendarMonth, setCalendarMonth] = useState(todayIso.slice(0, 7) + "-01");
+  const [selectedDate, setSelectedDate] = useState(todayIso);
+  const [planningKind, setPlanningKind] = useState<PlanningKind>("Screening");
+  const [planningDate, setPlanningDate] = useState(todayIso);
+  const [planningStartTime, setPlanningStartTime] = useState("09:00");
+  const [planningEndTime, setPlanningEndTime] = useState("16:00");
+  const [planningStatus, setPlanningStatus] = useState("Gepland");
+  const [planningGroupFilter, setPlanningGroupFilter] = useState("");
+  const [wzcId, setWzcId] = useState<number | "">("");
+  const [planningName, setPlanningName] = useState("");
+  const [teamLabel, setTeamLabel] = useState("");
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [agendaError, setAgendaError] = useState("");
+
+  const activeWzcs = useMemo(
+    () => actualWzcs(wzcs).filter((wzc) => wzc.collaboration_status === "Actief"),
+    [wzcs]
+  );
+  const planningGroupOptions = useMemo(() => groupOptionsForWzcs(wzcs), [wzcs]);
+  const selectableWzcs = useMemo(
+    () => applyGroupFilter(activeWzcs, planningGroupFilter),
+    [activeWzcs, planningGroupFilter]
+  );
+  const selectedWzc = wzcId === "" ? null : activeWzcs.find((wzc) => wzc.id === Number(wzcId)) || null;
+  const agendaPlannings = useMemo(
+    () => [...plannings].sort((a, b) =>
+      a.planning_date.localeCompare(b.planning_date)
+      || (a.start_time || "09:00").localeCompare(b.start_time || "09:00")
+      || a.name.localeCompare(b.name)
+    ),
+    [plannings]
+  );
+  const monthPlannings = useMemo(
+    () => agendaPlannings.filter((planning) => planning.planning_date.slice(0, 7) === calendarMonth.slice(0, 7)),
+    [agendaPlannings, calendarMonth]
+  );
+  const selectedDatePlannings = useMemo(
+    () => agendaPlannings.filter((planning) => planning.planning_date === selectedDate),
+    [agendaPlannings, selectedDate]
+  );
+  const upcomingAgenda = useMemo(
+    () => agendaPlannings.filter((planning) => planning.planning_date >= todayIso && planning.planning_status !== "Geannuleerd"),
+    [agendaPlannings]
+  );
+  const calendarCells = useMemo(() => {
+    const firstDay = localDateFromIso(calendarMonth);
+    const firstWeekday = (firstDay.getDay() + 6) % 7;
+    const daysInMonth = new Date(firstDay.getFullYear(), firstDay.getMonth() + 1, 0).getDate();
+    return [
+      ...Array.from({ length: firstWeekday }, (_, index) => ({ key: `empty-${index}`, date: "", day: 0 })),
+      ...Array.from({ length: daysInMonth }, (_, index) => {
+        const day = index + 1;
+        const date = isoFromLocalDate(new Date(firstDay.getFullYear(), firstDay.getMonth(), day));
+        return { key: date, date, day };
+      }),
+    ];
+  }, [calendarMonth]);
+
+  useEffect(() => {
+    if (wzcId !== "" && !selectableWzcs.some((wzc) => wzc.id === Number(wzcId))) {
+      setWzcId("");
+    }
+  }, [selectableWzcs, wzcId]);
+
+  function setAgendaDate(value: string) {
+    const nextDate = value || todayIso;
+    setPlanningDate(nextDate);
+    setSelectedDate(nextDate);
+    setCalendarMonth(nextDate.slice(0, 7) + "-01");
+  }
+
+  async function createAgendaPlanning(event: FormEvent) {
+    event.preventDefault();
+    setSaving(true);
+    setAgendaError("");
+    try {
+      const planningType = planningTypeForKind(planningKind);
+      const title = planningName.trim() || `${planningKindLabel(planningType)} ${selectedWzc?.name || formatDate(planningDate)}`;
+      await api.createPlanning({
+        name: title,
+        planning_type: planningType,
+        planning_date: planningDate,
+        start_time: planningStartTime,
+        end_time: planningEndTime,
+        planning_status: planningStatus,
+        team_label: teamLabel,
+        location: selectedWzc?.name || "",
+        wzc_id: wzcId === "" ? null : Number(wzcId),
+        note,
+        rows: [],
+      });
+      setPlanningName("");
+      setNote("");
+      await onSaved();
+      setSelectedDate(planningDate);
+      setCalendarMonth(planningDate.slice(0, 7) + "-01");
+    } catch (err) {
+      setAgendaError(err instanceof Error ? err.message : "Planning kon niet aangemaakt worden.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function updateAgendaStatus(planning: Planning, status: string) {
+    setAgendaError("");
+    try {
+      await api.updatePlanning(planning.id, { planning_status: status });
+      await onSaved();
+    } catch (err) {
+      setAgendaError(err instanceof Error ? err.message : "Status kon niet aangepast worden.");
+    }
+  }
+
+  async function deleteAgendaPlanning(planning: Planning) {
+    if (!window.confirm(`Bent u zeker? U staat op het punt om "${planning.name}" te verwijderen.`)) return;
+    setAgendaError("");
+    try {
+      await api.deletePlanning(planning.id);
+      await onSaved();
+    } catch (err) {
+      setAgendaError(err instanceof Error ? err.message : "Planning kon niet verwijderd worden.");
+    }
+  }
+
+  function renderAgendaItem(planning: Planning, compact = false) {
+    return (
+      <article className={`agendaItemCard ${compact ? "compactAgendaItem" : ""}`} key={planning.id}>
+        <div className="agendaItemHeader">
+          <div>
+            <strong>{planning.name}</strong>
+            <span>{planningKindLabel(planning.planning_type)} · {planning.location || "Geen WZC gekozen"}</span>
+          </div>
+          <span className={`agendaStatusPill ${planningStatusClass(planning.planning_status || "Concept")}`}>{planning.planning_status || "Concept"}</span>
+        </div>
+        <div className="agendaItemMeta">
+          <span>{formatDate(planning.planning_date)}</span>
+          <span>{planning.start_time || "09:00"}-{planning.end_time || "16:00"}</span>
+          <span>{planning.rows.length} bewoner(s)</span>
+        </div>
+        {(planning.team_label || planning.note) && !compact && (
+          <div className="agendaItemNote">
+            {planning.team_label && <span>Team: {planning.team_label}</span>}
+            {planning.note && <span>{planning.note}</span>}
+          </div>
+        )}
+        {!compact && (
+          <div className="agendaItemActions">
+            <label>Status<select value={planning.planning_status || "Concept"} onChange={(event) => updateAgendaStatus(planning, event.target.value)}>
+              {planningStatusOptions.map((status) => <option key={status}>{status}</option>)}
+            </select></label>
+            <button className="compactActionButton" type="button" onClick={() => onOpenTreatmentPlanning(planning)}>Aanvullen</button>
+            <button className="compactActionButton dangerActionButton" type="button" onClick={() => deleteAgendaPlanning(planning)}>Verwijderen</button>
+          </div>
+        )}
+      </article>
+    );
+  }
+
+  return (
+    <div className="stack">
+      <section className="panel agendaCreatePanel">
+        <div className="sectionTitle">
+          <div>
+            <h2>Planning</h2>
+            <p className="sectionHint">Plan screeningdagen en behandeldagen in de agenda.</p>
+          </div>
+        </div>
+        <form className="agendaCreateForm" onSubmit={createAgendaPlanning}>
+          <div className="planningKindSelector agendaKindSelector" aria-label="Type agenda-item">
+            <button type="button" className={planningKind === "Screening" ? "selected" : ""} onClick={() => setPlanningKind("Screening")}>
+              <strong>Screening</strong>
+              <span>Screeningdag of namenlijst voorbereiden</span>
+            </button>
+            <button type="button" className={planningKind === "Behandeling" ? "selected" : ""} onClick={() => setPlanningKind("Behandeling")}>
+              <strong>Behandeldag</strong>
+              <span>Mobiele behandelingen op locatie</span>
+            </button>
+          </div>
+          <div className="formGrid agendaFormGrid">
+            <label>Datum<input type="date" value={planningDate} onChange={(event) => setAgendaDate(event.target.value)} required /></label>
+            <label>Start<input type="time" value={planningStartTime} onChange={(event) => setPlanningStartTime(event.target.value)} required /></label>
+            <label>Einde<input type="time" value={planningEndTime} onChange={(event) => setPlanningEndTime(event.target.value)} required /></label>
+            <label>Status<select value={planningStatus} onChange={(event) => setPlanningStatus(event.target.value)}>
+              {planningStatusOptions.map((status) => <option key={status}>{status}</option>)}
+            </select></label>
+            <SearchableGroupSelect label="Groep/organisatie" value={planningGroupFilter} groups={planningGroupOptions} onChange={setPlanningGroupFilter} placeholder="Alle groepen" />
+            <SearchableWzcSelect label="WZC" value={wzcId} wzcs={selectableWzcs} onChange={setWzcId} placeholder="Nog geen WZC gekozen" />
+            <label>Titel<input value={planningName} onChange={(event) => setPlanningName(event.target.value)} placeholder={selectedWzc ? `${planningKindLabel(planningTypeForKind(planningKind))} ${selectedWzc.name}` : "Wordt automatisch ingevuld"} /></label>
+            <label>Team<input value={teamLabel} onChange={(event) => setTeamLabel(event.target.value)} placeholder="Bijv. Team Lokeren" /></label>
+            <label className="wide">Notitie<textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="Praktische afspraken, materiaal, aandachtspunten..." /></label>
+          </div>
+          <div className="formSubmitRow">
+            <button className="primaryButton" disabled={saving}>{saving ? "Planning bewaren..." : "In agenda zetten"}</button>
+          </div>
+          {agendaError && <div className="error">{agendaError}</div>}
+        </form>
+      </section>
+
+      <section className="panel agendaOverviewPanel">
+        <div className="sectionTitle">
+          <div>
+            <h2>Agenda-overzicht</h2>
+            <p className="sectionHint">{upcomingAgenda.length} toekomstige planning(en), waarvan {upcomingAgenda.filter((planning) => planning.planning_type === "Screening").length} screening(en).</p>
+          </div>
+          <div className="agendaToolbar">
+            <button type="button" onClick={() => setCalendarMonth(addMonthsIso(calendarMonth, -1))}>Vorige</button>
+            <button type="button" onClick={() => { setCalendarMonth(todayIso.slice(0, 7) + "-01"); setSelectedDate(todayIso); }}>Vandaag</button>
+            <button type="button" onClick={() => setCalendarMonth(addMonthsIso(calendarMonth, 1))}>Volgende</button>
+          </div>
+        </div>
+        <div className="followupSwitch agendaModeSwitch" aria-label="Agendaweergave">
+          {(["Maand", "Lijst"] as AgendaMode[]).map((mode) => (
+            <button key={mode} className={agendaMode === mode ? "selected" : ""} onClick={() => setAgendaMode(mode)}>
+              <strong>{mode}</strong>
+              <span>{mode === "Maand" ? monthLabel(calendarMonth) : `${agendaPlannings.length} planning(en)`}</span>
+            </button>
+          ))}
+        </div>
+        <div className="agendaLayout">
+          <div className="agendaMain">
+            {agendaMode === "Maand" ? (
+              <div className="agendaCalendar">
+                {["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"].map((day) => <div className="agendaWeekday" key={day}>{day}</div>)}
+                {calendarCells.map((cell) => {
+                  const dayPlannings = cell.date ? monthPlannings.filter((planning) => planning.planning_date === cell.date) : [];
+                  return cell.date ? (
+                    <button
+                      type="button"
+                      className={`agendaDay ${cell.date === selectedDate ? "selected" : ""} ${cell.date === todayIso ? "today" : ""}`}
+                      key={cell.key}
+                      onClick={() => setSelectedDate(cell.date)}
+                    >
+                      <span className="agendaDayNumber">{cell.day}</span>
+                      <span className="agendaDayName">{weekdayShortLabel(cell.date)}</span>
+                      <span className="agendaDayItems">
+                        {dayPlannings.slice(0, 2).map((planning) => (
+                          <em className={planning.planning_type === "Screening" ? "screening" : "treatment"} key={planning.id}>
+                            {planning.start_time || "09:00"} {planning.location || planningKindLabel(planning.planning_type)}
+                          </em>
+                        ))}
+                        {dayPlannings.length > 2 && <em>+{dayPlannings.length - 2} meer</em>}
+                      </span>
+                    </button>
+                  ) : <div className="agendaDay emptyDay" key={cell.key} />;
+                })}
+              </div>
+            ) : (
+              <div className="agendaListView">
+                {agendaPlannings.map((planning) => renderAgendaItem(planning))}
+                {agendaPlannings.length === 0 && <div className="empty">Nog geen planning in de agenda.</div>}
+              </div>
+            )}
+          </div>
+          <aside className="agendaDayPanel">
+            <div className="sectionTitle compactSectionTitle">
+              <div>
+                <h2>{formatDate(selectedDate)}</h2>
+                <p className="sectionHint">{selectedDatePlannings.length} planning(en) op deze dag.</p>
+              </div>
+            </div>
+            <div className="agendaDayList">
+              {selectedDatePlannings.map((planning) => renderAgendaItem(planning))}
+              {selectedDatePlannings.length === 0 && <div className="empty compactEmpty">Geen screening of behandeldag gepland.</div>}
+            </div>
+          </aside>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function UrgenciesView({
   wzcs,
   urgencies,
@@ -1466,10 +2034,7 @@ function UrgenciesView({
         </div>
         <form className="formGrid urgencyForm" onSubmit={submit}>
           <label className="urgencyField">Meldingsdatum<input type="date" value={reportedOn} onChange={(event) => setReportedOn(event.target.value)} /></label>
-          <label className="urgencyField">WZC<select value={wzcId} onChange={(event) => setWzcId(event.target.value ? Number(event.target.value) : "")}>
-            <option value="">Niet gekoppeld</option>
-            {selectableWzcs.map((wzc) => <option key={wzc.id} value={wzc.id}>{wzc.group_name ? `${wzc.name} · ${wzc.group_name}` : wzc.name}</option>)}
-          </select></label>
+          <SearchableWzcSelect className="urgencyField" label="WZC" value={wzcId} wzcs={selectableWzcs} onChange={setWzcId} placeholder="Niet gekoppeld" />
           <label className="urgencyField">Naam patient<input value={patientName} onChange={(event) => setPatientName(event.target.value)} required /></label>
           <label className="urgencyField">Urgentie<select value={urgencyType} onChange={(event) => setUrgencyType(event.target.value)}>
             {urgencyTypes.map((type) => <option key={type}>{type}</option>)}
@@ -1601,10 +2166,7 @@ function UrgenciesView({
               </div>
               {useEndLocation && (
                 <div className="routeConfigFields">
-                  <label>Eindpunt overnemen van WZC<select value={endLocationWzcId} onChange={(event) => fillEndLocationFromWzc(event.target.value ? Number(event.target.value) : "")}>
-                    <option value="">Handmatig invullen</option>
-                    {wzcsWithCoordinates.map((wzc) => <option key={wzc.id} value={wzc.id}>{wzc.name}</option>)}
-                  </select></label>
+                  <SearchableWzcSelect label="Eindpunt overnemen van WZC" value={endLocationWzcId} wzcs={wzcsWithCoordinates} onChange={fillEndLocationFromWzc} placeholder="Handmatig invullen" />
                   <label>Eindlabel<input value={endLabel} onChange={(event) => setEndLabel(event.target.value)} /></label>
                   <label>Eind latitude<input value={endLatitude} onChange={(event) => setEndLatitude(event.target.value)} inputMode="decimal" /></label>
                   <label>Eind longitude<input value={endLongitude} onChange={(event) => setEndLongitude(event.target.value)} inputMode="decimal" /></label>
@@ -1801,10 +2363,7 @@ function WzcOverviewView({
         </div>
         <input placeholder="Filter op naam, gemeente of eigenaar" value={query} onChange={(event) => setQuery(event.target.value)} />
         {groupOptions.length > 0 && (
-          <select value={groupFilter} onChange={(event) => setGroupFilter(event.target.value)}>
-            <option value="">Alle groepen</option>
-            {groupOptions.map((group) => <option key={group}>{group}</option>)}
-          </select>
+          <SearchableGroupSelect value={groupFilter} groups={groupOptions} onChange={setGroupFilter} placeholder="Alle groepen" ariaLabel="Filter op groep" />
         )}
         <div className="cardList scrollList">
           {filtered.map((wzc) => (
@@ -1864,7 +2423,7 @@ function ExtraContactsEditor({
   );
 }
 
-const newGroupChoiceValue = "__new_group__";
+const newGroupChoiceValue = "Nieuwe groep";
 
 function GroupNameField({
   label,
@@ -1878,42 +2437,58 @@ function GroupNameField({
   onChange: (value: string) => void;
 }) {
   const [showNewGroupInput, setShowNewGroupInput] = useState(false);
-  const cleanValue = value.trim();
-  const isExistingGroup = groups.includes(cleanValue);
-  const isCustomGroup = Boolean(cleanValue && !isExistingGroup);
-  const selectedValue = showNewGroupInput || isCustomGroup ? newGroupChoiceValue : cleanValue;
+  const [searchValue, setSearchValue] = useState(value);
+  const groupOptions = useMemo(
+    () => [
+      ...groups.map((group) => ({ value: group, label: group })),
+      { value: newGroupChoiceValue, label: newGroupChoiceValue }
+    ],
+    [groups]
+  );
+
+  useEffect(() => {
+    if (!showNewGroupInput) setSearchValue(value);
+  }, [showNewGroupInput, value]);
 
   function selectGroup(nextValue: string) {
     if (nextValue === newGroupChoiceValue) {
       setShowNewGroupInput(true);
-      onChange(isCustomGroup ? value : "");
+      onChange("");
       return;
     }
+    setSearchValue(nextValue);
     setShowNewGroupInput(false);
     onChange(nextValue);
   }
 
-  return (
-    <label className="groupNameField">
-      {label}
-      {selectedValue === newGroupChoiceValue ? (
+  if (showNewGroupInput) {
+    return (
+      <div className="searchableDropdownField groupNameField">
+        <span className="searchableDropdownLabel">{label}</span>
         <input
-          value={isCustomGroup ? value : ""}
+          value={value}
           onChange={(event) => onChange(event.target.value)}
           onBlur={() => {
             if (!value.trim()) setShowNewGroupInput(false);
           }}
           placeholder="Naam nieuwe groep"
+          aria-label={label}
           autoFocus
         />
-      ) : (
-        <select value={selectedValue} onChange={(event) => selectGroup(event.target.value)}>
-          <option value="">Geen groep</option>
-          {groups.map((group) => <option key={group} value={group}>{group}</option>)}
-          <option value={newGroupChoiceValue}>Nieuwe groep</option>
-        </select>
-      )}
-    </label>
+      </div>
+    );
+  }
+
+  return (
+    <SearchableDropdownField
+      label={label}
+      value={searchValue}
+      options={groupOptions}
+      onInputChange={selectGroup}
+      onSelect={(option) => selectGroup(option.value)}
+      placeholder="Typ of kies groep"
+      className="groupNameField"
+    />
   );
 }
 
@@ -2169,7 +2744,7 @@ function ProspectView({
           </div>
           <div className="formGrid compact">
             <label>WZC naam<input value={editForm.name} onChange={(event) => setEditForm({ ...editForm, name: event.target.value })} /></label>
-            <label>Groep<input value={editForm.group_name} onChange={(event) => setEditForm({ ...editForm, group_name: event.target.value })} /></label>
+            <SearchableGroupSelect label="Groep" value={editForm.group_name} groups={groupOptions} onChange={(group_name) => setEditForm({ ...editForm, group_name })} placeholder="Typ of kies groep" />
             <label>Adres<input value={editForm.address} onChange={(event) => setEditForm({ ...editForm, address: event.target.value })} /></label>
             <label>Postcode<input value={editForm.postal_code} onChange={(event) => setEditForm({ ...editForm, postal_code: event.target.value })} /></label>
             <label>Gemeente<input value={editForm.city} onChange={(event) => setEditForm({ ...editForm, city: event.target.value })} /></label>
@@ -2332,10 +2907,7 @@ function ActiveWzcFollowupView({
           <input placeholder="Zoek op WZC, gemeente, eigenaar, contact of opmerking" value={query} onChange={(event) => setQuery(event.target.value)} />
           <div className="filterControls">
             {groupOptions.length > 0 && (
-              <select value={groupFilter} onChange={(event) => setGroupFilter(event.target.value)} aria-label="Filter op groep">
-                <option value="">Alle groepen</option>
-                {groupOptions.map((group) => <option key={group}>{group}</option>)}
-              </select>
+              <SearchableGroupSelect className="groupFilterInput" value={groupFilter} groups={groupOptions} onChange={setGroupFilter} placeholder="Alle groepen" ariaLabel="Filter op groep" />
             )}
             <div className="segmented">
               {filterOptions.map((option) => (
@@ -2377,7 +2949,7 @@ function ActiveWzcFollowupView({
           </div>
           <div className="formGrid compact">
             <label>WZC naam<input value={editForm.name} onChange={(event) => setEditForm({ ...editForm, name: event.target.value })} /></label>
-            <label>Groep<input value={editForm.group_name} onChange={(event) => setEditForm({ ...editForm, group_name: event.target.value })} /></label>
+            <SearchableGroupSelect label="Groep" value={editForm.group_name} groups={groupOptions} onChange={(group_name) => setEditForm({ ...editForm, group_name })} placeholder="Typ of kies groep" />
             <label>Adres<input value={editForm.address} onChange={(event) => setEditForm({ ...editForm, address: event.target.value })} /></label>
             <label>Postcode<input value={editForm.postal_code} onChange={(event) => setEditForm({ ...editForm, postal_code: event.target.value })} /></label>
             <label>Gemeente<input value={editForm.city} onChange={(event) => setEditForm({ ...editForm, city: event.target.value })} /></label>
@@ -2733,10 +3305,7 @@ function WzcDatabaseView({
           <div className="listHeaderFilters">
             <input className="inlineSearch" placeholder="Zoek in database" value={query} onChange={(event) => setQuery(event.target.value)} />
             {groupOptions.length > 0 && (
-              <select value={groupFilter} onChange={(event) => setGroupFilter(event.target.value)} aria-label="Filter op groep">
-                <option value="">Alle groepen</option>
-                {groupOptions.map((group) => <option key={group}>{group}</option>)}
-              </select>
+              <SearchableGroupSelect className="groupFilterInput" value={groupFilter} groups={groupOptions} onChange={setGroupFilter} placeholder="Alle groepen" ariaLabel="Filter op groep" />
             )}
           </div>
         </div>
@@ -3016,7 +3585,21 @@ function DossierView() {
   );
 }
 
-function PlanningView({ wzcs, plannings, preselectedWzc, onSaved }: { wzcs: Wzc[]; plannings: Planning[]; preselectedWzc: Wzc | null; onSaved: () => Promise<void> }) {
+function PlanningView({
+  wzcs,
+  plannings,
+  preselectedWzc,
+  focusPlanningId,
+  onFocusHandled,
+  onSaved
+}: {
+  wzcs: Wzc[];
+  plannings: Planning[];
+  preselectedWzc: Wzc | null;
+  focusPlanningId: number | null;
+  onFocusHandled: () => void;
+  onSaved: () => Promise<void>;
+}) {
   const [tab, setTab] = useState<PlanningTab>("Nieuwe planning");
   const [planningKind, setPlanningKind] = useState<PlanningKind>("Screening");
   const [name, setName] = useState("Screening");
@@ -3035,32 +3618,70 @@ function PlanningView({ wzcs, plannings, preselectedWzc, onSaved }: { wzcs: Wzc[
   const [savedAddRows, setSavedAddRows] = useState<PlanningRow[]>([]);
   const [savedAddLoading, setSavedAddLoading] = useState(false);
   const [savedDate, setSavedDate] = useState("");
+  const [linkedPlanningId, setLinkedPlanningId] = useState<number | null>(focusPlanningId);
+  const [planningSearch, setPlanningSearch] = useState("");
 
   const sortedPlannings = useMemo(
     () => [...plannings].sort((a, b) => b.planning_date.localeCompare(a.planning_date) || b.name.localeCompare(a.name)),
     [plannings]
   );
   const expandedPlanning = sortedPlannings.find((planning) => planning.id === expandedPlanningId) || sortedPlannings[0] || null;
+  const workflowPlannings = useMemo(
+    () => [...plannings].sort((a, b) => {
+      const aPast = a.planning_date < todayIso;
+      const bPast = b.planning_date < todayIso;
+      if (aPast !== bPast) return aPast ? 1 : -1;
+      return a.planning_date.localeCompare(b.planning_date)
+        || (a.start_time || "09:00").localeCompare(b.start_time || "09:00")
+        || a.name.localeCompare(b.name);
+    }),
+    [plannings]
+  );
+  const workflowPlanningOptions = useMemo(
+    () => workflowPlannings.map((planning) => ({
+      value: String(planning.id),
+      label: planningWorkflowLabel(planning),
+      meta: planningWorkflowMeta(planning),
+    })),
+    [workflowPlannings]
+  );
+  const linkedPlanning = linkedPlanningId === null
+    ? null
+    : plannings.find((planning) => planning.id === linkedPlanningId) || null;
   const allSelectableWzcs = useMemo(
     () => actualWzcs(wzcs).filter((wzc) => wzc.collaboration_status === "Actief"),
     [wzcs]
   );
   const planningGroupOptions = useMemo(() => groupOptionsForWzcs(wzcs), [wzcs]);
   const selectableWzcs = useMemo(
-    () => planningGroupFilter
-      ? allSelectableWzcs.filter((wzc) => wzc.group_name === planningGroupFilter)
-      : allSelectableWzcs,
+    () => applyGroupFilter(allSelectableWzcs, planningGroupFilter),
     [allSelectableWzcs, planningGroupFilter]
   );
 
   useEffect(() => {
     if (preselectedWzc) {
+      setLinkedPlanningId(null);
+      setPlanningSearch("");
       setWzcId(preselectedWzc.id);
       setPlanningGroupFilter(preselectedWzc.group_name || "");
       setName(`${planningKind === "Screening" ? "Screening" : "Behandelplanning"} ${preselectedWzc.name}`);
       setTab("Nieuwe planning");
     }
   }, [preselectedWzc, planningKind]);
+
+  useEffect(() => {
+    if (!focusPlanningId) return;
+    const focusedPlanning = plannings.find((planning) => planning.id === focusPlanningId);
+    if (!focusedPlanning) return;
+    loadPlanningIntoEditor(focusedPlanning);
+    onFocusHandled();
+  }, [focusPlanningId, plannings, onFocusHandled]);
+
+  useEffect(() => {
+    if (linkedPlanning) {
+      setPlanningSearch(planningWorkflowLabel(linkedPlanning));
+    }
+  }, [linkedPlanning?.id, linkedPlanning?.planning_date, linkedPlanning?.start_time, linkedPlanning?.location, linkedPlanning?.planning_type]);
 
   useEffect(() => {
     if (wzcId !== "" && !selectableWzcs.some((wzc) => wzc.id === wzcId)) {
@@ -3079,6 +3700,8 @@ function PlanningView({ wzcs, plannings, preselectedWzc, onSaved }: { wzcs: Wzc[
   }, [expandedPlanning?.id, expandedPlanning?.planning_date]);
 
   function resetPlanning() {
+    setLinkedPlanningId(null);
+    setPlanningSearch("");
     setPlanningKind("Screening");
     setName("Screening");
     setPlanningDate(todayIso);
@@ -3106,6 +3729,24 @@ function PlanningView({ wzcs, plannings, preselectedWzc, onSaved }: { wzcs: Wzc[
     setRows((currentRows) => currentRows.map((row, rowIndex) => rowIndex === index ? { ...row, ...patch } : row));
   }
 
+  function loadPlanningIntoEditor(planning: Planning) {
+    const savedWzc = allSelectableWzcs.find((wzc) => wzc.id === planning.wzc_id);
+    setLinkedPlanningId(planning.id);
+    setPlanningSearch(planningWorkflowLabel(planning));
+    setPlanningKind(planning.planning_type === "Screening" ? "Screening" : "Behandeling");
+    setName(planning.name);
+    setPlanningDate(planning.planning_date);
+    setPlanningGroupFilter(savedWzc?.group_name || "");
+    setWzcId(planning.wzc_id || "");
+    setFiles([]);
+    setRows(planning.rows.map((row, index) => ({ ...row, patient_number: index + 1 })));
+    setSelectedFiles({});
+    setSelectedRows(Object.fromEntries(planning.rows.map((_, index) => [index, true])));
+    setFileInputKey((value) => value + 1);
+    setTab("Nieuwe planning");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   async function preview() {
     const selectedUploadFiles = files.filter((file) => selectedFiles[file.name]);
     setLoading(true);
@@ -3124,10 +3765,12 @@ function PlanningView({ wzcs, plannings, preselectedWzc, onSaved }: { wzcs: Wzc[
     return rows
       .filter((row, index) => row.patient_name.trim() && (planningKind === "Screening" || selectedRows[index] !== false))
       .map((row, index) => ({
-        ...row,
         patient_number: index + 1,
+        patient_name: row.patient_name,
         treatments: planningKind === "Screening" ? "Screening" : row.treatments,
-        date_or_period: row.date_or_period || formatDate(planningDate)
+        date_or_period: row.date_or_period || formatDate(planningDate),
+        remarks: row.remarks,
+        patient_done: row.patient_done,
       }));
   }
 
@@ -3140,16 +3783,24 @@ function PlanningView({ wzcs, plannings, preselectedWzc, onSaved }: { wzcs: Wzc[
     const selectedPreviewRows = selectedPlanningRows();
     if (selectedPreviewRows.length === 0) return;
     const selectedWzc = allSelectableWzcs.find((wzc) => wzc.id === wzcId);
+    const planningPayload = {
+      name,
+      planning_type: planningKind,
+      planning_date: planningDate,
+      location: selectedWzc?.name || "",
+      wzc_id: wzcId === "" ? null : Number(wzcId),
+    };
     setSavingPlanning(true);
     try {
-      const planning = await api.createPlanning({
-        name,
-        planning_type: planningKind,
-        planning_date: planningDate,
-        location: selectedWzc?.name || "",
-        wzc_id: wzcId === "" ? null : Number(wzcId),
-        rows: selectedPreviewRows
-      });
+      const planning = linkedPlanningId
+        ? await api.replacePlanningRows(
+            (await api.updatePlanning(linkedPlanningId, planningPayload)).id,
+            selectedPreviewRows
+          )
+        : await api.createPlanning({
+            ...planningPayload,
+            rows: selectedPreviewRows
+          });
       if (downloadExcel) {
         await api.downloadPlanningExcel(planning.id, cleanFileName(planning.name));
       }
@@ -3163,16 +3814,7 @@ function PlanningView({ wzcs, plannings, preselectedWzc, onSaved }: { wzcs: Wzc[
   }
 
   async function openPlanning(planning: Planning) {
-    const savedWzc = allSelectableWzcs.find((wzc) => wzc.id === planning.wzc_id);
-    setPlanningKind(planning.planning_type === "Screening" ? "Screening" : "Behandeling");
-    setName(planning.name);
-    setPlanningDate(planning.planning_date);
-    setPlanningGroupFilter(savedWzc?.group_name || "");
-    setWzcId(planning.wzc_id || "");
-    setRows(planning.rows.map((row, index) => ({ ...row, patient_number: index + 1 })));
-    setSelectedRows(Object.fromEntries(planning.rows.map((_, index) => [index, true])));
-    setTab("Nieuwe planning");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    loadPlanningIntoEditor(planning);
   }
 
   async function reschedulePlanning() {
@@ -3233,8 +3875,8 @@ function PlanningView({ wzcs, plannings, preselectedWzc, onSaved }: { wzcs: Wzc[
       <section className="followupSwitch planningTabSwitch" aria-label="Behandelplanning onderdelen">
         {(["Nieuwe planning", "Voorgaande planningen"] as PlanningTab[]).map((item) => (
           <button key={item} className={tab === item ? "selected" : ""} onClick={() => setTab(item)}>
-            <strong>{item}</strong>
-            <span>{item === "Nieuwe planning" ? "PDF's selecteren, controleren en Excel maken" : `${sortedPlannings.length} bewaarde planning(en)`}</span>
+            <strong>{item === "Nieuwe planning" ? "Planning aanvullen" : "Planningdetails"}</strong>
+            <span>{item === "Nieuwe planning" ? "Ingeplande dagen koppelen en bewoners toevoegen" : `${sortedPlannings.length} planning(en) met detail`}</span>
           </button>
         ))}
       </section>
@@ -3244,10 +3886,42 @@ function PlanningView({ wzcs, plannings, preselectedWzc, onSaved }: { wzcs: Wzc[
           <section className="panel planningPanel">
             <div className="sectionTitle">
               <div>
-                <h2>Nieuwe planning</h2>
+                <h2>{linkedPlanning ? "Ingeplande dag aanvullen" : "Behandelplanning"}</h2>
                 <p className="sectionHint">{isScreening ? "Upload een Excel- of CSV-lijst en controleer wie op de screeninglijst staat." : "Selecteer eerst enkel de bewoners die toestemming hebben gegeven, lees daarna de PDF's in."}</p>
               </div>
-              <button onClick={resetPlanning}>Alles leegmaken</button>
+              <button onClick={resetPlanning}>{linkedPlanning ? "Loskoppelen en leegmaken" : "Alles leegmaken"}</button>
+            </div>
+            <div className="linkedPlanningBox">
+              <SearchableDropdownField
+                label="Ingeplande dag uit Planning"
+                value={planningSearch}
+                options={workflowPlanningOptions}
+                onInputChange={(value) => {
+                  setPlanningSearch(value);
+                  if (!value.trim()) setLinkedPlanningId(null);
+                }}
+                onSelect={(option) => {
+                  const planning = plannings.find((item) => item.id === Number(option.value));
+                  if (planning) loadPlanningIntoEditor(planning);
+                }}
+                placeholder="Typ datum, WZC of soort planning"
+                emptyText="Geen ingeplande dag gevonden"
+              />
+              <div className={`linkedPlanningSummary ${linkedPlanning ? "" : "isMuted"}`.trim()}>
+                {linkedPlanning ? (
+                  <>
+                    <strong>Gekoppeld aan Planning</strong>
+                    <span>{planningWorkflowLabel(linkedPlanning)}</span>
+                    <small>{planningWorkflowMeta(linkedPlanning)}</small>
+                  </>
+                ) : (
+                  <>
+                    <strong>Geen ingeplande dag geselecteerd</strong>
+                    <span>Kies eerst een screening of behandeldag uit Planning om die hier verder aan te vullen.</span>
+                    <small>Losse planning blijft mogelijk, maar de normale flow start in Planning.</small>
+                  </>
+                )}
+              </div>
             </div>
             <div className="planningKindSelector" aria-label="Type planning">
               <button className={planningKind === "Screening" ? "selected" : ""} onClick={() => changePlanningKind("Screening")}>
@@ -3263,14 +3937,8 @@ function PlanningView({ wzcs, plannings, preselectedWzc, onSaved }: { wzcs: Wzc[
               <div className="formGrid planningMetaGrid">
                 <label>Naam planning<input value={name} onChange={(event) => setName(event.target.value)} /></label>
                 <label>Planningsdatum<input type="date" value={planningDate} onChange={(event) => setPlanningDate(event.target.value)} /></label>
-                <label>Groep/organisatie<select value={planningGroupFilter} onChange={(event) => setPlanningGroupFilter(event.target.value)}>
-                  <option value="">Alle groepen</option>
-                  {planningGroupOptions.map((group) => <option key={group}>{group}</option>)}
-                </select></label>
-                <label>WZC<select value={wzcId} onChange={(event) => setWzcId(event.target.value ? Number(event.target.value) : "")}>
-                  <option value="">Kies WZC</option>
-                  {selectableWzcs.map((wzc) => <option key={wzc.id} value={wzc.id}>{wzc.group_name ? `${wzc.name} · ${wzc.group_name}` : wzc.name}</option>)}
-                </select></label>
+                <SearchableGroupSelect label="Groep/organisatie" value={planningGroupFilter} groups={planningGroupOptions} onChange={setPlanningGroupFilter} placeholder="Alle groepen" />
+                <SearchableWzcSelect label="WZC" value={wzcId} wzcs={selectableWzcs} onChange={setWzcId} placeholder="Kies WZC" />
               </div>
               <div className="uploadBox">
                 <label>{uploadTitle}<input key={fileInputKey} type="file" accept={uploadAccept} multiple onChange={(event) => setFiles(Array.from(event.target.files || []))} /></label>
@@ -3310,7 +3978,7 @@ function PlanningView({ wzcs, plannings, preselectedWzc, onSaved }: { wzcs: Wzc[
                   {!isScreening && <span className="softBadge">{selectedPreviewCount}/{rows.length} geselecteerd</span>}
                   {!isScreening && <button onClick={() => setSelectedRows(Object.fromEntries(rows.map((_, index) => [index, true])))}>Alles aanvinken</button>}
                   {!isScreening && <button onClick={() => setSelectedRows(Object.fromEntries(rows.map((_, index) => [index, false])))}>Alles uitvinken</button>}
-                  <button disabled={selectedPreviewCount === 0 || savingPlanning} onClick={() => savePlanning(false)}>{isScreening ? "Screening bewaren" : "Planning bewaren"}</button>
+                  <button disabled={selectedPreviewCount === 0 || savingPlanning} onClick={() => savePlanning(false)}>{linkedPlanning ? "Opslaan in ingeplande dag" : isScreening ? "Screening bewaren" : "Planning bewaren"}</button>
                   <button className="primaryButton" disabled={selectedPreviewCount === 0 || savingPlanning} onClick={() => savePlanning(true)}>{savingPlanning ? "Genereren..." : "Excel genereren"}</button>
                 </div>
               </div>
@@ -3345,8 +4013,8 @@ function PlanningView({ wzcs, plannings, preselectedWzc, onSaved }: { wzcs: Wzc[
         <section className="panel">
           <div className="sectionTitle">
             <div>
-              <h2>Voorgaande behandelplanningen</h2>
-              <p className="sectionHint">Bewaard in de app-database. PDF-bestanden zelf worden niet bewaard.</p>
+              <h2>Planningdetails</h2>
+              <p className="sectionHint">Alle ingeplande screenings en behandeldagen met hun bewonerslijst. PDF-bestanden zelf worden niet bewaard.</p>
             </div>
           </div>
           <div className="savedPlanningLayout">
@@ -3354,11 +4022,11 @@ function PlanningView({ wzcs, plannings, preselectedWzc, onSaved }: { wzcs: Wzc[
               {sortedPlannings.map((planning) => (
                 <button className={`portfolioRow ${expandedPlanning?.id === planning.id ? "selected" : ""}`} key={planning.id} onClick={() => setExpandedPlanningId(planning.id)}>
                   <strong>{formatDate(planning.planning_date)} · {planning.name}</strong>
-                  <span>{planning.location || "Geen locatie"} · {planning.rows.length} bewoner(s)</span>
-                  <small>{planning.planning_type === "Screening" ? `Screening · ${planning.rows.length} persoon/personen · ${formatDuration(planning.rows.length * 4)} geschat` : `${treatmentCountForPlanning(planning)} behandeling(en)`}</small>
+                  <span>{planning.location || "Geen locatie"} · {planning.start_time || "09:00"}-{planning.end_time || "16:00"} · {planning.planning_status || "Concept"}</span>
+                  <small>{planning.planning_type === "Screening" ? `Screening · ${planning.rows.length} persoon/personen · ${formatDuration(planning.rows.length * 4)} geschat` : `${planning.rows.length} patient(en) · ${treatmentCountForPlanning(planning)} behandeling(en)`}</small>
                 </button>
               ))}
-              {sortedPlannings.length === 0 && <div className="empty">Nog geen voorgaande behandelplanningen.</div>}
+              {sortedPlannings.length === 0 && <div className="empty">Nog geen ingeplande dagen.</div>}
             </div>
             {expandedPlanning && (
               <div className="savedPlanningDetail">
@@ -3368,7 +4036,7 @@ function PlanningView({ wzcs, plannings, preselectedWzc, onSaved }: { wzcs: Wzc[
                     <p className="sectionHint">{expandedPlanning.planning_type || "Behandeling"} · {expandedPlanning.location || "Geen locatie"} · {expandedPlanning.rows.length} bewoner(s){expandedPlanning.planning_type === "Screening" ? ` · ${formatDuration(expandedPlanning.rows.length * 4)} geschat` : ""}</p>
                   </div>
                   <div className="inlineActions noMargin">
-                    <button onClick={() => openPlanning(expandedPlanning)}>Openen</button>
+                    <button onClick={() => openPlanning(expandedPlanning)}>Aanvullen</button>
                     <button onClick={() => api.downloadPlanningExcel(expandedPlanning.id, cleanFileName(expandedPlanning.name))}>Excel downloaden</button>
                     <button onClick={() => deletePlanning(expandedPlanning)}>Verwijderen</button>
                   </div>
@@ -3464,6 +4132,7 @@ function App() {
   const [teams, setTeams] = useState<TeamProfile[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [contextWzc, setContextWzc] = useState<Wzc | null>(null);
+  const [contextPlanningId, setContextPlanningId] = useState<number | null>(null);
   const [followupFocusWzc, setFollowupFocusWzc] = useState<Wzc | null>(null);
   const [followupFocusProspect, setFollowupFocusProspect] = useState<Prospect | null>(null);
   const [error, setError] = useState("");
@@ -3529,8 +4198,20 @@ function App() {
           onOpenUrgencies={() => setSection("Urgenties")}
           onOpenWzcFiche={(wzc) => { setFollowupFocusWzc(wzc); setSection("WZC opvolging"); }}
           onOpenProspectFiche={(prospect) => { setFollowupFocusProspect(prospect); setSection("WZC opvolging"); }}
-          onSelectWzcForPlanning={(wzc) => { setContextWzc(wzc); setSection("Behandelplanning"); }}
-          onSelectWzcForUrgency={(wzc) => { setContextWzc(wzc); setSection("Urgenties"); }}
+          onSelectWzcForPlanning={(wzc) => { setContextPlanningId(null); setContextWzc(wzc); setSection("Behandelplanning"); }}
+          onSelectWzcForUrgency={(wzc) => { setContextPlanningId(null); setContextWzc(wzc); setSection("Urgenties"); }}
+        />
+      )}
+      {section === "Planning" && (
+        <AgendaPlanningView
+          wzcs={wzcs}
+          plannings={plannings}
+          onSaved={() => loadData()}
+          onOpenTreatmentPlanning={(planning) => {
+            setContextWzc(null);
+            setContextPlanningId(planning.id);
+            setSection("Behandelplanning");
+          }}
         />
       )}
       {section === "Mondzorgdossiers" && <DossierView />}
@@ -3544,11 +4225,20 @@ function App() {
           focusProspect={followupFocusProspect}
           onFocusHandled={() => { setFollowupFocusWzc(null); setFollowupFocusProspect(null); }}
           onSaved={() => loadData()}
-          onPlan={(wzc) => { setContextWzc(wzc); setSection("Behandelplanning"); }}
-          onUrgency={(wzc) => { setContextWzc(wzc); setSection("Urgenties"); }}
+          onPlan={(wzc) => { setContextPlanningId(null); setContextWzc(wzc); setSection("Behandelplanning"); }}
+          onUrgency={(wzc) => { setContextPlanningId(null); setContextWzc(wzc); setSection("Urgenties"); }}
         />
       )}
-      {section === "Behandelplanning" && <PlanningView wzcs={wzcs} plannings={plannings} preselectedWzc={contextWzc} onSaved={() => loadData()} />}
+      {section === "Behandelplanning" && (
+        <PlanningView
+          wzcs={wzcs}
+          plannings={plannings}
+          preselectedWzc={contextWzc}
+          focusPlanningId={contextPlanningId}
+          onFocusHandled={() => setContextPlanningId(null)}
+          onSaved={() => loadData()}
+        />
+      )}
       {section === "WZC database" && user.role === "admin" && <WzcDatabaseView wzcs={wzcs} prospects={prospects} teams={teams} users={users} auditLogs={auditLogs} onSaved={() => loadData()} />}
     </Shell>
   );

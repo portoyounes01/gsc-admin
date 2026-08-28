@@ -118,8 +118,13 @@ def create_planning(
         name=payload.name,
         planning_type=payload.planning_type,
         planning_date=payload.planning_date,
+        start_time=payload.start_time,
+        end_time=payload.end_time,
+        planning_status=payload.planning_status,
+        team_label=payload.team_label,
         location=wzc.name if wzc else payload.location,
         wzc_id=payload.wzc_id,
+        note=payload.note,
         created_by=current_user.email,
     )
     planning.rows = [
@@ -141,7 +146,13 @@ def create_planning(
         current_user,
         "Behandelplanning",
         "Planning aangemaakt",
-        {"planning": payload.name, "type": payload.planning_type, "wzc": planning.location, "patienten": len(payload.rows)},
+        {
+            "planning": payload.name,
+            "type": payload.planning_type,
+            "wzc": planning.location,
+            "patienten": len(payload.rows),
+            "agenda_status": payload.planning_status,
+        },
     )
     db.commit()
     db.refresh(planning)
@@ -204,6 +215,37 @@ def add_planning_rows(
     db.commit()
     db.refresh(planning)
     return planning
+
+
+@router.put("/{planning_id}/rows", response_model=PlanningOut)
+def replace_planning_rows(
+    planning_id: int,
+    rows: list[PlanningRowCreate],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Planning:
+    planning = db.scalar(
+        select(Planning)
+        .where(Planning.id == planning_id)
+        .options(selectinload(Planning.rows))
+    )
+    if not planning:
+        raise HTTPException(status_code=404, detail="Planning niet gevonden.")
+    planning.rows = [
+        PlanningRow(
+            patient_number=index + 1,
+            patient_name=row.patient_name,
+            treatments=row.treatments,
+            date_or_period=row.date_or_period,
+            remarks=row.remarks,
+            patient_done=row.patient_done,
+        )
+        for index, row in enumerate(rows)
+    ]
+    add_audit_log(db, current_user, "Behandelplanning", "Bewonerslijst vervangen", {"planning": planning.name, "aantal": len(rows)})
+    db.commit()
+    db.refresh(planning)
+    return get_planning(planning.id, db, current_user)
 
 
 @router.delete("/{planning_id}/rows/{row_id}", response_model=PlanningOut)

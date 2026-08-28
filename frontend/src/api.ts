@@ -116,12 +116,26 @@ export const api = {
     files.forEach((file) => formData.append("files", file));
     return request<DossierPreviewRow[]>("/dossiers/preview", { method: "POST", body: formData });
   },
-  createPlanning: (payload: { name: string; planning_type: string; planning_date: string; location: string; wzc_id: number | null; rows: PlanningRow[] }) =>
+  createPlanning: (payload: {
+    name: string;
+    planning_type: string;
+    planning_date: string;
+    start_time?: string;
+    end_time?: string;
+    planning_status?: string;
+    team_label?: string;
+    location: string;
+    wzc_id: number | null;
+    note?: string;
+    rows: PlanningRow[];
+  }) =>
     request<Planning>("/plannings", { method: "POST", body: JSON.stringify(payload) }),
   updatePlanning: (id: number, payload: Partial<Planning>) =>
     request<Planning>(`/plannings/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
   addPlanningRows: (id: number, rows: PlanningRow[]) =>
     request<Planning>(`/plannings/${id}/rows`, { method: "POST", body: JSON.stringify(rows) }),
+  replacePlanningRows: (id: number, rows: PlanningRow[]) =>
+    request<Planning>(`/plannings/${id}/rows`, { method: "PUT", body: JSON.stringify(rows) }),
   deletePlanningRow: (planningId: number, rowId: number) =>
     request<Planning>(`/plannings/${planningId}/rows/${rowId}`, { method: "DELETE" }),
   deletePlanning: (id: number) => request<{ status: string }>(`/plannings/${id}`, { method: "DELETE" }),

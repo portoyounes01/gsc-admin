@@ -112,6 +112,102 @@ label {
   font-weight: 650;
 }
 
+.searchableDropdownField {
+  position: relative;
+  display: grid;
+  gap: 7px;
+  align-content: start;
+  min-width: 0;
+  color: #505661;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.searchableDropdownLabel {
+  line-height: 1.2;
+}
+
+.searchableDropdownControl {
+  position: relative;
+  min-width: 0;
+}
+
+.searchableDropdownControl::after {
+  content: "";
+  position: absolute;
+  top: 16px;
+  right: 13px;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid #66707a;
+  border-bottom: 2px solid #66707a;
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+
+.searchableDropdownControl input {
+  padding-right: 34px;
+}
+
+.searchableDropdownMenu {
+  position: absolute;
+  z-index: 120;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: min(280px, 48vh);
+  overflow: auto;
+  display: grid;
+  gap: 2px;
+  padding: 5px;
+  border: 1px solid #d7dce2;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 18px 42px rgba(40, 50, 65, 0.16);
+}
+
+.searchableDropdownOption {
+  width: 100%;
+  min-height: 36px;
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+  padding: 8px 9px;
+  border: 0;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #24262d;
+  text-align: left;
+}
+
+.searchableDropdownOption:hover,
+.searchableDropdownOption.isHighlighted {
+  background: #edf7f3;
+  color: #1f6655;
+}
+
+.searchableDropdownOption span,
+.searchableDropdownOption small {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.searchableDropdownOption small {
+  color: #66707a;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.searchableDropdownEmpty {
+  padding: 9px 10px;
+  color: #66707a;
+  font-size: 12px;
+  font-weight: 650;
+}
+
 .groupNameField {
   align-content: start;
 }
@@ -498,6 +594,269 @@ label {
   box-shadow: none;
 }
 
+.agendaCreatePanel,
+.agendaOverviewPanel {
+  display: grid;
+  gap: 14px;
+}
+
+.agendaCreateForm {
+  display: grid;
+  gap: 14px;
+}
+
+.agendaKindSelector {
+  margin-bottom: 0;
+}
+
+.agendaFormGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.agendaToolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.agendaToolbar button {
+  min-height: 34px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.agendaModeSwitch {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.agendaModeSwitch button {
+  min-height: 56px;
+  padding: 11px 14px;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.agendaLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.agendaMain,
+.agendaDayPanel {
+  min-width: 0;
+}
+
+.agendaDayPanel {
+  display: grid;
+  gap: 12px;
+  padding: 13px;
+  border: 1px solid #e2e7eb;
+  border-radius: 8px;
+  background: #fbfcfd;
+}
+
+.compactSectionTitle {
+  align-items: start;
+}
+
+.agendaCalendar {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.agendaWeekday {
+  padding: 0 4px 3px;
+  color: #66707a;
+  font-size: 11px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.agendaDay {
+  min-width: 0;
+  min-height: 116px;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 4px;
+  align-content: start;
+  justify-items: stretch;
+  padding: 9px;
+  border: 1px solid #e2e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  text-align: left;
+}
+
+.agendaDay:hover {
+  border-color: #b8d9ce;
+}
+
+.agendaDay.selected {
+  border-color: #2d7c69;
+  box-shadow: 0 0 0 3px rgba(77, 159, 133, 0.14);
+}
+
+.agendaDay.today .agendaDayNumber {
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #216656;
+  color: #ffffff;
+}
+
+.emptyDay {
+  pointer-events: none;
+  background: transparent;
+  border-color: transparent;
+}
+
+.agendaDayNumber {
+  color: #1d1d1f;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.agendaDayName {
+  color: #8a929c;
+  font-size: 11px;
+  font-weight: 750;
+  text-transform: capitalize;
+}
+
+.agendaDayItems {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  margin-top: 2px;
+}
+
+.agendaDayItems em {
+  min-width: 0;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: #edf7f3;
+  color: #216656;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 750;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agendaDayItems em.treatment {
+  background: #eef5fb;
+  color: #2e6f95;
+}
+
+.agendaListView,
+.agendaDayList {
+  display: grid;
+  gap: 10px;
+}
+
+.agendaItemCard {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #e2e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.compactAgendaItem {
+  background: #ffffff;
+}
+
+.agendaItemHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: start;
+}
+
+.agendaItemHeader div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.agendaItemHeader strong,
+.agendaItemHeader span,
+.agendaItemMeta span,
+.agendaItemNote span {
+  overflow-wrap: anywhere;
+}
+
+.agendaItemHeader span,
+.agendaItemMeta,
+.agendaItemNote {
+  color: #66707a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.agendaStatusPill {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #f0f2f4;
+  color: #59616c;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.agendaStatusPill.planned,
+.agendaStatusPill.confirmed {
+  background: #edf7f3;
+  color: #216656;
+}
+
+.agendaStatusPill.done {
+  background: #eef5fb;
+  color: #2e6f95;
+}
+
+.agendaStatusPill.cancelled {
+  background: #fff6f6;
+  color: #a23d3d;
+}
+
+.agendaItemMeta {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.agendaItemMeta span {
+  padding: 5px 8px;
+  border: 1px solid #e2e7eb;
+  border-radius: 999px;
+  background: #fbfcfd;
+}
+
+.agendaItemNote {
+  display: grid;
+  gap: 4px;
+  padding-top: 8px;
+  border-top: 1px solid #eef2f3;
+}
+
+.agendaItemActions {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) auto auto;
+  gap: 10px;
+  align-items: end;
+}
+
 .planningTabSwitch strong {
   font-size: 14px;
 }
@@ -666,7 +1025,9 @@ label {
 }
 
 .filterControls > select,
-.listHeaderFilters > select {
+.listHeaderFilters > select,
+.filterControls .groupFilterInput,
+.listHeaderFilters .groupFilterInput {
   width: auto;
   min-width: 210px;
 }
@@ -865,6 +1226,50 @@ label {
 
 .planningPanel {
   padding-bottom: 14px;
+}
+
+.linkedPlanningBox {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(280px, 0.9fr);
+  gap: 12px;
+  align-items: start;
+  margin-bottom: 12px;
+}
+
+.linkedPlanningSummary {
+  min-height: 66px;
+  display: grid;
+  gap: 3px;
+  align-content: center;
+  padding: 11px 12px;
+  border: 1px solid #c9e1d7;
+  border-radius: 8px;
+  background: #f2faf7;
+  color: #216656;
+}
+
+.linkedPlanningSummary.isMuted {
+  border-color: #e2e7eb;
+  background: #fbfcfd;
+  color: #66707a;
+}
+
+.linkedPlanningSummary strong,
+.linkedPlanningSummary span,
+.linkedPlanningSummary small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.linkedPlanningSummary strong {
+  color: inherit;
+  font-size: 13px;
+}
+
+.linkedPlanningSummary span,
+.linkedPlanningSummary small {
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .planningKindSelector {
@@ -2688,6 +3093,9 @@ label {
   .homeGrid,
   .followupSwitch,
   .filterBar,
+  .agendaFormGrid,
+  .agendaLayout,
+  .linkedPlanningBox,
   .savedPlanningLayout,
   .planningKindSelector,
   .planningSetupGrid,
@@ -2721,6 +3129,28 @@ label {
 	    overflow: visible;
 	    padding-right: 0;
 	  }
+
+  .agendaItemActions {
+    grid-template-columns: 1fr;
+  }
+
+  .agendaCalendar {
+    gap: 4px;
+  }
+
+  .agendaDay {
+    min-height: 88px;
+    padding: 6px;
+  }
+
+  .agendaDayName {
+    display: none;
+  }
+
+  .agendaDayItems em {
+    padding: 3px 4px;
+    font-size: 10px;
+  }
 
   .previewHeader {
     display: grid;
