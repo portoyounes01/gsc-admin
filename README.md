@@ -77,10 +77,10 @@ Daarna op de Python component:
 ```bash
 cd ~/app/Dashboard/backend
 python -m app.scripts.migrate_sqlite_to_postgres --source ~/local_beta.db --dry-run
-python -m app.scripts.migrate_sqlite_to_postgres --source ~/local_beta.db --replace
+python -m app.scripts.migrate_sqlite_to_postgres --source ~/local_beta.db --replace --confirm-replace
 ```
 
-Het script gebruikt standaard `DATABASE_URL` uit `backend/.env`. `--replace` maakt de doel-tabellen eerst leeg en kopieert daarna de SQLite-data. Verwijder het tijdelijke SQLite-bestand na controle:
+Het script gebruikt standaard `DATABASE_URL` uit `backend/.env`. `--replace --confirm-replace` maakt de doel-tabellen eerst leeg en kopieert daarna de SQLite-data. Gebruik dit alleen voor de eerste bewuste beta-overzet; daarna is PostgreSQL op de server de bron van waarheid en blijft lokale SQLite enkel testdata. Verwijder het tijdelijke SQLite-bestand na controle:
 
 ```bash
 rm ~/local_beta.db

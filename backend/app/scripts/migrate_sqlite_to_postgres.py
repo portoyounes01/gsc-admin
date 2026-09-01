@@ -34,6 +34,8 @@ TABLES = [
     "saved_urgency_route_plans",
 ]
 
+REPLACE_CONFIRMATION_FLAG = "--confirm-replace"
+
 
 def parse_date(value: Any) -> date | None:
     if value in (None, ""):
@@ -87,6 +89,16 @@ def table_counts(engine, tables: list[str]) -> dict[str, int]:
     return counts
 
 
+def print_counts(title: str, counts: dict[str, int]) -> None:
+    print(title)
+    for table_name, count in counts.items():
+        print(f"- {table_name}: {count}")
+
+
+def has_rows(counts: dict[str, int]) -> bool:
+    return any(count > 0 for count in counts.values())
+
+
 def reset_postgres_sequences(conn, target_tables: list[str]) -> None:
     if conn.dialect.name != "postgresql":
         return
@@ -105,20 +117,33 @@ def reset_postgres_sequences(conn, target_tables: list[str]) -> None:
         )
 
 
-def migrate(source: Path, target_url: str, replace: bool, dry_run: bool) -> None:
+def migrate(source: Path, target_url: str, replace: bool, confirm_replace: bool, dry_run: bool) -> None:
     source_engine = create_engine(source_url(source))
     target_engine = create_engine(target_url, pool_pre_ping=True)
 
     source_counts = table_counts(source_engine, TABLES)
-    print("SQLite bron:")
-    for table_name, count in source_counts.items():
-        print(f"- {table_name}: {count}")
+    print_counts("SQLite bron:", source_counts)
 
     if dry_run:
         print("Dry-run klaar. Er is niets naar PostgreSQL geschreven.")
         return
 
     Base.metadata.create_all(bind=target_engine)
+    target_counts_before = table_counts(target_engine, TABLES)
+    print_counts("PostgreSQL doel voor migratie:", target_counts_before)
+
+    if replace and not confirm_replace:
+        raise SystemExit(
+            "Stop: --replace wist eerst de PostgreSQL doel-tabellen. "
+            f"Voeg {REPLACE_CONFIRMATION_FLAG} toe voor een bewuste eenmalige migratie."
+        )
+
+    if not replace and has_rows(target_counts_before):
+        raise SystemExit(
+            "Stop: PostgreSQL bevat al data. De serverdatabase is de bron van waarheid na de eerste migratie. "
+            f"Gebruik alleen --replace {REPLACE_CONFIRMATION_FLAG} als je bewust alle serverdata wil vervangen."
+        )
+
     source_metadata = MetaData()
     source_metadata.reflect(bind=source_engine, only=TABLES)
 
@@ -151,9 +176,7 @@ def migrate(source: Path, target_url: str, replace: bool, dry_run: bool) -> None
         reset_postgres_sequences(target_conn, [table.name for table in target_tables])
 
     target_counts = table_counts(target_engine, TABLES)
-    print("PostgreSQL doel na migratie:")
-    for table_name, count in target_counts.items():
-        print(f"- {table_name}: {count}")
+    print_counts("PostgreSQL doel na migratie:", target_counts)
 
 
 def main() -> None:
@@ -161,13 +184,18 @@ def main() -> None:
     parser.add_argument("--source", required=True, type=Path, help="Pad naar local_beta.db of een andere SQLite database.")
     parser.add_argument("--target-url", help="PostgreSQL DATABASE_URL. Standaard wordt DATABASE_URL uit .env gebruikt.")
     parser.add_argument("--replace", action="store_true", help="Maak doel-tabellen eerst leeg voor een exacte beta-copy.")
+    parser.add_argument(
+        "--confirm-replace",
+        action="store_true",
+        help="Bevestig expliciet dat bestaande PostgreSQL serverdata overschreven mag worden.",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Toon alleen aantallen uit SQLite.")
     args = parser.parse_args()
 
     if not args.source.exists():
         raise SystemExit(f"SQLite bestand niet gevonden: {args.source}")
 
-    migrate(args.source, args.target_url or settings.database_url, args.replace, args.dry_run)
+    migrate(args.source, args.target_url or settings.database_url, args.replace, args.confirm_replace, args.dry_run)
 
 
 if __name__ == "__main__":
