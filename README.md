@@ -64,6 +64,28 @@ Niet automatisch geimporteerd:
 - patientdata uit losse PDFs
 - plaintext wachtwoorden
 
+## Beta SQLite-data naar PostgreSQL kopieren
+
+Gebruik dit alleen voor de beta-app zonder Streamlit. Zet het SQLite-bestand rechtstreeks op de server, niet via GitHub:
+
+```bash
+scp tmp/local_beta.db py10099@server:/var/python/py10099/local_beta.db
+```
+
+Daarna op de Python component:
+
+```bash
+cd ~/app/Dashboard/backend
+python -m app.scripts.migrate_sqlite_to_postgres --source ~/local_beta.db --dry-run
+python -m app.scripts.migrate_sqlite_to_postgres --source ~/local_beta.db --replace
+```
+
+Het script gebruikt standaard `DATABASE_URL` uit `backend/.env`. `--replace` maakt de doel-tabellen eerst leeg en kopieert daarna de SQLite-data. Verwijder het tijdelijke SQLite-bestand na controle:
+
+```bash
+rm ~/local_beta.db
+```
+
 ## Eerste beta-scope
 
 Aanwezig in deze scaffold:
