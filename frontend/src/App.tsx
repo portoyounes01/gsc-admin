@@ -1489,7 +1489,6 @@ function Home({
   plannings,
   onOpenUrgencies,
   onOpenWzcFiche,
-  onOpenProspectFiche,
   onSelectWzcForPlanning,
   onSelectWzcForUrgency
 }: {
@@ -1499,7 +1498,6 @@ function Home({
   plannings: Planning[];
   onOpenUrgencies: () => void;
   onOpenWzcFiche: (wzc: Wzc) => void;
-  onOpenProspectFiche: (prospect: Prospect) => void;
   onSelectWzcForPlanning: (wzc: Wzc) => void;
   onSelectWzcForUrgency: (wzc: Wzc) => void;
 }) {
@@ -1509,30 +1507,25 @@ function Home({
     () => realWzcs.filter((wzc) => wzc.collaboration_status === "Actief"),
     [realWzcs]
   );
-  const [selected, setSelected] = useState<Wzc | Prospect | null>(null);
+  const [selected, setSelected] = useState<Wzc | null>(null);
   const openUrgencyCount = urgencies.filter((urgency) => urgency.status !== "Afgerond").length;
 
   useEffect(() => {
     const selectedIsVisible = selected
-      ? "collaboration_status" in selected
-        ? activeWzcs.some((wzc) => wzc.id === selected.id)
-        : prospects.some((prospect) => prospect.id === selected.id)
+      ? activeWzcs.some((wzc) => wzc.id === selected.id)
       : false;
     if (!selectedIsVisible) {
-      setSelected(activeWzcs[0] || prospects[0] || null);
+      setSelected(activeWzcs[0] || null);
     }
-  }, [activeWzcs, prospects, selected]);
+  }, [activeWzcs, selected]);
 
   return (
     <>
       <WzcMap
         wzcs={activeWzcs}
-        prospects={prospects}
         selected={selected}
         onSelectWzc={(wzc) => setSelected(wzc)}
-        onSelectProspect={(prospect) => setSelected(prospect)}
         onOpenWzcFiche={onOpenWzcFiche}
-        onOpenProspectFiche={onOpenProspectFiche}
         onPlan={onSelectWzcForPlanning}
         onUrgency={onSelectWzcForUrgency}
         compact
@@ -1541,7 +1534,7 @@ function Home({
         <div className="kpi"><span>WZC's</span><strong>{realWzcs.length}</strong></div>
         <div className="kpi"><span>Actieve WZC's</span><strong>{activeWzcs.length}</strong></div>
         <div className="kpi"><span>Evaluaties</span><strong>0</strong></div>
-        <div className="kpi"><span>Opvolging</span><strong>{prospects.length}</strong></div>
+        <div className="kpi"><span>Prospecties</span><strong>{prospects.length}</strong></div>
         <div className="kpi"><span>Urgenties</span><strong>{openUrgencyCount}</strong></div>
         <div className="kpi"><span>Gem. score</span><strong>-</strong></div>
         <div className="kpi"><span>Hoog risico</span><strong>0</strong></div>
@@ -4395,7 +4388,6 @@ function App() {
           plannings={plannings}
           onOpenUrgencies={() => setSection("Urgenties")}
           onOpenWzcFiche={(wzc) => { setFollowupFocusWzc(wzc); setSection("WZC opvolging"); }}
-          onOpenProspectFiche={(prospect) => { setFollowupFocusProspect(prospect); setSection("WZC opvolging"); }}
           onSelectWzcForPlanning={(wzc) => { setContextPlanningId(null); setContextWzc(wzc); setSection("Behandelplanning"); }}
           onSelectWzcForUrgency={(wzc) => { setContextPlanningId(null); setContextWzc(wzc); setSection("Urgenties"); }}
         />
