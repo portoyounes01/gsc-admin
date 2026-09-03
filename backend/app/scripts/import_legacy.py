@@ -123,7 +123,7 @@ def import_prospects(workbook_path: Path) -> int:
             prospect.contacted_on = date_value(row.get("Aangeschreven op"))
             prospect.channel = text_value(row.get("Kanaal"))
             prospect.response = text_value(row.get("Response"))
-            prospect.status = text_value(row.get("Status")) or "Nieuw"
+            prospect.status = text_value(row.get("Status")) or "Aan te schrijven"
             prospect.meeting_type = text_value(row.get("Gesprekstype"))
             prospect.meeting_date = date_value(row.get("Gespreksdatum"))
             prospect.owner = text_value(row.get("Interne verantwoordelijke"))

@@ -148,7 +148,7 @@ class ProspectBase(BaseModel):
     contacted_on: date | None = None
     channel: str = ""
     response: str = ""
-    status: str = "Nieuw"
+    status: str = "Aan te schrijven"
     meeting_type: str = ""
     meeting_date: date | None = None
     owner: str = ""

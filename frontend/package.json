@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "preinstall": "node scripts/forbid-axios.mjs",
+    "postinstall": "node scripts/forbid-axios.mjs",
+    "check:no-axios": "node scripts/forbid-axios.mjs",
     "dev": "vite --host 0.0.0.0",
     "build": "tsc && vite build",
     "preview": "vite preview --host 0.0.0.0"
@@ -18,5 +21,8 @@
   "devDependencies": {
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0"
+  },
+  "overrides": {
+    "axios": "npm:@global-smile-care/axios-is-forbidden@0.0.0"
   }
 }

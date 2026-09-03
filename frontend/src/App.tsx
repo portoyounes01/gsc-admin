@@ -39,7 +39,10 @@ const routeStartLocations = [
     longitude: 4.399793998102927,
   },
 ] as const;
-const prospectStatuses = ["Nieuw", "Aangeschreven", "Geen reactie", "Reactie ontvangen", "Gesprek gepland", "Voorstel verstuurd", "On hold", "Gewonnen", "Verloren"];
+const prospectStatuses = ["Aan te schrijven", "Aangeschreven", "Reactie ontvangen", "Draaiboek verstuurd", "Gesprek gepland", "On hold"];
+const prospectChannels = ["Telefonisch", "Mail", "In-person"];
+const prospectResponses = ["Negatief", "Positief", "Terughoudend"];
+const defaultProspectStatus = prospectStatuses[0];
 const teamRoles = ["Tandarts", "Mondhygiënist", "Assistent", "Coördinator", "Administratie", "Andere"];
 const teamSkillsets = [
   "Controle / consultatie",
@@ -572,6 +575,89 @@ function SearchableDropdownField({
   );
 }
 
+function teamNamesFromLabel(value: string) {
+  return value.split(",").map((item) => item.trim()).filter(Boolean);
+}
+
+function teamLabelFromNames(names: string[]) {
+  return names.join(", ");
+}
+
+function TeamProfileSelect({
+  label,
+  teams,
+  value,
+  onChange,
+  className
+}: {
+  label: string;
+  teams: TeamProfile[];
+  value: string;
+  onChange: (value: string) => void;
+  className?: string;
+}) {
+  const fieldRef = useRef<HTMLDetailsElement | null>(null);
+  const activeTeams = useMemo(
+    () => teams.filter((team) => team.is_active).sort((a, b) => a.name.localeCompare(b.name)),
+    [teams]
+  );
+  const activeTeamNames = useMemo(() => new Set(activeTeams.map((team) => team.name)), [activeTeams]);
+  const selectedNames = useMemo(() => teamNamesFromLabel(value), [value]);
+  const selectedSet = useMemo(() => new Set(selectedNames), [selectedNames]);
+  const selectedSummary = selectedNames.length === 0
+    ? "Geen team gekozen"
+    : selectedNames.length === 1
+      ? selectedNames[0]
+      : `${selectedNames.length} teamleden geselecteerd`;
+
+  useEffect(() => {
+    function closeOnOutsideClick(event: MouseEvent) {
+      if (!fieldRef.current?.contains(event.target as Node)) fieldRef.current?.removeAttribute("open");
+    }
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    return () => document.removeEventListener("mousedown", closeOnOutsideClick);
+  }, []);
+
+  function toggleTeam(teamName: string, checked: boolean) {
+    const nextSelected = checked
+      ? [...selectedNames.filter((name) => name !== teamName), teamName]
+      : selectedNames.filter((name) => name !== teamName);
+    const orderedNames = [
+      ...activeTeams.map((team) => team.name).filter((name) => nextSelected.includes(name)),
+      ...nextSelected.filter((name) => !activeTeamNames.has(name)),
+    ];
+    onChange(teamLabelFromNames(orderedNames));
+  }
+
+  return (
+    <div className={`teamSelectField ${className || ""}`.trim()}>
+      <span className="searchableDropdownLabel">{label}</span>
+      <details className="teamSelectDisclosure" ref={fieldRef}>
+        <summary>
+          <span>{selectedSummary}</span>
+          <small>{selectedNames.length ? selectedNames.join(", ") : "Aanwezig team aanvinken"}</small>
+        </summary>
+        <div className="teamSelectMenu">
+          {activeTeams.map((team) => (
+            <label className="teamSelectOption" key={team.id}>
+              <input
+                checked={selectedSet.has(team.name)}
+                onChange={(event) => toggleTeam(team.name, event.target.checked)}
+                type="checkbox"
+              />
+              <span>
+                <strong>{team.name}</strong>
+                <small>{[team.role, team.skillsets].filter(Boolean).join(" · ") || "Teamprofiel"}</small>
+              </span>
+            </label>
+          ))}
+          {activeTeams.length === 0 && <div className="searchableDropdownEmpty">Geen actieve teamprofielen.</div>}
+        </div>
+      </details>
+    </div>
+  );
+}
+
 function isBelgianCoordinatePair(latitude: number, longitude: number) {
   return latitude >= 49.4 && latitude <= 51.7 && longitude >= 2.3 && longitude <= 6.6;
 }
@@ -675,15 +761,12 @@ function logoIconDataUrl(color = "#86C8AE") {
 function prospectStatusColor(status: string) {
   const key = normalizeSearch(status);
   const colors: Record<string, string> = {
-    nieuw: "#86C8AE",
+    "aan te schrijven": "#86C8AE",
     aangeschreven: "#2E6F95",
-    "geen reactie": "#B7791F",
     "reactie ontvangen": "#86C8AE",
+    "draaiboek verstuurd": "#2F6F62",
     "gesprek gepland": "#2E6F95",
-    "voorstel verstuurd": "#2F6F62",
     "on hold": "#6E6E73",
-    gewonnen: "#2F6F62",
-    verloren: "#D92D20",
   };
   return colors[key] || "#86C8AE";
 }
@@ -804,7 +887,8 @@ function prospectNeedsAttention(prospect: Prospect) {
     (deadlineDelta !== null && deadlineDelta <= 7)
     || !prospect.next_action
     || !prospect.owner
-    || prospect.status === "Geen reactie"
+    || prospect.status === "Aan te schrijven"
+    || prospect.response === "Terughoudend"
   );
 }
 
@@ -1503,11 +1587,13 @@ function Home({
 function AgendaPlanningView({
   wzcs,
   plannings,
+  teams,
   onSaved,
   onOpenTreatmentPlanning
 }: {
   wzcs: Wzc[];
   plannings: Planning[];
+  teams: TeamProfile[];
   onSaved: () => Promise<void>;
   onOpenTreatmentPlanning: (planning: Planning) => void;
 }) {
@@ -1605,6 +1691,7 @@ function AgendaPlanningView({
         rows: [],
       });
       setPlanningName("");
+      setTeamLabel("");
       setNote("");
       await onSaved();
       setSelectedDate(planningDate);
@@ -1701,7 +1788,7 @@ function AgendaPlanningView({
             <SearchableGroupSelect label="Groep/organisatie" value={planningGroupFilter} groups={planningGroupOptions} onChange={setPlanningGroupFilter} placeholder="Alle groepen" />
             <SearchableWzcSelect label="WZC" value={wzcId} wzcs={selectableWzcs} onChange={setWzcId} placeholder="Nog geen WZC gekozen" />
             <label>Titel<input value={planningName} onChange={(event) => setPlanningName(event.target.value)} placeholder={selectedWzc ? `${planningKindLabel(planningTypeForKind(planningKind))} ${selectedWzc.name}` : "Wordt automatisch ingevuld"} /></label>
-            <label>Team<input value={teamLabel} onChange={(event) => setTeamLabel(event.target.value)} placeholder="Bijv. Team Lokeren" /></label>
+            <TeamProfileSelect label="Team" teams={teams} value={teamLabel} onChange={setTeamLabel} />
             <label className="wide">Notitie<textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="Praktische afspraken, materiaal, aandachtspunten..." /></label>
           </div>
           <div className="formSubmitRow">
@@ -1825,6 +1912,68 @@ function UrgenciesView({
   const openUrgencies = urgencies.filter((urgency) => urgency.status !== "Afgerond");
   const todayUrgencies = openUrgencies.filter((urgency) => urgency.reported_on === todayIso);
   const urgentWzcCount = new Set(openUrgencies.map((urgency) => urgency.wzc_id || urgency.wzc_name).filter(Boolean)).size;
+  const urgencyMonthStats = useMemo(() => {
+    const monthMap = new Map<string, {
+      month: string;
+      total: number;
+      open: number;
+      completed: number;
+      wzcKeys: Set<string>;
+      typeCounts: Map<string, number>;
+    }>();
+
+    function ensureMonth(month: string) {
+      const existing = monthMap.get(month);
+      if (existing) return existing;
+      const created = {
+        month,
+        total: 0,
+        open: 0,
+        completed: 0,
+        wzcKeys: new Set<string>(),
+        typeCounts: new Map<string, number>(),
+      };
+      monthMap.set(month, created);
+      return created;
+    }
+
+    const currentMonth = `${todayIso.slice(0, 7)}-01`;
+    Array.from({ length: 12 }, (_, index) => addMonthsIso(currentMonth, -index)).forEach(ensureMonth);
+
+    urgencies.forEach((urgency) => {
+      if (!urgency.reported_on || urgency.reported_on.length < 7) return;
+      const month = `${urgency.reported_on.slice(0, 7)}-01`;
+      const stat = ensureMonth(month);
+      stat.total += 1;
+      if (urgency.status === "Afgerond") {
+        stat.completed += 1;
+      } else {
+        stat.open += 1;
+      }
+
+      const wzcKey = urgency.wzc_id ? `id:${urgency.wzc_id}` : urgency.wzc_name ? `name:${urgency.wzc_name}` : "";
+      if (wzcKey) stat.wzcKeys.add(wzcKey);
+      const type = urgency.urgency_type || "Onbekend";
+      stat.typeCounts.set(type, (stat.typeCounts.get(type) || 0) + 1);
+    });
+
+    return Array.from(monthMap.values())
+      .sort((a, b) => b.month.localeCompare(a.month))
+      .slice(0, 12)
+      .map((stat) => {
+        const topType = Array.from(stat.typeCounts.entries())
+          .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
+        return {
+          month: stat.month,
+          total: stat.total,
+          open: stat.open,
+          completed: stat.completed,
+          wzcCount: stat.wzcKeys.size,
+          topTypeLabel: topType ? `${topType[0]} (${topType[1]})` : "",
+        };
+      });
+  }, [urgencies]);
+  const maxMonthlyUrgencies = Math.max(...urgencyMonthStats.map((stat) => stat.total), 1);
   const selectableWzcs = useMemo(
     () => actualWzcs(wzcs).filter((wzc) => wzc.collaboration_status === "Actief"),
     [wzcs]
@@ -2326,6 +2475,41 @@ function UrgenciesView({
           {openUrgencies.length === 0 && <div className="empty">Nog geen open urgenties.</div>}
         </div>
       </section>
+      <section className="urgencyMonthlyPanel">
+        <details className="urgencyMonthlyDisclosure">
+          <summary>
+            <span className="urgencyMonthlySummaryMain">Maandoverzicht urgenties</span>
+            <span className="urgencyMonthlySummaryMeta">
+              Deze maand {urgencyMonthStats[0]?.total ?? 0} · {urgencies.length} totaal
+            </span>
+          </summary>
+          <div className="urgencyMonthlyContent">
+            <p className="sectionHint">Telt alle meldingen per meldingsdatum, ook wanneer ze intussen afgerond zijn.</p>
+            <div className="urgencyMonthGrid">
+              {urgencyMonthStats.map((stat) => {
+                const barWidth = stat.total ? Math.max((stat.total / maxMonthlyUrgencies) * 100, 8) : 0;
+                return (
+                  <article className={`urgencyMonthCard ${stat.total ? "" : "emptyMonth"}`} key={stat.month}>
+                    <div className="urgencyMonthHeader">
+                      <strong>{monthLabel(stat.month)}</strong>
+                      <span>{stat.total}</span>
+                    </div>
+                    <div className="urgencyMonthBar" aria-hidden="true">
+                      <span style={{ width: `${barWidth}%` }} />
+                    </div>
+                    <div className="urgencyMonthMeta">
+                      <span>Open {stat.open}</span>
+                      <span>Afgerond {stat.completed}</span>
+                      <span>{stat.wzcCount} WZC{stat.wzcCount === 1 ? "" : "'s"}</span>
+                    </div>
+                    {stat.topTypeLabel && <small>Meest: {stat.topTypeLabel}</small>}
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        </details>
+      </section>
     </div>
   );
 }
@@ -2521,7 +2705,7 @@ function ProspectView({
     contact_name: "",
     phone: "",
     email: "",
-    status: "Nieuw",
+    status: defaultProspectStatus,
     channel: "",
     response: "",
     owner: "",
@@ -2537,7 +2721,7 @@ function ProspectView({
     contact_name: "",
     phone: "",
     email: "",
-    status: "Nieuw",
+    status: defaultProspectStatus,
     channel: "",
     response: "",
     owner: "",
@@ -2601,7 +2785,7 @@ function ProspectView({
       contact_name: selected.contact_name || "",
       phone: selected.phone || "",
       email: selected.email || "",
-      status: selected.status || "Nieuw",
+      status: selected.status || defaultProspectStatus,
       channel: selected.channel || "",
       response: selected.response || "",
       owner: selected.owner || "",
@@ -2623,7 +2807,7 @@ function ProspectView({
       next_action_deadline: form.next_action_deadline || null
     });
     setSelected(prospect);
-    setForm({ name: "", group_name: "", address: "", postal_code: "", city: "", contact_name: "", phone: "", email: "", status: "Nieuw", channel: "", response: "", owner: "", next_action: "", next_action_deadline: "" });
+    setForm({ name: "", group_name: "", address: "", postal_code: "", city: "", contact_name: "", phone: "", email: "", status: defaultProspectStatus, channel: "", response: "", owner: "", next_action: "", next_action_deadline: "" });
     setShowForm(false);
     await onSaved();
   }
@@ -2696,7 +2880,14 @@ function ProspectView({
             <label>Status<select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value })}>
               {prospectStatuses.map((status) => <option key={status}>{status}</option>)}
             </select></label>
-            <label>Kanaal<input value={form.channel} onChange={(event) => setForm({ ...form, channel: event.target.value })} /></label>
+            <label>Kanaal<select value={form.channel} onChange={(event) => setForm({ ...form, channel: event.target.value })}>
+              <option value="">Niet gekozen</option>
+              {prospectChannels.map((channel) => <option key={channel}>{channel}</option>)}
+            </select></label>
+            <label>Response<select value={form.response} onChange={(event) => setForm({ ...form, response: event.target.value })}>
+              <option value="">Niet gekozen</option>
+              {prospectResponses.map((response) => <option key={response}>{response}</option>)}
+            </select></label>
             <label>Eigenaar<input value={form.owner} onChange={(event) => setForm({ ...form, owner: event.target.value })} /></label>
             <label>Deadline<input type="date" value={form.next_action_deadline} onChange={(event) => setForm({ ...form, next_action_deadline: event.target.value })} /></label>
             <label className="wide">Volgende actie<input value={form.next_action} onChange={(event) => setForm({ ...form, next_action: event.target.value })} /></label>
@@ -2720,7 +2911,7 @@ function ProspectView({
                 <small>{prospect.next_action || "Geen volgende actie"} · {prospect.owner || "Geen eigenaar"}</small>
               </div>
               <div className="pipelineMeta">
-                <span className="softBadge">{prospect.status || "Nieuw"}</span>
+                <span className="softBadge">{prospect.status || defaultProspectStatus}</span>
                 {prospectNeedsAttention(prospect) && <span className="attentionBadge">Aandacht</span>}
                 <small>{prospect.next_action_deadline ? formatDate(prospect.next_action_deadline) : "Geen deadline"}</small>
               </div>
@@ -2734,7 +2925,7 @@ function ProspectView({
           <div className="sectionTitle">
             <div>
               <h2>Prospectfiche</h2>
-              <p className="sectionHint">{selected.external_id} · laatste status: {selected.status || "Nieuw"}</p>
+              <p className="sectionHint">{selected.external_id} · laatste status: {selected.status || defaultProspectStatus}</p>
             </div>
             <div className="inlineActions noMargin">
               <button className="primaryButton" disabled={converting} onClick={convertSelectedToWzc}>{converting ? "Omzetten..." : "Zet om naar actieve WZC"}</button>
@@ -2754,8 +2945,14 @@ function ProspectView({
             <label>Status<select value={editForm.status} onChange={(event) => setEditForm({ ...editForm, status: event.target.value })}>
               {prospectStatuses.map((status) => <option key={status}>{status}</option>)}
             </select></label>
-            <label>Kanaal<input value={editForm.channel} onChange={(event) => setEditForm({ ...editForm, channel: event.target.value })} /></label>
-            <label>Response<input value={editForm.response} onChange={(event) => setEditForm({ ...editForm, response: event.target.value })} /></label>
+            <label>Kanaal<select value={editForm.channel} onChange={(event) => setEditForm({ ...editForm, channel: event.target.value })}>
+              <option value="">Niet gekozen</option>
+              {prospectChannels.map((channel) => <option key={channel}>{channel}</option>)}
+            </select></label>
+            <label>Response<select value={editForm.response} onChange={(event) => setEditForm({ ...editForm, response: event.target.value })}>
+              <option value="">Niet gekozen</option>
+              {prospectResponses.map((response) => <option key={response}>{response}</option>)}
+            </select></label>
             <label>Eigenaar<input value={editForm.owner} onChange={(event) => setEditForm({ ...editForm, owner: event.target.value })} /></label>
             <label>Aangeschreven op<input type="date" value={editForm.contacted_on} onChange={(event) => setEditForm({ ...editForm, contacted_on: event.target.value })} /></label>
             <label>Gesprekstype<input value={editForm.meeting_type} onChange={(event) => setEditForm({ ...editForm, meeting_type: event.target.value })} /></label>
@@ -4141,20 +4338,21 @@ function App() {
     if (!activeUser) return;
     setError("");
     try {
-      const [wzcData, prospectData, urgencyData, planningData] = await Promise.all([
+      const [wzcData, prospectData, urgencyData, planningData, teamData] = await Promise.all([
         api.wzcs(),
         api.prospects(),
         api.urgencies(),
-        api.plannings()
+        api.plannings(),
+        api.teams()
       ]);
       setWzcs(wzcData);
       setProspects(prospectData);
       setUrgencies(urgencyData);
       setPlannings(planningData);
+      setTeams(teamData);
       if (activeUser.role === "admin") {
-        const [userData, teamData, logData] = await Promise.all([api.users(), api.teams(), api.auditLogs()]);
+        const [userData, logData] = await Promise.all([api.users(), api.auditLogs()]);
         setUsers(userData);
-        setTeams(teamData);
         setAuditLogs(logData);
       }
     } catch (err) {
@@ -4206,6 +4404,7 @@ function App() {
         <AgendaPlanningView
           wzcs={wzcs}
           plannings={plannings}
+          teams={teams}
           onSaved={() => loadData()}
           onOpenTreatmentPlanning={(planning) => {
             setContextWzc(null);

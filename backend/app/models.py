@@ -79,7 +79,7 @@ class Prospect(Base):
     contacted_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     channel: Mapped[str] = mapped_column(String(80), default="")
     response: Mapped[str] = mapped_column(String(120), default="")
-    status: Mapped[str] = mapped_column(String(120), default="Nieuw")
+    status: Mapped[str] = mapped_column(String(120), default="Aan te schrijven")
     meeting_type: Mapped[str] = mapped_column(String(80), default="")
     meeting_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     owner: Mapped[str] = mapped_column(String(255), default="")

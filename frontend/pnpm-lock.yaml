@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  axios: npm:@global-smile-care/axios-is-forbidden@0.0.0
+
 importers:
 
   .:

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import require_admin
+from app.api.deps import get_current_user, require_admin
 from app.db.session import get_db
 from app.models import TeamProfile, User
 from app.schemas import TeamProfileCreate, TeamProfileOut, TeamProfileUpdate
@@ -16,9 +16,12 @@ router = APIRouter(prefix="/teams", tags=["teams"])
 @router.get("", response_model=list[TeamProfileOut])
 def list_team_profiles(
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    current_user: User = Depends(get_current_user),
 ) -> list[TeamProfile]:
-    return list(db.scalars(select(TeamProfile).order_by(TeamProfile.is_active.desc(), TeamProfile.name)))
+    statement = select(TeamProfile)
+    if current_user.role != "admin":
+        statement = statement.where(TeamProfile.is_active.is_(True))
+    return list(db.scalars(statement.order_by(TeamProfile.is_active.desc(), TeamProfile.name)))
 
 
 @router.post("", response_model=TeamProfileOut)
