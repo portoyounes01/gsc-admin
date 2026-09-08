@@ -303,40 +303,157 @@ def preview_uploaded_pdfs(files: list[tuple[str, bytes]], planning_date: date) -
 def clean_cell_value(value: object) -> str:
     if pd.isna(value):
         return ""
+    if isinstance(value, date):
+        return format_european_date(value)
     if isinstance(value, float) and value.is_integer():
         return str(int(value))
     return re.sub(r"\s+", " ", str(value or "").strip())
 
 
 def normalize_excel_header(value: object) -> str:
-    return simplify_for_matching(clean_cell_value(value)).replace(" ", "_")
+    normalized = simplify_for_matching(clean_cell_value(value))
+    return re.sub(r"_+", "_", re.sub(r"[^a-z0-9]+", "_", normalized)).strip("_")
 
 
-def find_screening_name_columns(df: pd.DataFrame) -> tuple[str | None, str | None, str]:
+def is_screening_combined_name_header(header: str) -> bool:
+    if header in {
+        "patient",
+        "patientnaam",
+        "bewoner",
+        "naam_en_voornaam",
+        "naam_voornaam",
+        "familienaam_voornaam",
+        "voornaam_familienaam",
+        "naam",
+        "name",
+    }:
+        return True
+    if header == "voornaam":
+        return False
+    return "voornaam" in header and any(part in header for part in ("familienaam", "achternaam", "naam"))
+
+
+def is_screening_last_name_header(header: str) -> bool:
+    return header in {"naam", "achternaam", "familienaam", "naam_bewoner", "naam_patient"} or (
+        "voornaam" not in header and any(part in header for part in ("familienaam", "achternaam"))
+    )
+
+
+def is_screening_first_name_header(header: str) -> bool:
+    return "voornaam" in header and not is_screening_combined_name_header(header)
+
+
+def screening_header_score(values: Iterable[object]) -> int:
+    headers = [normalize_excel_header(value) for value in values if clean_cell_value(value)]
+    if not headers:
+        return 0
+    has_first_name = any(is_screening_first_name_header(header) for header in headers)
+    has_last_name = any(is_screening_last_name_header(header) for header in headers)
+    has_combined_name = any(is_screening_combined_name_header(header) for header in headers)
+    score = 0
+    if has_first_name and has_last_name:
+        score += 6
+    if has_combined_name:
+        score += 4
+    score += sum(1 for header in headers if header in {"kamer", "afdeling", "geboortedatum", "rijksregisternummer"})
+    return score
+
+
+def find_screening_header_row(df: pd.DataFrame) -> int | None:
+    best_index = None
+    best_score = 0
+    for index, row in df.head(30).iterrows():
+        score = screening_header_score(row.tolist())
+        if score > best_score:
+            best_index = int(index)
+            best_score = score
+    return best_index if best_score >= 3 else None
+
+
+def unique_headers(values: Iterable[object]) -> list[str]:
+    headers = []
+    counts: dict[str, int] = {}
+    for index, value in enumerate(values, start=1):
+        header = clean_cell_value(value) or f"Kolom {index}"
+        counts[header] = counts.get(header, 0) + 1
+        headers.append(header if counts[header] == 1 else f"{header} {counts[header]}")
+    return headers
+
+
+def screening_name_key(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", simplify_for_matching(value)).strip()
+
+
+def looks_like_date_text(value: str) -> bool:
+    cleaned = str(value or "").strip()
+    key = screening_name_key(cleaned)
+    if re.fullmatch(r"\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?", cleaned):
+        return True
+    if re.fullmatch(r"\d{4}[/-]\d{1,2}[/-]\d{1,2}", cleaned):
+        return True
+    month_names = {
+        "januari",
+        "februari",
+        "maart",
+        "april",
+        "mei",
+        "juni",
+        "juli",
+        "augustus",
+        "september",
+        "oktober",
+        "november",
+        "december",
+    }
+    return bool(re.search(r"\d", key) and any(month in key for month in month_names))
+
+
+def is_screening_non_patient_name(value: str) -> bool:
+    key = screening_name_key(value)
+    if not key or len(key) < 3:
+        return True
+    if looks_like_date_text(value):
+        return True
+    if key in {
+        "planning",
+        "planning datum",
+        "datum",
+        "familienaam",
+        "voornaam",
+        "familienaam voornaam",
+        "naam",
+        "naam voornaam",
+        "naam en voornaam",
+        "bewoner",
+        "bewoners",
+        "patient",
+        "patientnaam",
+        "patient naam",
+        "lijst bewoners",
+        "screeninglijst",
+    }:
+        return True
+    if key.startswith(("planning ", "datum ", "screeninglijst ")):
+        return True
+    return "familienaam" in key and "voornaam" in key
+
+
+def find_screening_name_columns(df: pd.DataFrame) -> tuple[object | None, object | None, str]:
     headers = {column: normalize_excel_header(column) for column in df.columns}
-    first_name_column = next((column for column, header in headers.items() if "voornaam" in header), None)
+    first_name_column = next((column for column, header in headers.items() if is_screening_first_name_header(header)), None)
     last_name_column = next(
         (
             column
             for column, header in headers.items()
-            if header in {"naam", "achternaam", "familienaam", "naam_bewoner", "naam_patient"}
+            if is_screening_last_name_header(header)
         ),
         None,
     )
     if first_name_column and last_name_column and first_name_column != last_name_column:
         return last_name_column, first_name_column, ""
 
-    combined_candidates = (
-        "patient",
-        "patientnaam",
-        "bewoner",
-        "naam_en_voornaam",
-        "naam_voornaam",
-        "naam",
-        "name",
-    )
     for column, header in headers.items():
-        if header in combined_candidates:
+        if is_screening_combined_name_header(header):
             return column, None, ""
 
     best_column = None
@@ -356,8 +473,17 @@ def read_screening_table(file_name: str, file_bytes: bytes) -> pd.DataFrame:
     lower_name = file_name.lower()
     buffer = BytesIO(file_bytes)
     if lower_name.endswith(".csv"):
-        return pd.read_csv(buffer, sep=None, engine="python")
-    return pd.read_excel(buffer, sheet_name=0)
+        raw_df = pd.read_csv(buffer, sep=None, engine="python", header=None)
+    else:
+        raw_df = pd.read_excel(buffer, sheet_name=0, header=None)
+
+    header_row = find_screening_header_row(raw_df)
+    if header_row is None:
+        return raw_df
+
+    df = raw_df.iloc[header_row + 1 :].copy()
+    df.columns = unique_headers(raw_df.iloc[header_row].tolist())
+    return df.reset_index(drop=True)
 
 
 def extract_screening_rows(file_name: str, file_bytes: bytes, planning_date: date) -> list[dict[str, object]]:
@@ -379,7 +505,7 @@ def extract_screening_rows(file_name: str, file_bytes: bytes, planning_date: dat
         if first_name_column:
             name_parts.append(clean_cell_value(item.get(first_name_column)))
         patient_name = clean_patient_name(" ".join(part for part in name_parts if part))
-        if not re.search(r"[A-Za-zÀ-ÿ]", patient_name):
+        if not re.search(r"[A-Za-zÀ-ÿ]", patient_name) or is_screening_non_patient_name(patient_name):
             continue
         rows.append(
             {
