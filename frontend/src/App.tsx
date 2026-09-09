@@ -1501,7 +1501,16 @@ function Home({
   onSelectWzcForPlanning: (wzc: Wzc) => void;
   onSelectWzcForUrgency: (wzc: Wzc) => void;
 }) {
-  const upcoming = plannings.filter((planning) => planning.planning_date >= todayIso);
+  const upcoming = useMemo(
+    () => [...plannings]
+      .filter((planning) => planning.planning_date >= todayIso)
+      .sort((a, b) =>
+        a.planning_date.localeCompare(b.planning_date)
+        || (a.start_time || "09:00").localeCompare(b.start_time || "09:00")
+        || a.name.localeCompare(b.name)
+      ),
+    [plannings]
+  );
   const realWzcs = useMemo(() => actualWzcs(wzcs), [wzcs]);
   const activeWzcs = useMemo(
     () => realWzcs.filter((wzc) => wzc.collaboration_status === "Actief"),
@@ -1605,6 +1614,8 @@ function AgendaPlanningView({
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [agendaError, setAgendaError] = useState("");
+  const createPanelRef = useRef<HTMLDetailsElement | null>(null);
+  const [createPanelOpen, setCreatePanelOpen] = useState(false);
 
   const activeWzcs = useMemo(
     () => actualWzcs(wzcs).filter((wzc) => wzc.collaboration_status === "Actief"),
@@ -1661,6 +1672,14 @@ function AgendaPlanningView({
     setPlanningDate(nextDate);
     setSelectedDate(nextDate);
     setCalendarMonth(nextDate.slice(0, 7) + "-01");
+  }
+
+  function jumpToCreatePlanning(value = selectedDate) {
+    setAgendaDate(value);
+    setCreatePanelOpen(true);
+    window.requestAnimationFrame(() => {
+      createPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   }
 
   async function createAgendaPlanning(event: FormEvent) {
@@ -1753,13 +1772,91 @@ function AgendaPlanningView({
 
   return (
     <div className="stack">
-      <section className="panel agendaCreatePanel">
+      <section className="panel agendaOverviewPanel">
         <div className="sectionTitle">
+          <div>
+            <h2>Agenda-overzicht</h2>
+            <p className="sectionHint">{upcomingAgenda.length} toekomstige planning(en), waarvan {upcomingAgenda.filter((planning) => planning.planning_type === "Screening").length} screening(en).</p>
+          </div>
+          <div className="agendaToolbar">
+            <button type="button" onClick={() => setCalendarMonth(addMonthsIso(calendarMonth, -1))}>Vorige</button>
+            <button type="button" onClick={() => setAgendaDate(todayIso)}>Vandaag</button>
+            <button type="button" onClick={() => setCalendarMonth(addMonthsIso(calendarMonth, 1))}>Volgende</button>
+          </div>
+        </div>
+        <div className="followupSwitch agendaModeSwitch" aria-label="Agendaweergave">
+          {(["Maand", "Lijst"] as AgendaMode[]).map((mode) => (
+            <button key={mode} className={agendaMode === mode ? "selected" : ""} onClick={() => setAgendaMode(mode)}>
+              <strong>{mode}</strong>
+              <span>{mode === "Maand" ? monthLabel(calendarMonth) : `${agendaPlannings.length} planning(en)`}</span>
+            </button>
+          ))}
+        </div>
+        <div className="agendaLayout">
+          <div className="agendaMain">
+            {agendaMode === "Maand" ? (
+              <div className="agendaCalendar">
+                {["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"].map((day) => <div className="agendaWeekday" key={day}>{day}</div>)}
+                {calendarCells.map((cell) => {
+                  const dayPlannings = cell.date ? monthPlannings.filter((planning) => planning.planning_date === cell.date) : [];
+                  return cell.date ? (
+                    <button
+                      type="button"
+                      className={`agendaDay ${cell.date === selectedDate ? "selected" : ""} ${cell.date === todayIso ? "today" : ""}`}
+                      key={cell.key}
+                      onClick={() => setAgendaDate(cell.date)}
+                    >
+                      <span className="agendaDayNumber">{cell.day}</span>
+                      <span className="agendaDayName">{weekdayShortLabel(cell.date)}</span>
+                      <span className="agendaDayItems">
+                        {dayPlannings.slice(0, 2).map((planning) => (
+                          <em className={planning.planning_type === "Screening" ? "screening" : "treatment"} key={planning.id}>
+                            {planning.start_time || "09:00"} {planning.location || planningKindLabel(planning.planning_type)}
+                          </em>
+                        ))}
+                        {dayPlannings.length > 2 && <em>+{dayPlannings.length - 2} meer</em>}
+                      </span>
+                    </button>
+                  ) : <div className="agendaDay emptyDay" key={cell.key} />;
+                })}
+              </div>
+            ) : (
+              <div className="agendaListView">
+                {agendaPlannings.map((planning) => renderAgendaItem(planning))}
+                {agendaPlannings.length === 0 && <div className="empty">Nog geen planning in de agenda.</div>}
+              </div>
+            )}
+          </div>
+          <aside className="agendaDayPanel">
+            <div className="sectionTitle compactSectionTitle">
+              <div>
+                <h2>{formatDate(selectedDate)}</h2>
+                <p className="sectionHint">{selectedDatePlannings.length} planning(en) op deze dag.</p>
+              </div>
+              <button className="compactActionButton" type="button" onClick={() => jumpToCreatePlanning(selectedDate)}>Planning maken</button>
+            </div>
+            <div className="agendaDayList">
+              {selectedDatePlannings.map((planning) => renderAgendaItem(planning))}
+              {selectedDatePlannings.length === 0 && <div className="empty compactEmpty">Geen screening of behandeldag gepland.</div>}
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <details
+        className="panel agendaCreatePanel"
+        ref={createPanelRef}
+        open={createPanelOpen}
+        onToggle={(event) => setCreatePanelOpen(event.currentTarget.open)}
+      >
+        <summary className="agendaCreateSummary">
           <div>
             <h2>Planning</h2>
             <p className="sectionHint">Plan screeningdagen en behandeldagen in de agenda.</p>
           </div>
-        </div>
+          <span className="agendaCreateSummaryMeta">{formatDate(planningDate)} · {planningKindLabel(planningTypeForKind(planningKind))}</span>
+          <span className="agendaCreateSummaryToggle">{createPanelOpen ? "Sluiten" : "Openen"}</span>
+        </summary>
         <form className="agendaCreateForm" onSubmit={createAgendaPlanning}>
           <div className="planningKindSelector agendaKindSelector" aria-label="Type agenda-item">
             <button type="button" className={planningKind === "Screening" ? "selected" : ""} onClick={() => setPlanningKind("Screening")}>
@@ -1789,77 +1886,7 @@ function AgendaPlanningView({
           </div>
           {agendaError && <div className="error">{agendaError}</div>}
         </form>
-      </section>
-
-      <section className="panel agendaOverviewPanel">
-        <div className="sectionTitle">
-          <div>
-            <h2>Agenda-overzicht</h2>
-            <p className="sectionHint">{upcomingAgenda.length} toekomstige planning(en), waarvan {upcomingAgenda.filter((planning) => planning.planning_type === "Screening").length} screening(en).</p>
-          </div>
-          <div className="agendaToolbar">
-            <button type="button" onClick={() => setCalendarMonth(addMonthsIso(calendarMonth, -1))}>Vorige</button>
-            <button type="button" onClick={() => { setCalendarMonth(todayIso.slice(0, 7) + "-01"); setSelectedDate(todayIso); }}>Vandaag</button>
-            <button type="button" onClick={() => setCalendarMonth(addMonthsIso(calendarMonth, 1))}>Volgende</button>
-          </div>
-        </div>
-        <div className="followupSwitch agendaModeSwitch" aria-label="Agendaweergave">
-          {(["Maand", "Lijst"] as AgendaMode[]).map((mode) => (
-            <button key={mode} className={agendaMode === mode ? "selected" : ""} onClick={() => setAgendaMode(mode)}>
-              <strong>{mode}</strong>
-              <span>{mode === "Maand" ? monthLabel(calendarMonth) : `${agendaPlannings.length} planning(en)`}</span>
-            </button>
-          ))}
-        </div>
-        <div className="agendaLayout">
-          <div className="agendaMain">
-            {agendaMode === "Maand" ? (
-              <div className="agendaCalendar">
-                {["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"].map((day) => <div className="agendaWeekday" key={day}>{day}</div>)}
-                {calendarCells.map((cell) => {
-                  const dayPlannings = cell.date ? monthPlannings.filter((planning) => planning.planning_date === cell.date) : [];
-                  return cell.date ? (
-                    <button
-                      type="button"
-                      className={`agendaDay ${cell.date === selectedDate ? "selected" : ""} ${cell.date === todayIso ? "today" : ""}`}
-                      key={cell.key}
-                      onClick={() => setSelectedDate(cell.date)}
-                    >
-                      <span className="agendaDayNumber">{cell.day}</span>
-                      <span className="agendaDayName">{weekdayShortLabel(cell.date)}</span>
-                      <span className="agendaDayItems">
-                        {dayPlannings.slice(0, 2).map((planning) => (
-                          <em className={planning.planning_type === "Screening" ? "screening" : "treatment"} key={planning.id}>
-                            {planning.start_time || "09:00"} {planning.location || planningKindLabel(planning.planning_type)}
-                          </em>
-                        ))}
-                        {dayPlannings.length > 2 && <em>+{dayPlannings.length - 2} meer</em>}
-                      </span>
-                    </button>
-                  ) : <div className="agendaDay emptyDay" key={cell.key} />;
-                })}
-              </div>
-            ) : (
-              <div className="agendaListView">
-                {agendaPlannings.map((planning) => renderAgendaItem(planning))}
-                {agendaPlannings.length === 0 && <div className="empty">Nog geen planning in de agenda.</div>}
-              </div>
-            )}
-          </div>
-          <aside className="agendaDayPanel">
-            <div className="sectionTitle compactSectionTitle">
-              <div>
-                <h2>{formatDate(selectedDate)}</h2>
-                <p className="sectionHint">{selectedDatePlannings.length} planning(en) op deze dag.</p>
-              </div>
-            </div>
-            <div className="agendaDayList">
-              {selectedDatePlannings.map((planning) => renderAgendaItem(planning))}
-              {selectedDatePlannings.length === 0 && <div className="empty compactEmpty">Geen screening of behandeldag gepland.</div>}
-            </div>
-          </aside>
-        </div>
-      </section>
+      </details>
     </div>
   );
 }
