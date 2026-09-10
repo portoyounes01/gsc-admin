@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import get_current_user
+from app.core.route_colors import safe_route_color
 from app.db.session import get_db
 from app.models import SavedUrgencyRoutePlan, Urgency, User, Wzc
 from app.schemas import (
@@ -27,6 +28,8 @@ router = APIRouter(prefix="/urgencies", tags=["urgencies"])
 
 def saved_route_plan_response(saved_route_plan: SavedUrgencyRoutePlan) -> SavedUrgencyRoutePlanOut:
     plan_data = json.loads(saved_route_plan.plan_json)
+    for route in plan_data.get("routes", []):
+        route["color"] = safe_route_color(route.get("color"))
     plan = UrgencyRoutePlanOut.model_validate(plan_data)
     return SavedUrgencyRoutePlanOut(
         id=saved_route_plan.id,

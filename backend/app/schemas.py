@@ -2,12 +2,9 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from app.core.route_colors import is_safe_route_color
 
-
-class TokenOut(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
 
 class LoginIn(BaseModel):
@@ -22,6 +19,13 @@ class UserOut(BaseModel):
     is_active: bool
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class SessionOut(BaseModel):
+    user: UserOut
+    csrf_token: str
+    session_id: str
+    expires_at: datetime
 
 
 class UserCreate(BaseModel):
@@ -308,6 +312,12 @@ class SavedUrgencyRoutePlanCreate(BaseModel):
     execution_date: date
     title: str = ""
     plan: UrgencyRoutePlanOut
+
+    @model_validator(mode="after")
+    def validate_route_colors(self) -> "SavedUrgencyRoutePlanCreate":
+        if any(not is_safe_route_color(route.color) for route in self.plan.routes):
+            raise ValueError("Routekleur moet een hexkleur met zes cijfers zijn.")
+        return self
 
 
 class SavedUrgencyRoutePlanOut(BaseModel):
