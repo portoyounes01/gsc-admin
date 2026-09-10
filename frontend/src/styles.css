@@ -2834,41 +2834,6 @@ label {
   flex-shrink: 0;
 }
 
-.userDatabaseRow {
-  flex-wrap: wrap;
-}
-
-.userDatabaseRow .rowMeta {
-  flex-shrink: 1;
-  flex-wrap: wrap;
-}
-
-.userPasswordForm {
-  flex-basis: 100%;
-  min-width: 0;
-  padding-top: 14px;
-  border-top: 1px solid var(--gsc-border);
-}
-
-.userPasswordForm fieldset {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
-  gap: 14px;
-  min-width: 0;
-  padding: 0;
-  border: 0;
-}
-
-.userPasswordForm legend {
-  margin-bottom: 8px;
-  font-weight: 700;
-}
-
-.passwordFormNote {
-  grid-column: 1 / -1;
-  margin: 0;
-}
-
 .rowMeta select {
   width: auto;
   min-width: 130px;

@@ -2,8 +2,6 @@
 
 Nieuwe beta zonder Streamlit.
 
-Authenticatie gebruikt intrekbare server-side sessies en HttpOnly cookies. Zie [sessies, lokale start en productievoorwaarden](docs/security-hardening.md). Bestaande gebruikers moeten na deze wijziging opnieuw aanmelden.
-
 Stack:
 - React + Vite frontend
 - FastAPI backend
@@ -36,14 +34,14 @@ Geocoding health: http://localhost:8000/health/geocoding
 API docs: http://localhost:8000/docs
 ```
 
-Alleen bij expliciete configuratie kan de backend lokaal een eerste admingebruiker aanmaken via:
+Bij eerste start maakt de backend automatisch een admingebruiker aan via:
 
 ```text
 BOOTSTRAP_ADMIN_EMAIL
 BOOTSTRAP_ADMIN_PASSWORD
 ```
 
-Deze waarden staan standaard leeg. Gebruik bootstrap uitsluitend voor lokale beta/test; productie weigert hiermee te starten. Bestaande accounts blijven behouden.
+Gebruik dit enkel voor beta/test en wijzig het servermatig in `.env`.
 
 ## Bestaande data migreren
 
