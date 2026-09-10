@@ -547,14 +547,6 @@ def build_excel_file(planning_name: str, planning_date: date, location: str, row
         worksheet = writer.sheets["Planning"]
         style_excel_sheet(worksheet, planning_name, planning_date, location, len(df), done_col)
         add_checklist_validation(worksheet, len(df))
-        # XLSX has explicit cell types: all textual content is literal, even when
-        # it starts with =, +, -, @, whitespace or a spreadsheet error code.
-        # This leaves numeric cells and our validation/formatting formulas intact.
-        for cells in worksheet.iter_rows():
-            for cell in cells:
-                if isinstance(cell.value, str):
-                    cell.data_type = "s"
-
 
     output.seek(0)
     return output

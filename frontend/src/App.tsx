@@ -1,8 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent, ReactNode } from "react";
-import { api, ApiError, clearSessionState, SESSION_ENDED_EVENT, SESSION_DEADLINE_EVENT } from "./api";
-import { routeStopElement, safeRouteColor } from "./routeMarkers";
-import { UserPasswordForm } from "./UserPasswordForm";
+import { api, clearToken, getToken } from "./api";
 import type { AuditLog, DossierPreviewRow, Planning, PlanningRow, Prospect, SavedUrgencyRoutePlan, TeamProfile, Urgency, UrgencyRoutePlan, User, Wzc } from "./types";
 
 type Section = "Home" | "Planning" | "Behandelplanning" | "Mondzorgdossiers" | "Urgenties" | "WZC opvolging" | "WZC database";
@@ -909,7 +907,7 @@ function markerPoint(lat: number | null, lon: number | null) {
 }
 
 function LoginView({ onLogin }: { onLogin: (user: User) => void }) {
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState("andres@globalsmilecare.be");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -919,7 +917,8 @@ function LoginView({ onLogin }: { onLogin: (user: User) => void }) {
     setLoading(true);
     setError("");
     try {
-      onLogin(await api.login(email, password));
+      await api.login(email, password);
+      onLogin(await api.me());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login mislukt.");
     } finally {
@@ -958,7 +957,7 @@ function Shell({
   user: User;
   section: Section;
   setSection: (section: Section) => void;
-  onLogout: (all?: boolean) => void;
+  onLogout: () => void;
   children: ReactNode;
 }) {
   const visibleSections = sections.filter((item) => !["Admin", "WZC database"].includes(item) || user.role === "admin");
@@ -987,8 +986,7 @@ function Shell({
           <span>Aangemeld als<br /><strong>{user.email}</strong></span>
           <span>Rol<br /><strong>{user.role}</strong></span>
           <span>Intern en vertrouwelijk</span>
-          <button onClick={() => onLogout()}>Afmelden</button>
-          <button onClick={() => onLogout(true)}>Overal afmelden</button>
+          <button onClick={onLogout}>Afmelden</button>
         </div>
       </aside>
       <main className="content">{children}</main>
@@ -1422,7 +1420,7 @@ function RoutePlanMap({ plan }: { plan: UrgencyRoutePlan }) {
             L.marker(point, {
               icon: L.divIcon({
                 className: "",
-                html: routeStopElement(route.color, stop.sequence),
+                html: `<div class="gsc-route-stop" style="background:${route.color};">${stop.sequence}</div>`,
                 iconSize: [28, 28],
                 iconAnchor: [14, 14],
               }),
@@ -1431,7 +1429,7 @@ function RoutePlanMap({ plan }: { plan: UrgencyRoutePlan }) {
           if (endPoint) routePoints.push(endPoint);
           if (routePoints.length > 1) {
             L.polyline(routePoints, {
-              color: safeRouteColor(route.color),
+              color: route.color,
               weight: 4,
               opacity: 0.74,
               dashArray: plan.has_route_geometry ? undefined : "6 8",
@@ -2387,13 +2385,13 @@ function UrgenciesView({
                     const googleUrl = googleMapsRouteUrl(routePlan, route);
                     const waypointCount = googleMapsWaypointCount(routePlan, route);
                     return (
-                      <article className="routeDispatchCard" key={route.route_id} style={{ borderLeftColor: safeRouteColor(route.color) }}>
+                      <article className="routeDispatchCard" key={route.route_id} style={{ borderLeftColor: route.color }}>
                         <div className="routeDispatchHeader">
                           <div>
                             <strong>{route.label}</strong>
                             <span>{route.stops.length} bezoeken · klaar {route.estimated_end_time}</span>
                           </div>
-                          <span className="routeColorDot" style={{ background: safeRouteColor(route.color) }} />
+                          <span className="routeColorDot" style={{ background: route.color }} />
                         </div>
                         <div className="routeDispatchSummary">
                           <span><strong>{formatDuration(route.total_duration_minutes)}</strong> totaal</span>
@@ -3327,8 +3325,6 @@ function WzcDatabaseView({
     role: "user",
     is_active: true
   });
-  const [passwordUserId, setPasswordUserId] = useState<number | null>(null);
-  const [passwordNotice, setPasswordNotice] = useState("");
   const [logFilters, setLogFilters] = useState({
     actor: "",
     module: "",
@@ -3439,11 +3435,6 @@ function WzcDatabaseView({
     await onSaved();
   }
 
-  function closePasswordForm(userId: number) {
-    setPasswordUserId((current) => current === userId ? null : current);
-    document.getElementById(`user-password-button-${userId}`)?.focus();
-  }
-
   async function updateUserRole(selectedUser: User, role: string) {
     await api.updateUser(selectedUser.id, { role });
     await onSaved();
@@ -3479,7 +3470,7 @@ function WzcDatabaseView({
     <div className="stack">
       <section className="tabBar" aria-label="WZC database tabs">
         {databaseTabs.map((tab) => (
-          <button key={tab} className={activeTab === tab ? "selected" : ""} onClick={() => { setActiveTab(tab); setPasswordUserId(null); setPasswordNotice(""); }}>{tab}</button>
+          <button key={tab} className={activeTab === tab ? "selected" : ""} onClick={() => setActiveTab(tab)}>{tab}</button>
         ))}
       </section>
       {activeTab === "WZC database" && (
@@ -3653,10 +3644,9 @@ function WzcDatabaseView({
             </select></label>
             <button className="primaryButton">Gebruiker toevoegen</button>
           </form>
-          {passwordNotice && <p className="successNotice" role="status">{passwordNotice}</p>}
           <div className="databaseList">
             {users.map((selectedUser) => (
-              <article className="databaseRow userDatabaseRow" key={selectedUser.id}>
+              <article className="databaseRow" key={selectedUser.id}>
                 <div>
                   <strong>{selectedUser.email}</strong>
                   <span>{selectedUser.role === "admin" ? "Admin" : "Gebruiker"} · {selectedUser.is_active ? "Actief" : "Inactief"}</span>
@@ -3668,24 +3658,8 @@ function WzcDatabaseView({
                     <option value="admin">Admin</option>
                   </select>
                   <button onClick={() => updateUserStatus(selectedUser, !selectedUser.is_active)}>{selectedUser.is_active ? "Deactiveren" : "Activeren"}</button>
-                  <button type="button" id={`user-password-button-${selectedUser.id}`}
-                    aria-expanded={passwordUserId === selectedUser.id} aria-controls={`user-password-form-${selectedUser.id}`}
-                    onClick={() => { setPasswordNotice(""); setPasswordUserId((current) => current === selectedUser.id ? null : selectedUser.id); }}>
-                    Wachtwoord wijzigen
-                  </button>
-                  <button onClick={async () => {
-                    try { await api.revokeUserSessions(selectedUser.id); await onSaved(); }
-                    catch (err) { window.alert(err instanceof Error ? err.message : "Intrekken mislukt."); }
-                  }}>Sessies intrekken</button>
                   <button onClick={() => removeUser(selectedUser)}>Verwijderen</button>
                 </div>
-                {passwordUserId === selectedUser.id && (
-                  <UserPasswordForm user={selectedUser} onCancel={() => closePasswordForm(selectedUser.id)} onChanged={() => {
-                    closePasswordForm(selectedUser.id);
-                    setPasswordNotice(`Wachtwoord gewijzigd voor ${selectedUser.email}. Alle sessies zijn ingetrokken.`);
-                    void onSaved();
-                  }} />
-                )}
               </article>
             ))}
           </div>
@@ -4364,7 +4338,8 @@ function AdminView({ users, auditLogs, onSaved }: { users: User[]; auditLogs: Au
   );
 }
 
-function Dashboard({ user, onLogout }: { user: User; onLogout: (all?: boolean) => Promise<void> }) {
+function App() {
+  const [user, setUser] = useState<User | null>(null);
   const [section, setSection] = useState<Section>("Home");
   const [wzcs, setWzcs] = useState<Wzc[]>([]);
   const [prospects, setProspects] = useState<Prospect[]>([]);
@@ -4405,15 +4380,27 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: (all?: boolean) =
     }
   }
 
-  useEffect(() => { void loadData(); }, []);
+  useEffect(() => {
+    async function restoreSession() {
+      if (!getToken()) return;
+      try {
+        const currentUser = await api.me();
+        setUser(currentUser);
+        await loadData(currentUser);
+      } catch {
+        clearToken();
+      }
+    }
+    restoreSession();
+  }, []);
 
-  const [loggingOut, setLoggingOut] = useState(false);
-  async function logout(all = false) {
-    if (loggingOut) return;
-    setLoggingOut(true);
-    try { await onLogout(all); }
-    catch (err) { setError(err instanceof Error ? err.message : "Afmelden mislukt. Probeer opnieuw."); }
-    finally { setLoggingOut(false); }
+  if (!user) {
+    return <LoginView onLogin={(currentUser) => { setUser(currentUser); loadData(currentUser); }} />;
+  }
+
+  function logout() {
+    clearToken();
+    setUser(null);
   }
 
   return (
@@ -4473,57 +4460,6 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: (all?: boolean) =
       {section === "WZC database" && user.role === "admin" && <WzcDatabaseView wzcs={wzcs} prospects={prospects} teams={teams} users={users} auditLogs={auditLogs} onSaved={() => loadData()} />}
     </Shell>
   );
-}
-
-function App() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [restoreError, setRestoreError] = useState("");
-  const [attempt, setAttempt] = useState(0);
-  const deadline = useRef(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    function ended() { setUser(null); deadline.current = 0; if (timer) clearTimeout(timer); }
-    function updated(event: Event) {
-      deadline.current = Date.parse((event as CustomEvent<string>).detail);
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => clearSessionState(), Math.max(0, deadline.current - Date.now()));
-    }
-    function checkVisible() {
-      if (document.visibilityState === "visible" && deadline.current) {
-        if (deadline.current <= Date.now()) clearSessionState();
-        else void api.me().catch(() => {}); // 401/changed-session responses clear the dashboard.
-      }
-    }
-    function pageRestored(event: PageTransitionEvent) { if (event.persisted) clearSessionState(); }
-    window.addEventListener(SESSION_ENDED_EVENT, ended);
-    window.addEventListener(SESSION_DEADLINE_EVENT, updated);
-    window.addEventListener("pageshow", pageRestored);
-    document.addEventListener("visibilitychange", checkVisible);
-    setLoading(true);
-    setRestoreError("");
-    api.session().then((currentUser) => { if (!cancelled) setUser(currentUser); }).catch((err) => {
-      if (!cancelled && !(err instanceof ApiError && [401, 409].includes(err.status))) {
-        setRestoreError("Verbinding met de backend mislukt. Controleer of deze draait en probeer opnieuw.");
-      }
-    }).finally(() => { if (!cancelled) setLoading(false); });
-    return () => {
-      cancelled = true;
-      if (timer) clearTimeout(timer);
-      window.removeEventListener(SESSION_ENDED_EVENT, ended);
-      window.removeEventListener(SESSION_DEADLINE_EVENT, updated);
-      window.removeEventListener("pageshow", pageRestored);
-      document.removeEventListener("visibilitychange", checkVisible);
-    };
-  }, [attempt]);
-
-  if (loading) return <main className="loginPage"><p>Sessie controleren…</p></main>;
-  if (restoreError) return <main className="loginPage"><div className="loginCard"><p>{restoreError}</p><button onClick={() => setAttempt((value) => value + 1)}>Opnieuw proberen</button></div></main>;
-  if (!user) return <LoginView onLogin={setUser} />;
-  // Unmounting Dashboard also discards every patient/planning/form state below it.
-  return <Dashboard key={user.id} user={user} onLogout={(all) => api.logout(all)} />;
 }
 
 export default App;
