@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent, ReactNode } from "react";
 import { api, clearToken, getToken } from "./api";
+import { UserPasswordForm } from "./UserPasswordForm";
 import type { AuditLog, DossierPreviewRow, Planning, PlanningRow, Prospect, SavedUrgencyRoutePlan, TeamProfile, Urgency, UrgencyRoutePlan, User, Wzc } from "./types";
 
 type Section = "Home" | "Planning" | "Behandelplanning" | "Mondzorgdossiers" | "Urgenties" | "WZC opvolging" | "WZC database";
@@ -3325,6 +3326,8 @@ function WzcDatabaseView({
     role: "user",
     is_active: true
   });
+  const [passwordUserId, setPasswordUserId] = useState<number | null>(null);
+  const [passwordNotice, setPasswordNotice] = useState("");
   const [logFilters, setLogFilters] = useState({
     actor: "",
     module: "",
@@ -3451,6 +3454,11 @@ function WzcDatabaseView({
     await onSaved();
   }
 
+  function closePasswordForm(userId: number) {
+    setPasswordUserId((current) => current === userId ? null : current);
+    window.setTimeout(() => document.getElementById(`user-password-button-${userId}`)?.focus(), 0);
+  }
+
   if (!unlocked) {
     return (
       <section className="accessPanel">
@@ -3470,7 +3478,11 @@ function WzcDatabaseView({
     <div className="stack">
       <section className="tabBar" aria-label="WZC database tabs">
         {databaseTabs.map((tab) => (
-          <button key={tab} className={activeTab === tab ? "selected" : ""} onClick={() => setActiveTab(tab)}>{tab}</button>
+          <button key={tab} className={activeTab === tab ? "selected" : ""} onClick={() => {
+            setActiveTab(tab);
+            setPasswordUserId(null);
+            setPasswordNotice("");
+          }}>{tab}</button>
         ))}
       </section>
       {activeTab === "WZC database" && (
@@ -3644,9 +3656,10 @@ function WzcDatabaseView({
             </select></label>
             <button className="primaryButton">Gebruiker toevoegen</button>
           </form>
+          {passwordNotice && <p className="successNotice" role="status">{passwordNotice}</p>}
           <div className="databaseList">
             {users.map((selectedUser) => (
-              <article className="databaseRow" key={selectedUser.id}>
+              <article className="databaseRow userDatabaseRow" key={selectedUser.id}>
                 <div>
                   <strong>{selectedUser.email}</strong>
                   <span>{selectedUser.role === "admin" ? "Admin" : "Gebruiker"} · {selectedUser.is_active ? "Actief" : "Inactief"}</span>
@@ -3658,8 +3671,29 @@ function WzcDatabaseView({
                     <option value="admin">Admin</option>
                   </select>
                   <button onClick={() => updateUserStatus(selectedUser, !selectedUser.is_active)}>{selectedUser.is_active ? "Deactiveren" : "Activeren"}</button>
+                  <button
+                    type="button"
+                    id={`user-password-button-${selectedUser.id}`}
+                    aria-expanded={passwordUserId === selectedUser.id}
+                    aria-controls={`user-password-form-${selectedUser.id}`}
+                    onClick={() => {
+                      setPasswordNotice("");
+                      setPasswordUserId((current) => current === selectedUser.id ? null : selectedUser.id);
+                    }}
+                  >Wachtwoord wijzigen</button>
                   <button onClick={() => removeUser(selectedUser)}>Verwijderen</button>
                 </div>
+                {passwordUserId === selectedUser.id && (
+                  <UserPasswordForm
+                    user={selectedUser}
+                    onCancel={() => closePasswordForm(selectedUser.id)}
+                    onChanged={() => {
+                      closePasswordForm(selectedUser.id);
+                      setPasswordNotice(`Wachtwoord gewijzigd voor ${selectedUser.email}.`);
+                      void onSaved();
+                    }}
+                  />
+                )}
               </article>
             ))}
           </div>
