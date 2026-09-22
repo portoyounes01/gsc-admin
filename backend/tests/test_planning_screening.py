@@ -54,6 +54,24 @@ class ScreeningPlanningTests(unittest.TestCase):
 
         self.assertEqual([row[planning.PATIENT_COL] for row in rows], ["Peeters Jan", "Janssens Marie"])
 
+    def test_keeps_month_like_names_with_room_numbers_and_skips_real_dates(self) -> None:
+        payload = workbook_bytes(
+            [
+                ["Naam"],
+                ["Test Julia (K7)"],
+                ["April Testpersoon (K14)"],
+                ["8 september 2026"],
+                ["09/09/2026"],
+            ]
+        )
+
+        rows = planning.preview_screening_workbooks([("screening.xlsx", payload)], date(2026, 9, 8))
+
+        self.assertEqual(
+            [row[planning.PATIENT_COL] for row in rows],
+            ["Test Julia (K7)", "April Testpersoon (K14)"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

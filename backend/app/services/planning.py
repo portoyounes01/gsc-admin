@@ -405,7 +405,11 @@ def looks_like_date_text(value: str) -> bool:
         "november",
         "december",
     }
-    return bool(re.search(r"\d", key) and any(month in key for month in month_names))
+    month_pattern = "|".join(sorted(month_names, key=len, reverse=True))
+    return bool(
+        re.fullmatch(rf"\d{{1,2}}\s+(?:{month_pattern})(?:\s+\d{{2,4}})?", key)
+        or re.fullmatch(rf"(?:{month_pattern})\s+\d{{4}}", key)
+    )
 
 
 def is_screening_non_patient_name(value: str) -> bool:
