@@ -184,6 +184,26 @@ export type PlanningRow = {
   patient_done: boolean;
 };
 
+export type TreatmentMatchItem = {
+  pdf_id: string;
+  roster_name: string;
+  pdf_name: string;
+  file_name: string;
+  reason: string;
+  row: PlanningRow;
+};
+
+export type TreatmentMatchReport = {
+  excel_count: number;
+  pdf_count: number;
+  roster_names: string[];
+  pdfs: TreatmentMatchItem[];
+  matched: TreatmentMatchItem[];
+  missing_names: string[];
+  unselected_pdfs: TreatmentMatchItem[];
+  review: TreatmentMatchItem[];
+};
+
 export type Planning = {
   id: number;
   name: string;

@@ -300,6 +300,138 @@ def preview_uploaded_pdfs(files: list[tuple[str, bytes]], planning_date: date) -
     return group_rows(rows, planning_date)
 
 
+def treatment_name_key(value: str) -> str:
+    cleaned = re.sub(r"\s*[\[(](?:kamer|kam|k)?\s*[a-z0-9-]+[\])]\s*$", "", str(value or ""), flags=re.IGNORECASE)
+    cleaned = re.sub(r"^(?:dhr|de heer|mevr|mevrouw)\.?\s+", "", cleaned, flags=re.IGNORECASE)
+    tokens = re.findall(r"[a-z0-9]+", simplify_for_matching(cleaned))
+    return " ".join(sorted(tokens))
+
+
+def preview_treatment_pdf_files(
+    files: list[tuple[str, bytes]],
+    planning_date: date,
+) -> list[dict[str, object]]:
+    output = []
+    for index, (file_name, file_bytes) in enumerate(files, start=1):
+        extracted = extract_treatment_rows(file_name, file_bytes, planning_date, f"{index}:{file_name}")
+        grouped = group_rows(extracted, planning_date)
+        if not grouped:
+            continue
+        output.append(
+            {
+                "pdf_id": str(index),
+                "file_name": file_name,
+                "pdf_name": str(grouped[0].get(PATIENT_COL, "") or ""),
+                "row": grouped[0],
+            }
+        )
+    return output
+
+
+def match_treatment_plans(
+    roster_rows: list[dict[str, object]],
+    pdf_items: list[dict[str, object]],
+) -> dict[str, object]:
+    roster_by_key: dict[str, list[str]] = {}
+    for row in roster_rows:
+        name = str(row.get(PATIENT_COL, "") or "").strip()
+        key = treatment_name_key(name)
+        if key:
+            roster_by_key.setdefault(key, []).append(name)
+
+    pdf_by_key: dict[str, list[dict[str, object]]] = {}
+    for item in pdf_items:
+        key = treatment_name_key(str(item.get("pdf_name", "") or ""))
+        if key:
+            pdf_by_key.setdefault(key, []).append(item)
+
+    matched = []
+    review = []
+    missing_names = []
+    unselected_pdfs = []
+
+    for key, roster_names in roster_by_key.items():
+        matching_pdfs = pdf_by_key.get(key, [])
+        if len(roster_names) == 1 and len(matching_pdfs) == 1:
+            item = matching_pdfs[0]
+            item["row"][PATIENT_COL] = roster_names[0]
+            matched.append(
+                {
+                    "pdf_id": str(item.get("pdf_id") or item["file_name"]),
+                    "roster_name": roster_names[0],
+                    "pdf_name": item["pdf_name"],
+                    "file_name": item["file_name"],
+                    "row": item["row"],
+                }
+            )
+        elif matching_pdfs:
+            reason = "Dubbele naam in de Excel-lijst." if len(roster_names) > 1 else "Meerdere PDF's met dezelfde bewonersnaam."
+            for item in matching_pdfs:
+                review.append(
+                    {
+                        "pdf_id": str(item.get("pdf_id") or item["file_name"]),
+                        "roster_name": " / ".join(roster_names),
+                        "pdf_name": item["pdf_name"],
+                        "file_name": item["file_name"],
+                        "reason": reason,
+                        "row": item["row"],
+                    }
+                )
+        else:
+            missing_names.extend(roster_names)
+
+    for key, items in pdf_by_key.items():
+        if key in roster_by_key:
+            continue
+        for item in items:
+            unselected_pdfs.append(
+                {
+                    "pdf_id": str(item.get("pdf_id") or item["file_name"]),
+                    "pdf_name": item["pdf_name"],
+                    "file_name": item["file_name"],
+                    "row": item["row"],
+                }
+            )
+
+    for number, item in enumerate(matched, start=1):
+        item["row"][PATIENT_NR_COL] = number
+
+    matched_names_by_pdf = {str(item["pdf_id"]): str(item["roster_name"]) for item in matched}
+    review_reasons_by_pdf = {str(item["pdf_id"]): str(item["reason"]) for item in review}
+    all_pdfs = [
+        {
+            "pdf_id": str(item.get("pdf_id") or item["file_name"]),
+            "roster_name": matched_names_by_pdf.get(str(item.get("pdf_id") or item["file_name"]), ""),
+            "pdf_name": item["pdf_name"],
+            "file_name": item["file_name"],
+            "reason": review_reasons_by_pdf.get(str(item.get("pdf_id") or item["file_name"]), ""),
+            "row": item["row"],
+        }
+        for item in pdf_items
+    ]
+
+    return {
+        "excel_count": len(roster_rows),
+        "pdf_count": len(pdf_items),
+        "roster_names": [str(row.get(PATIENT_COL, "") or "").strip() for row in roster_rows],
+        "pdfs": all_pdfs,
+        "matched": matched,
+        "missing_names": missing_names,
+        "unselected_pdfs": unselected_pdfs,
+        "review": review,
+    }
+
+
+def preview_treatment_matches(
+    roster_file: tuple[str, bytes],
+    pdf_files: list[tuple[str, bytes]],
+    planning_date: date,
+) -> dict[str, object]:
+    roster_rows = preview_screening_workbooks([roster_file], planning_date)
+    pdf_items = preview_treatment_pdf_files(pdf_files, planning_date)
+    return match_treatment_plans(roster_rows, pdf_items)
+
+
 def clean_cell_value(value: object) -> str:
     if pd.isna(value):
         return ""

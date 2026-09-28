@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent, ReactNode } from "react";
 import { api, clearToken, getToken } from "./api";
 import { UserPasswordForm } from "./UserPasswordForm";
-import type { AuditLog, DossierPreviewRow, Planning, PlanningRow, Prospect, SavedUrgencyRoutePlan, TeamProfile, Urgency, UrgencyRoutePlan, User, Wzc } from "./types";
+import type { AuditLog, DossierPreviewRow, Planning, PlanningRow, Prospect, SavedUrgencyRoutePlan, TeamProfile, TreatmentMatchItem, TreatmentMatchReport, Urgency, UrgencyRoutePlan, User, Wzc } from "./types";
 
 type Section = "Home" | "Planning" | "Behandelplanning" | "Mondzorgdossiers" | "Urgenties" | "WZC opvolging" | "WZC database";
 type FollowupMode = "Prospectie" | "Actieve WZC's";
@@ -20,6 +20,11 @@ type ExtraContact = {
   role: string;
   phone: string;
   email: string;
+};
+type TreatmentPdfAssignment = {
+  item: TreatmentMatchItem;
+  rosterName: string;
+  searchValue: string;
 };
 
 const sections: Section[] = ["Home", "Planning", "Behandelplanning", "Mondzorgdossiers", "Urgenties", "WZC opvolging", "WZC database"];
@@ -324,6 +329,21 @@ function normalizeSearch(value: string) {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
+}
+
+function remainingTreatmentRosterNames(names: string[], assignments: TreatmentPdfAssignment[]) {
+  const linkedCounts = new Map<string, number>();
+  assignments.forEach((assignment) => {
+    const key = normalizeSearch(assignment.rosterName);
+    if (key) linkedCounts.set(key, (linkedCounts.get(key) || 0) + 1);
+  });
+  return names.filter((name) => {
+    const key = normalizeSearch(name);
+    const linkedCount = linkedCounts.get(key) || 0;
+    if (linkedCount <= 0) return true;
+    linkedCounts.set(key, linkedCount - 1);
+    return false;
+  });
 }
 
 function isGroupRecord(wzc: Wzc) {
@@ -3858,6 +3878,9 @@ function PlanningView({
   const [planningGroupFilter, setPlanningGroupFilter] = useState("");
   const [wzcId, setWzcId] = useState<number | "">(preselectedWzc?.id || "");
   const [files, setFiles] = useState<File[]>([]);
+  const [treatmentRoster, setTreatmentRoster] = useState<File | null>(null);
+  const [treatmentMatchReport, setTreatmentMatchReport] = useState<TreatmentMatchReport | null>(null);
+  const [treatmentPdfAssignments, setTreatmentPdfAssignments] = useState<TreatmentPdfAssignment[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<Record<string, boolean>>({});
   const [rows, setRows] = useState<PlanningRow[]>([]);
   const [selectedRows, setSelectedRows] = useState<Record<number, boolean>>({});
@@ -3866,6 +3889,8 @@ function PlanningView({
   const [fileInputKey, setFileInputKey] = useState(0);
   const [expandedPlanningId, setExpandedPlanningId] = useState<number | null>(plannings[0]?.id || null);
   const [savedAddFiles, setSavedAddFiles] = useState<File[]>([]);
+  const [savedAddRoster, setSavedAddRoster] = useState<File | null>(null);
+  const [savedAddReport, setSavedAddReport] = useState<TreatmentMatchReport | null>(null);
   const [savedAddRows, setSavedAddRows] = useState<PlanningRow[]>([]);
   const [savedAddLoading, setSavedAddLoading] = useState(false);
   const [savedDate, setSavedDate] = useState("");
@@ -3948,6 +3973,10 @@ function PlanningView({
     if (expandedPlanning) {
       setSavedDate(expandedPlanning.planning_date);
     }
+    setSavedAddFiles([]);
+    setSavedAddRoster(null);
+    setSavedAddReport(null);
+    setSavedAddRows([]);
   }, [expandedPlanning?.id, expandedPlanning?.planning_date]);
 
   function resetPlanning() {
@@ -3959,6 +3988,9 @@ function PlanningView({
     setPlanningGroupFilter("");
     setWzcId("");
     setFiles([]);
+    setTreatmentRoster(null);
+    setTreatmentMatchReport(null);
+    setTreatmentPdfAssignments([]);
     setRows([]);
     setSelectedFiles({});
     setSelectedRows({});
@@ -3970,6 +4002,9 @@ function PlanningView({
     setPlanningKind(kind);
     setName(kind === "Screening" ? "Screening" : "Behandelplanning");
     setFiles([]);
+    setTreatmentRoster(null);
+    setTreatmentMatchReport(null);
+    setTreatmentPdfAssignments([]);
     setRows([]);
     setSelectedFiles({});
     setSelectedRows({});
@@ -3978,6 +4013,13 @@ function PlanningView({
 
   function updatePreviewRow(index: number, patch: Partial<PlanningRow>) {
     setRows((currentRows) => currentRows.map((row, rowIndex) => rowIndex === index ? { ...row, ...patch } : row));
+    setTreatmentPdfAssignments((currentAssignments) => {
+      const assignment = currentAssignments.filter((item) => item.rosterName)[index];
+      if (!assignment) return currentAssignments;
+      return currentAssignments.map((item) => item.item.pdf_id === assignment.item.pdf_id
+        ? { ...item, item: { ...item.item, row: { ...item.item.row, ...patch } } }
+        : item);
+    });
   }
 
   function loadPlanningIntoEditor(planning: Planning) {
@@ -3990,6 +4032,9 @@ function PlanningView({
     setPlanningGroupFilter(savedWzc?.group_name || "");
     setWzcId(planning.wzc_id || "");
     setFiles([]);
+    setTreatmentRoster(null);
+    setTreatmentMatchReport(null);
+    setTreatmentPdfAssignments([]);
     setRows(planning.rows.map((row, index) => ({ ...row, patient_number: index + 1 })));
     setSelectedFiles({});
     setSelectedRows(Object.fromEntries(planning.rows.map((_, index) => [index, true])));
@@ -4002,9 +4047,24 @@ function PlanningView({
     const selectedUploadFiles = files.filter((file) => selectedFiles[file.name]);
     setLoading(true);
     try {
-      const previewRows = planningKind === "Screening"
-        ? await api.previewScreeningPlanning(planningDate, selectedUploadFiles)
-        : await api.previewPlanning(planningDate, selectedUploadFiles);
+      let previewRows: PlanningRow[];
+      if (planningKind === "Screening") {
+        previewRows = await api.previewScreeningPlanning(planningDate, selectedUploadFiles);
+        setTreatmentMatchReport(null);
+      } else {
+        if (!treatmentRoster) return;
+        const report = await api.previewTreatmentMatches(planningDate, treatmentRoster, selectedUploadFiles);
+        setTreatmentMatchReport(report);
+        const assignments = report.pdfs.map((item) => ({
+          item,
+          rosterName: item.roster_name,
+          searchValue: item.roster_name,
+        }));
+        setTreatmentPdfAssignments(assignments);
+        previewRows = assignments
+          .filter((item) => item.rosterName)
+          .map((item, index) => ({ ...item.item.row, patient_number: index + 1, patient_name: item.rosterName }));
+      }
       setRows(previewRows);
       setSelectedRows(Object.fromEntries(previewRows.map((_, index) => [index, true])));
     } finally {
@@ -4028,6 +4088,28 @@ function PlanningView({
   function clearPreview() {
     setRows([]);
     setSelectedRows({});
+    setTreatmentMatchReport(null);
+    setTreatmentPdfAssignments([]);
+  }
+
+  function updateTreatmentPdfAssignment(pdfId: string, searchValue: string, selectedName?: string) {
+    if (!treatmentMatchReport) return;
+    const exactName = selectedName ?? treatmentMatchReport.roster_names.find(
+      (name) => normalizeSearch(name) === normalizeSearch(searchValue)
+    ) ?? "";
+    const nextAssignments = treatmentPdfAssignments.map((assignment) => assignment.item.pdf_id === pdfId
+      ? { ...assignment, searchValue, rosterName: exactName }
+      : assignment);
+    setTreatmentPdfAssignments(nextAssignments);
+    const linkedRows = nextAssignments
+      .filter((assignment) => assignment.rosterName)
+      .map((assignment, index) => ({
+        ...assignment.item.row,
+        patient_number: index + 1,
+        patient_name: assignment.rosterName,
+      }));
+    setRows(linkedRows);
+    setSelectedRows(Object.fromEntries(linkedRows.map((_, index) => [index, true])));
   }
 
   async function savePlanning(downloadExcel = false) {
@@ -4085,9 +4167,14 @@ function PlanningView({
     if (!expandedPlanning) return;
     setSavedAddLoading(true);
     try {
-      setSavedAddRows(expandedPlanning.planning_type === "Screening"
-        ? await api.previewScreeningPlanning(expandedPlanning.planning_date, savedAddFiles)
-        : await api.previewPlanning(expandedPlanning.planning_date, savedAddFiles));
+      if (expandedPlanning.planning_type === "Screening") {
+        setSavedAddRows(await api.previewScreeningPlanning(expandedPlanning.planning_date, savedAddFiles));
+        setSavedAddReport(null);
+      } else if (savedAddRoster) {
+        const report = await api.previewTreatmentMatches(expandedPlanning.planning_date, savedAddRoster, savedAddFiles);
+        setSavedAddReport(report);
+        setSavedAddRows(report.matched.map((item) => item.row));
+      }
     } finally {
       setSavedAddLoading(false);
     }
@@ -4097,6 +4184,8 @@ function PlanningView({
     if (!expandedPlanning || savedAddRows.length === 0) return;
     await api.addPlanningRows(expandedPlanning.id, savedAddRows);
     setSavedAddFiles([]);
+    setSavedAddRoster(null);
+    setSavedAddReport(null);
     setSavedAddRows([]);
     await onSaved();
   }
@@ -4115,9 +4204,15 @@ function PlanningView({
   const uploadAccept = isScreening ? ".xlsx,.xlsm,.xls,.csv" : "application/pdf";
   const uploadTitle = isScreening ? "Screening Excel-lijst" : "Behandelplan PDF's";
   const emptyUploadText = isScreening ? "Nog geen Excel- of CSV-lijst gekozen." : "Nog geen PDF's gekozen.";
-  const readButtonText = isScreening ? "Namenlijst inlezen" : "PDF's inlezen";
-  const loadingButtonText = isScreening ? "Namen lezen..." : "Inlezen...";
+  const readButtonText = isScreening ? "Namenlijst inlezen" : "Selectie vergelijken";
+  const loadingButtonText = isScreening ? "Namen lezen..." : "Vergelijken...";
   const previewTitle = isScreening ? "Preview screeninglijst" : "Preview behandelplanning";
+  const linkedPdfCount = treatmentPdfAssignments.filter((assignment) => assignment.rosterName).length;
+  const unlinkedTreatmentNames = treatmentMatchReport
+    ? remainingTreatmentRosterNames(treatmentMatchReport.roster_names, treatmentPdfAssignments)
+    : [];
+  const treatmentRosterOptions = Array.from(new Set(treatmentMatchReport?.roster_names || []))
+    .map((patientName) => ({ value: patientName, label: patientName }));
   const treatmentCountForPlanning = (planning: Planning) =>
     planning.rows.reduce((sum, row) => sum + row.treatments.split(",").filter((value) => value.trim() && value.trim() !== "Screening").length, 0);
 
@@ -4138,7 +4233,7 @@ function PlanningView({
             <div className="sectionTitle">
               <div>
                 <h2>{linkedPlanning ? "Ingeplande dag aanvullen" : "Behandelplanning"}</h2>
-                <p className="sectionHint">{isScreening ? "Upload een Excel- of CSV-lijst en controleer wie op de screeninglijst staat." : "Selecteer eerst enkel de bewoners die toestemming hebben gegeven, lees daarna de PDF's in."}</p>
+                <p className="sectionHint">{isScreening ? "Upload een Excel- of CSV-lijst en controleer wie op de screeninglijst staat." : "Upload de Excel-selectielijst en de behandelplan-PDF's. Alleen zekere naammatches worden automatisch meegenomen."}</p>
               </div>
               <button onClick={resetPlanning}>{linkedPlanning ? "Loskoppelen en leegmaken" : "Alles leegmaken"}</button>
             </div>
@@ -4191,8 +4286,33 @@ function PlanningView({
                 <SearchableGroupSelect label="Groep/organisatie" value={planningGroupFilter} groups={planningGroupOptions} onChange={setPlanningGroupFilter} placeholder="Alle groepen" />
                 <SearchableWzcSelect label="WZC" value={wzcId} wzcs={selectableWzcs} onChange={setWzcId} placeholder="Kies WZC" />
               </div>
-              <div className="uploadBox">
-                <label>{uploadTitle}<input key={fileInputKey} type="file" accept={uploadAccept} multiple onChange={(event) => setFiles(Array.from(event.target.files || []))} /></label>
+              <div className={`uploadBox ${isScreening ? "" : "treatmentUploadBox"}`.trim()}>
+                {!isScreening && (
+                  <label>Excel-selectielijst
+                    <input
+                      key={`roster-${fileInputKey}`}
+                      type="file"
+                      accept=".xlsx,.xlsm,.xls,.csv"
+                      onChange={(event) => {
+                        setTreatmentRoster(event.target.files?.[0] || null);
+                        setTreatmentMatchReport(null);
+                        setTreatmentPdfAssignments([]);
+                        setRows([]);
+                        setSelectedRows({});
+                      }}
+                    />
+                    <small className="uploadSelectionText">{treatmentRoster ? treatmentRoster.name : "Nog geen Excel- of CSV-lijst gekozen."}</small>
+                  </label>
+                )}
+                <label>{uploadTitle}<input key={fileInputKey} type="file" accept={uploadAccept} multiple onChange={(event) => {
+                  setFiles(Array.from(event.target.files || []));
+                  if (!isScreening) {
+                    setTreatmentMatchReport(null);
+                    setTreatmentPdfAssignments([]);
+                    setRows([]);
+                    setSelectedRows({});
+                  }
+                }} /></label>
                 {files.length > 0 ? (
                   <div className="fileSelection compactFiles">
                     <div className="fileSelectionHeader">
@@ -4212,11 +4332,11 @@ function PlanningView({
               </div>
             </div>
             <div className="inlineActions planningActions">
-              <button className="primaryButton" disabled={selectedUploadCount === 0 || loading} onClick={preview}>{loading ? loadingButtonText : readButtonText}</button>
-              <button disabled={rows.length === 0} onClick={clearPreview}>Preview leegmaken</button>
+              <button className="primaryButton" disabled={selectedUploadCount === 0 || (!isScreening && !treatmentRoster) || loading} onClick={preview}>{loading ? loadingButtonText : readButtonText}</button>
+              <button disabled={rows.length === 0 && !treatmentMatchReport} onClick={clearPreview}>Preview leegmaken</button>
             </div>
           </section>
-          {rows.length > 0 && (
+          {(rows.length > 0 || treatmentMatchReport) && (
             <section className="panel previewPanel">
               <div className="sectionTitle previewHeader">
                 <div>
@@ -4226,6 +4346,7 @@ function PlanningView({
                 <div className="previewActions">
                   {isScreening && <span className="softBadge">{selectedPreviewCount} persoon/personen</span>}
                   {isScreening && <span className="softBadge">{formatDuration(screeningDurationMinutes)} geschat</span>}
+                  {!isScreening && treatmentMatchReport && <span className="softBadge">{linkedPdfCount}/{treatmentMatchReport.pdf_count} PDF's gekoppeld</span>}
                   {!isScreening && <span className="softBadge">{selectedPreviewCount}/{rows.length} geselecteerd</span>}
                   {!isScreening && <button onClick={() => setSelectedRows(Object.fromEntries(rows.map((_, index) => [index, true])))}>Alles aanvinken</button>}
                   {!isScreening && <button onClick={() => setSelectedRows(Object.fromEntries(rows.map((_, index) => [index, false])))}>Alles uitvinken</button>}
@@ -4233,6 +4354,54 @@ function PlanningView({
                   <button className="primaryButton" disabled={selectedPreviewCount === 0 || savingPlanning} onClick={() => savePlanning(true)}>{savingPlanning ? "Genereren..." : "Excel genereren"}</button>
                 </div>
               </div>
+              {!isScreening && treatmentMatchReport && (
+                <div className="treatmentMatchReport">
+                  <div className="treatmentMatchSummary" aria-label="Resultaat naamcontrole">
+                    <span><strong>{treatmentMatchReport.excel_count}</strong> namen in Excel</span>
+                    <span><strong>{treatmentMatchReport.pdf_count}</strong> PDF's gelezen</span>
+                    <span className="matchSuccess"><strong>{linkedPdfCount}</strong> gekoppeld</span>
+                    <span><strong>{unlinkedTreatmentNames.length}</strong> zonder PDF</span>
+                  </div>
+                  {unlinkedTreatmentNames.length > 0 && (
+                    <details className="matchDetail" open>
+                      <summary>Geen PDF gekoppeld ({unlinkedTreatmentNames.length})</summary>
+                      <div className="matchNameList">{unlinkedTreatmentNames.map((patientName, index) => <span key={`${patientName}-${index}`}>{patientName}</span>)}</div>
+                    </details>
+                  )}
+                  <details className="matchDetail pdfLinkDetail" open>
+                    <summary>Alle PDF's koppelen ({treatmentPdfAssignments.length})</summary>
+                    <div className="pdfLinkList">
+                      {treatmentPdfAssignments.map((assignment, index) => (
+                        <div className={`pdfLinkRow ${assignment.rosterName ? "isLinked" : "needsLink"}`} key={assignment.item.pdf_id}>
+                          <div className="pdfLinkDocument">
+                            <strong>{index + 1}. {assignment.item.file_name}</strong>
+                            <small>Herkend als: {assignment.item.pdf_name || "Geen naam herkend"}</small>
+                            {assignment.item.reason && <small>{assignment.item.reason}</small>}
+                          </div>
+                          <SearchableDropdownField
+                            value={assignment.searchValue}
+                            options={treatmentRosterOptions}
+                            onInputChange={(value) => updateTreatmentPdfAssignment(assignment.item.pdf_id, value)}
+                            onSelect={(option) => updateTreatmentPdfAssignment(assignment.item.pdf_id, option.label, option.label)}
+                            placeholder="Typ of kies naam uit Excel"
+                            className="pdfLinkField"
+                            ariaLabel={`Naam koppelen aan ${assignment.item.file_name}`}
+                            emptyText="Geen naam gevonden in Excel"
+                          />
+                          <span className={`pdfLinkStatus ${assignment.rosterName ? "linked" : "unlinked"}`}>{assignment.rosterName ? "Gekoppeld" : "Niet gekoppeld"}</span>
+                          <button
+                            className="pdfLinkClear"
+                            title="Koppeling wissen"
+                            aria-label={`Koppeling voor ${assignment.item.file_name} wissen`}
+                            disabled={!assignment.rosterName && !assignment.searchValue}
+                            onClick={() => updateTreatmentPdfAssignment(assignment.item.pdf_id, "", "")}
+                          >×</button>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                </div>
+              )}
               <div className="planningPreviewList">
                 {rows.map((row, index) => (
                   <article className={`planningPreviewRow ${isScreening ? "screeningPreviewRow" : ""} ${selectedRows[index] === false ? "isMuted" : ""}`} key={`${row.patient_name}-${index}`}>
@@ -4307,13 +4476,21 @@ function PlanningView({
                   ))}
                 </div>
                 <div className="nestedPanel">
-                  <h3>Bewoners toevoegen via {expandedPlanning.planning_type === "Screening" ? "Excel/CSV" : "PDF"}</h3>
+                  <h3>Bewoners toevoegen via {expandedPlanning.planning_type === "Screening" ? "Excel/CSV" : "Excel-selectie en PDF"}</h3>
+                  {expandedPlanning.planning_type !== "Screening" && (
+                    <label>Excel-selectielijst
+                      <input type="file" accept=".xlsx,.xlsm,.xls,.csv" onChange={(event) => setSavedAddRoster(event.target.files?.[0] || null)} />
+                    </label>
+                  )}
                   <input type="file" accept={expandedPlanning.planning_type === "Screening" ? ".xlsx,.xlsm,.xls,.csv" : "application/pdf"} multiple onChange={(event) => setSavedAddFiles(Array.from(event.target.files || []))} />
                   <div className="inlineActions">
-                    <button disabled={savedAddFiles.length === 0 || savedAddLoading} onClick={previewAdditionalRows}>{savedAddLoading ? "Inlezen..." : expandedPlanning.planning_type === "Screening" ? "Namenlijst inlezen" : "PDF's inlezen"}</button>
+                    <button disabled={savedAddFiles.length === 0 || (expandedPlanning.planning_type !== "Screening" && !savedAddRoster) || savedAddLoading} onClick={previewAdditionalRows}>{savedAddLoading ? "Inlezen..." : expandedPlanning.planning_type === "Screening" ? "Namenlijst inlezen" : "Selectie vergelijken"}</button>
                     <button className="primaryButton" disabled={savedAddRows.length === 0} onClick={addRowsToSavedPlanning}>Toevoegen aan planning</button>
                   </div>
                   {savedAddRows.length > 0 && <div className="sectionHint">{savedAddRows.length} bewoner(s) klaar om toe te voegen.</div>}
+                  {savedAddReport && (savedAddReport.missing_names.length > 0 || savedAddReport.review.length > 0 || savedAddReport.unselected_pdfs.length > 0) && (
+                    <div className="sectionHint">Controle nodig: {savedAddReport.missing_names.length} zonder PDF, {savedAddReport.review.length} dubbel en {savedAddReport.unselected_pdfs.length} niet in de Excel-selectie.</div>
+                  )}
                 </div>
               </div>
             )}

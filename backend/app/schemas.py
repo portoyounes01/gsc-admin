@@ -333,6 +333,26 @@ class PlanningRowCreate(PlanningRowBase):
     pass
 
 
+class TreatmentMatchItemOut(BaseModel):
+    pdf_id: str
+    roster_name: str = ""
+    pdf_name: str
+    file_name: str
+    reason: str = ""
+    row: PlanningRowCreate
+
+
+class TreatmentMatchReportOut(BaseModel):
+    excel_count: int
+    pdf_count: int
+    roster_names: list[str] = Field(default_factory=list)
+    pdfs: list[TreatmentMatchItemOut] = Field(default_factory=list)
+    matched: list[TreatmentMatchItemOut] = Field(default_factory=list)
+    missing_names: list[str] = Field(default_factory=list)
+    unselected_pdfs: list[TreatmentMatchItemOut] = Field(default_factory=list)
+    review: list[TreatmentMatchItemOut] = Field(default_factory=list)
+
+
 class PlanningRowOut(PlanningRowBase):
     id: int
 

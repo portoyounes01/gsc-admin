@@ -73,5 +73,66 @@ class ScreeningPlanningTests(unittest.TestCase):
         )
 
 
+class TreatmentPlanningMatchTests(unittest.TestCase):
+    @staticmethod
+    def pdf_item(file_name: str, patient_name: str) -> dict[str, object]:
+        return {
+            "file_name": file_name,
+            "pdf_name": patient_name,
+            "row": {
+                planning.PATIENT_DONE_COL: False,
+                planning.PATIENT_NR_COL: 1,
+                planning.PATIENT_COL: patient_name,
+                planning.TREATMENTS_COL: "Controle",
+                planning.DATE_PERIOD_COL: "08/09/2026",
+                planning.REMARKS_COL: "",
+            },
+        }
+
+    def test_matches_exact_names_with_accents_order_and_room_suffix(self) -> None:
+        roster_rows = [
+            {planning.PATIENT_COL: "De Smet José (K14)"},
+            {planning.PATIENT_COL: "Peeters Marie"},
+        ]
+        pdf_items = [
+            self.pdf_item("jose.pdf", "José De Smet"),
+            self.pdf_item("marie.pdf", "Marie Peeters"),
+        ]
+
+        report = planning.match_treatment_plans(roster_rows, pdf_items)
+
+        self.assertEqual(len(report["matched"]), 2)
+        self.assertEqual(report["roster_names"], ["De Smet José (K14)", "Peeters Marie"])
+        self.assertEqual([item["file_name"] for item in report["pdfs"]], ["jose.pdf", "marie.pdf"])
+        self.assertEqual([item["roster_name"] for item in report["pdfs"]], ["De Smet José (K14)", "Peeters Marie"])
+        self.assertEqual(report["missing_names"], [])
+        self.assertEqual(report["unselected_pdfs"], [])
+        self.assertEqual(report["review"], [])
+
+    def test_reports_missing_and_unselected_names_without_fuzzy_matching(self) -> None:
+        roster_rows = [{planning.PATIENT_COL: "Peeters Marie"}]
+        pdf_items = [self.pdf_item("maria.pdf", "Peeters Maria")]
+
+        report = planning.match_treatment_plans(roster_rows, pdf_items)
+
+        self.assertEqual(report["matched"], [])
+        self.assertEqual(report["missing_names"], ["Peeters Marie"])
+        self.assertEqual([item["file_name"] for item in report["unselected_pdfs"]], ["maria.pdf"])
+        self.assertEqual(report["pdfs"][0]["roster_name"], "")
+
+    def test_duplicate_names_require_manual_review(self) -> None:
+        roster_rows = [
+            {planning.PATIENT_COL: "Janssens Jan"},
+            {planning.PATIENT_COL: "Jan Janssens"},
+        ]
+        pdf_items = [self.pdf_item("jan.pdf", "Janssens Jan")]
+
+        report = planning.match_treatment_plans(roster_rows, pdf_items)
+
+        self.assertEqual(report["matched"], [])
+        self.assertEqual(len(report["review"]), 1)
+        self.assertIn("Dubbele naam", report["review"][0]["reason"])
+
+
 if __name__ == "__main__":
     unittest.main()

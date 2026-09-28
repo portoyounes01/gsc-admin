@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models import Planning, PlanningRow, User, Wzc
-from app.schemas import PlanningCreate, PlanningOut, PlanningRowCreate, PlanningUpdate
+from app.schemas import PlanningCreate, PlanningOut, PlanningRowCreate, PlanningUpdate, TreatmentMatchReportOut
 from app.services import planning as planning_service
 from app.services.audit import add_audit_log
 
@@ -75,6 +75,38 @@ async def preview_screening_workbooks(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return [preview_row_to_schema(row) for row in rows]
+
+
+@router.post("/treatment-match-preview", response_model=TreatmentMatchReportOut)
+async def preview_treatment_matches(
+    planning_date: date = Form(...),
+    roster: UploadFile = File(...),
+    files: list[UploadFile] = File(...),
+    _: User = Depends(get_current_user),
+) -> dict[str, object]:
+    allowed_roster_extensions = (".xlsx", ".xlsm", ".xls", ".csv")
+    if not roster.filename.lower().endswith(allowed_roster_extensions):
+        raise HTTPException(status_code=400, detail=f"{roster.filename} is geen Excel- of CSV-bestand.")
+
+    pdf_payloads = []
+    for uploaded_file in files:
+        if not uploaded_file.filename.lower().endswith(".pdf"):
+            raise HTTPException(status_code=400, detail=f"{uploaded_file.filename} is geen PDF.")
+        pdf_payloads.append((uploaded_file.filename, await uploaded_file.read()))
+
+    try:
+        report = planning_service.preview_treatment_matches(
+            (roster.filename, await roster.read()),
+            pdf_payloads,
+            planning_date,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    for collection_name in ("pdfs", "matched", "unselected_pdfs", "review"):
+        for item in report[collection_name]:
+            item["row"] = preview_row_to_schema(item["row"])
+    return report
 
 
 @router.get("", response_model=list[PlanningOut])
