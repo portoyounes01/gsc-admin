@@ -3893,6 +3893,10 @@ function PlanningView({
   const [savedAddReport, setSavedAddReport] = useState<TreatmentMatchReport | null>(null);
   const [savedAddRows, setSavedAddRows] = useState<PlanningRow[]>([]);
   const [savedAddLoading, setSavedAddLoading] = useState(false);
+  const [editingSavedPatientRow, setEditingSavedPatientRow] = useState<string | null>(null);
+  const [openSavedPatientMenu, setOpenSavedPatientMenu] = useState<string | null>(null);
+  const [savedPatientNameDraft, setSavedPatientNameDraft] = useState("");
+  const [savingSavedPatientNames, setSavingSavedPatientNames] = useState(false);
   const [savedDate, setSavedDate] = useState("");
   const [linkedPlanningId, setLinkedPlanningId] = useState<number | null>(focusPlanningId);
   const [planningSearch, setPlanningSearch] = useState("");
@@ -3977,6 +3981,9 @@ function PlanningView({
     setSavedAddRoster(null);
     setSavedAddReport(null);
     setSavedAddRows([]);
+    setEditingSavedPatientRow(null);
+    setOpenSavedPatientMenu(null);
+    setSavedPatientNameDraft("");
   }, [expandedPlanning?.id, expandedPlanning?.planning_date]);
 
   function resetPlanning() {
@@ -4192,9 +4199,45 @@ function PlanningView({
 
   async function removeSavedRow(row: PlanningRow) {
     if (!expandedPlanning || !row.id) return;
+    setOpenSavedPatientMenu(null);
     if (!window.confirm(`Bewoner "${row.patient_name}" verwijderen uit deze planning?`)) return;
     await api.deletePlanningRow(expandedPlanning.id, row.id);
     await onSaved();
+  }
+
+  function savedPatientRowKey(row: PlanningRow, index: number) {
+    return row.id ? `id-${row.id}` : `index-${index}`;
+  }
+
+  function startSavedPatientNameEditing(row: PlanningRow, index: number) {
+    setEditingSavedPatientRow(savedPatientRowKey(row, index));
+    setOpenSavedPatientMenu(null);
+    setSavedPatientNameDraft(row.patient_name);
+  }
+
+  function cancelSavedPatientNameEditing() {
+    setEditingSavedPatientRow(null);
+    setSavedPatientNameDraft("");
+  }
+
+  async function saveSavedPatientName() {
+    if (!expandedPlanning || !editingSavedPatientRow || !savedPatientNameDraft.trim()) return;
+    const updatedRows = expandedPlanning.rows.map((row, index) => ({
+      ...row,
+      patient_number: index + 1,
+      patient_name: savedPatientRowKey(row, index) === editingSavedPatientRow
+        ? savedPatientNameDraft.trim()
+        : row.patient_name,
+    }));
+    setSavingSavedPatientNames(true);
+    try {
+      await api.replacePlanningRows(expandedPlanning.id, updatedRows);
+      setEditingSavedPatientRow(null);
+      setSavedPatientNameDraft("");
+      await onSaved();
+    } finally {
+      setSavingSavedPatientNames(false);
+    }
   }
 
   const selectedUploadCount = files.filter((file) => selectedFiles[file.name]).length;
@@ -4466,12 +4509,53 @@ function PlanningView({
                   <button className="primaryButton" disabled={savedDate === expandedPlanning.planning_date} onClick={reschedulePlanning}>Datum bewaren</button>
                 </div>
                 <div className="planningTable compactRows">
-                  {expandedPlanning.rows.map((row) => (
-                    <article className="planningRowCard" key={row.id || `${row.patient_name}-${row.patient_number}`}>
-                      <strong>{row.patient_number}. {row.patient_name}</strong>
+                  {expandedPlanning.rows.map((row, index) => (
+                    <article className={`planningRowCard ${editingSavedPatientRow === savedPatientRowKey(row, index) ? "editingPatientName" : ""}`} key={row.id || `${row.patient_name}-${row.patient_number}`}>
+                      {editingSavedPatientRow === savedPatientRowKey(row, index) && expandedPlanning.planning_type !== "Screening" ? (
+                        <div className="savedPatientNameEditor">
+                          <label className="savedPatientNameField">
+                            <span>{row.patient_number}.</span>
+                            <input
+                              value={savedPatientNameDraft}
+                              onChange={(event) => setSavedPatientNameDraft(event.target.value)}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") saveSavedPatientName();
+                                if (event.key === "Escape") cancelSavedPatientNameEditing();
+                              }}
+                              aria-label={`Naam van patient ${row.patient_number}`}
+                              autoFocus
+                            />
+                          </label>
+                          <button className="savedNameAction" title="Annuleren" aria-label="Naamwijziging annuleren" onClick={cancelSavedPatientNameEditing}>×</button>
+                          <button className="savedNameAction primaryButton" title="Naam bewaren" aria-label="Naam bewaren" disabled={savingSavedPatientNames || !savedPatientNameDraft.trim()} onClick={saveSavedPatientName}>{savingSavedPatientNames ? "…" : "✓"}</button>
+                        </div>
+                      ) : (
+                        <div className="savedPatientNameDisplay">
+                          <strong>{row.patient_number}. {row.patient_name}</strong>
+                          <div
+                            className="savedPatientMenu"
+                            onBlur={(event) => {
+                              if (!event.currentTarget.contains(event.relatedTarget as Node)) setOpenSavedPatientMenu(null);
+                            }}
+                          >
+                            <button
+                              className="patientNameMenuButton"
+                              title="Acties voor bewoner"
+                              aria-label={`Acties voor ${row.patient_name}`}
+                              aria-expanded={openSavedPatientMenu === savedPatientRowKey(row, index)}
+                              onClick={() => setOpenSavedPatientMenu((current) => current === savedPatientRowKey(row, index) ? null : savedPatientRowKey(row, index))}
+                            >⋯</button>
+                            {openSavedPatientMenu === savedPatientRowKey(row, index) && (
+                              <div className="savedPatientMenuList">
+                                {expandedPlanning.planning_type !== "Screening" && <button onClick={() => startSavedPatientNameEditing(row, index)}>Naam bewerken</button>}
+                                <button className="dangerMenuAction" disabled={!row.id} onClick={() => removeSavedRow(row)}>Bewoner verwijderen</button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                       <span>{expandedPlanning.planning_type === "Screening" ? "Screening" : row.treatments}</span>
                       {row.remarks && <small>{row.remarks}</small>}
-                      <button disabled={!row.id} onClick={() => removeSavedRow(row)}>Bewoner verwijderen</button>
                     </article>
                   ))}
                 </div>

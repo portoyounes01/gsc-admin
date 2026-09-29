@@ -2948,8 +2948,111 @@ label {
 }
 
 .compactRows .planningRowCard {
-  grid-template-columns: minmax(180px, 0.7fr) minmax(0, 1.4fr) minmax(0, 0.9fr) auto;
+  grid-template-columns: minmax(180px, 0.7fr) minmax(0, 1.4fr) minmax(0, 0.9fr);
   align-items: center;
+}
+
+.savedPatientNameField {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 7px;
+  align-items: center;
+  min-width: 0;
+}
+
+.savedPatientNameField span {
+  color: #66707a;
+  font-weight: 750;
+}
+
+.savedPatientNameField input {
+  min-width: 0;
+  min-height: 38px;
+}
+
+.savedPatientNameDisplay {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.savedPatientNameDisplay strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.patientNameMenuButton,
+.savedNameAction {
+  width: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.patientNameMenuButton {
+  border-color: transparent;
+  background: transparent;
+  color: #66707a;
+}
+
+.savedPatientMenu {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.savedPatientMenuList {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  display: grid;
+  width: max-content;
+  min-width: 170px;
+  padding: 5px;
+  border: 1px solid #dbe1e5;
+  border-radius: 7px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(30, 39, 46, 0.14);
+}
+
+.savedPatientMenuList button {
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 34px;
+  padding: 7px 9px;
+  border-color: transparent;
+  background: transparent;
+  text-align: left;
+}
+
+.savedPatientMenuList button:hover {
+  background: #f4f6f7;
+}
+
+.savedPatientMenuList .dangerMenuAction {
+  color: #9a3e3e;
+}
+
+.patientNameMenuButton:hover {
+  border-color: #cfd7dc;
+  background: #f4f6f7;
+}
+
+.savedPatientNameEditor {
+  display: grid;
+  grid-template-columns: minmax(190px, 1fr) 32px 32px;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+
+.planningRowCard.editingPatientName {
+  grid-template-columns: minmax(300px, 0.9fr) minmax(0, 1.3fr) minmax(0, 0.8fr);
+  border-color: #b8d9ce;
+  background: #fbfdfc;
 }
 
 .savedPlanningLayout {
