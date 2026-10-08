@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent, ReactNode } from "react";
 import { api, clearToken, getToken } from "./api";
 import { UserPasswordForm } from "./UserPasswordForm";
-import type { AuditLog, DossierPreviewRow, Planning, PlanningRow, Prospect, SavedUrgencyRoutePlan, TeamProfile, TreatmentMatchItem, TreatmentMatchReport, Urgency, UrgencyRoutePlan, User, Wzc } from "./types";
+import type { AuditLog, DossierPreviewRow, Planning, PlanningRow, Prospect, SavedUrgencyRoutePlan, TeamProfile, TreatmentSelectionReport, Urgency, UrgencyRoutePlan, User, Wzc } from "./types";
 
 type Section = "Home" | "Planning" | "Behandelplanning" | "Mondzorgdossiers" | "Urgenties" | "WZC opvolging" | "WZC database";
 type FollowupMode = "Prospectie" | "Actieve WZC's";
@@ -21,12 +21,6 @@ type ExtraContact = {
   phone: string;
   email: string;
 };
-type TreatmentPdfAssignment = {
-  item: TreatmentMatchItem;
-  rosterName: string;
-  searchValue: string;
-};
-
 const sections: Section[] = ["Home", "Planning", "Behandelplanning", "Mondzorgdossiers", "Urgenties", "WZC opvolging", "WZC database"];
 const urgencyTypes = ["Tandpijn", "Gebit onvoldoende aansluitend / past niet", "Prothese gebroken", "Ontsteking", "Andere"];
 const planningStatusOptions = ["Concept", "Gepland", "Bevestigd", "Uitgevoerd", "Geannuleerd"];
@@ -329,21 +323,6 @@ function normalizeSearch(value: string) {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
-}
-
-function remainingTreatmentRosterNames(names: string[], assignments: TreatmentPdfAssignment[]) {
-  const linkedCounts = new Map<string, number>();
-  assignments.forEach((assignment) => {
-    const key = normalizeSearch(assignment.rosterName);
-    if (key) linkedCounts.set(key, (linkedCounts.get(key) || 0) + 1);
-  });
-  return names.filter((name) => {
-    const key = normalizeSearch(name);
-    const linkedCount = linkedCounts.get(key) || 0;
-    if (linkedCount <= 0) return true;
-    linkedCounts.set(key, linkedCount - 1);
-    return false;
-  });
 }
 
 function isGroupRecord(wzc: Wzc) {
@@ -3879,8 +3858,7 @@ function PlanningView({
   const [wzcId, setWzcId] = useState<number | "">(preselectedWzc?.id || "");
   const [files, setFiles] = useState<File[]>([]);
   const [treatmentRoster, setTreatmentRoster] = useState<File | null>(null);
-  const [treatmentMatchReport, setTreatmentMatchReport] = useState<TreatmentMatchReport | null>(null);
-  const [treatmentPdfAssignments, setTreatmentPdfAssignments] = useState<TreatmentPdfAssignment[]>([]);
+  const [treatmentSelectionReport, setTreatmentSelectionReport] = useState<TreatmentSelectionReport | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<Record<string, boolean>>({});
   const [rows, setRows] = useState<PlanningRow[]>([]);
   const [selectedRows, setSelectedRows] = useState<Record<number, boolean>>({});
@@ -3890,8 +3868,9 @@ function PlanningView({
   const [expandedPlanningId, setExpandedPlanningId] = useState<number | null>(plannings[0]?.id || null);
   const [savedAddFiles, setSavedAddFiles] = useState<File[]>([]);
   const [savedAddRoster, setSavedAddRoster] = useState<File | null>(null);
-  const [savedAddReport, setSavedAddReport] = useState<TreatmentMatchReport | null>(null);
+  const [savedAddSelectionReport, setSavedAddSelectionReport] = useState<TreatmentSelectionReport | null>(null);
   const [savedAddRows, setSavedAddRows] = useState<PlanningRow[]>([]);
+  const [savedAddSelectedRows, setSavedAddSelectedRows] = useState<Record<number, boolean>>({});
   const [savedAddLoading, setSavedAddLoading] = useState(false);
   const [editingSavedPatientRow, setEditingSavedPatientRow] = useState<string | null>(null);
   const [openSavedPatientMenu, setOpenSavedPatientMenu] = useState<string | null>(null);
@@ -3979,8 +3958,9 @@ function PlanningView({
     }
     setSavedAddFiles([]);
     setSavedAddRoster(null);
-    setSavedAddReport(null);
+    setSavedAddSelectionReport(null);
     setSavedAddRows([]);
+    setSavedAddSelectedRows({});
     setEditingSavedPatientRow(null);
     setOpenSavedPatientMenu(null);
     setSavedPatientNameDraft("");
@@ -3996,8 +3976,7 @@ function PlanningView({
     setWzcId("");
     setFiles([]);
     setTreatmentRoster(null);
-    setTreatmentMatchReport(null);
-    setTreatmentPdfAssignments([]);
+    setTreatmentSelectionReport(null);
     setRows([]);
     setSelectedFiles({});
     setSelectedRows({});
@@ -4010,8 +3989,7 @@ function PlanningView({
     setName(kind === "Screening" ? "Screening" : "Behandelplanning");
     setFiles([]);
     setTreatmentRoster(null);
-    setTreatmentMatchReport(null);
-    setTreatmentPdfAssignments([]);
+    setTreatmentSelectionReport(null);
     setRows([]);
     setSelectedFiles({});
     setSelectedRows({});
@@ -4020,13 +3998,6 @@ function PlanningView({
 
   function updatePreviewRow(index: number, patch: Partial<PlanningRow>) {
     setRows((currentRows) => currentRows.map((row, rowIndex) => rowIndex === index ? { ...row, ...patch } : row));
-    setTreatmentPdfAssignments((currentAssignments) => {
-      const assignment = currentAssignments.filter((item) => item.rosterName)[index];
-      if (!assignment) return currentAssignments;
-      return currentAssignments.map((item) => item.item.pdf_id === assignment.item.pdf_id
-        ? { ...item, item: { ...item.item, row: { ...item.item.row, ...patch } } }
-        : item);
-    });
   }
 
   function loadPlanningIntoEditor(planning: Planning) {
@@ -4040,8 +4011,7 @@ function PlanningView({
     setWzcId(planning.wzc_id || "");
     setFiles([]);
     setTreatmentRoster(null);
-    setTreatmentMatchReport(null);
-    setTreatmentPdfAssignments([]);
+    setTreatmentSelectionReport(null);
     setRows(planning.rows.map((row, index) => ({ ...row, patient_number: index + 1 })));
     setSelectedFiles({});
     setSelectedRows(Object.fromEntries(planning.rows.map((_, index) => [index, true])));
@@ -4055,25 +4025,19 @@ function PlanningView({
     setLoading(true);
     try {
       let previewRows: PlanningRow[];
+      let initialSelection: Record<number, boolean>;
       if (planningKind === "Screening") {
         previewRows = await api.previewScreeningPlanning(planningDate, selectedUploadFiles);
-        setTreatmentMatchReport(null);
+        initialSelection = Object.fromEntries(previewRows.map((_, index) => [index, true]));
+        setTreatmentSelectionReport(null);
       } else {
-        if (!treatmentRoster) return;
-        const report = await api.previewTreatmentMatches(planningDate, treatmentRoster, selectedUploadFiles);
-        setTreatmentMatchReport(report);
-        const assignments = report.pdfs.map((item) => ({
-          item,
-          rosterName: item.roster_name,
-          searchValue: item.roster_name,
-        }));
-        setTreatmentPdfAssignments(assignments);
-        previewRows = assignments
-          .filter((item) => item.rosterName)
-          .map((item, index) => ({ ...item.item.row, patient_number: index + 1, patient_name: item.rosterName }));
+        const report = await api.previewTreatmentSelection(planningDate, selectedUploadFiles, treatmentRoster);
+        setTreatmentSelectionReport(report);
+        previewRows = report.items.map((item) => item.row);
+        initialSelection = Object.fromEntries(report.items.map((item, index) => [index, item.recommended]));
       }
       setRows(previewRows);
-      setSelectedRows(Object.fromEntries(previewRows.map((_, index) => [index, true])));
+      setSelectedRows(initialSelection);
     } finally {
       setLoading(false);
     }
@@ -4095,28 +4059,7 @@ function PlanningView({
   function clearPreview() {
     setRows([]);
     setSelectedRows({});
-    setTreatmentMatchReport(null);
-    setTreatmentPdfAssignments([]);
-  }
-
-  function updateTreatmentPdfAssignment(pdfId: string, searchValue: string, selectedName?: string) {
-    if (!treatmentMatchReport) return;
-    const exactName = selectedName ?? treatmentMatchReport.roster_names.find(
-      (name) => normalizeSearch(name) === normalizeSearch(searchValue)
-    ) ?? "";
-    const nextAssignments = treatmentPdfAssignments.map((assignment) => assignment.item.pdf_id === pdfId
-      ? { ...assignment, searchValue, rosterName: exactName }
-      : assignment);
-    setTreatmentPdfAssignments(nextAssignments);
-    const linkedRows = nextAssignments
-      .filter((assignment) => assignment.rosterName)
-      .map((assignment, index) => ({
-        ...assignment.item.row,
-        patient_number: index + 1,
-        patient_name: assignment.rosterName,
-      }));
-    setRows(linkedRows);
-    setSelectedRows(Object.fromEntries(linkedRows.map((_, index) => [index, true])));
+    setTreatmentSelectionReport(null);
   }
 
   async function savePlanning(downloadExcel = false) {
@@ -4174,26 +4117,37 @@ function PlanningView({
     if (!expandedPlanning) return;
     setSavedAddLoading(true);
     try {
+      let previewRows: PlanningRow[];
+      let initialSelection: Record<number, boolean>;
       if (expandedPlanning.planning_type === "Screening") {
-        setSavedAddRows(await api.previewScreeningPlanning(expandedPlanning.planning_date, savedAddFiles));
-        setSavedAddReport(null);
-      } else if (savedAddRoster) {
-        const report = await api.previewTreatmentMatches(expandedPlanning.planning_date, savedAddRoster, savedAddFiles);
-        setSavedAddReport(report);
-        setSavedAddRows(report.matched.map((item) => item.row));
+        previewRows = await api.previewScreeningPlanning(expandedPlanning.planning_date, savedAddFiles);
+        initialSelection = Object.fromEntries(previewRows.map((_, index) => [index, true]));
+        setSavedAddSelectionReport(null);
+      } else {
+        const report = await api.previewTreatmentSelection(expandedPlanning.planning_date, savedAddFiles, savedAddRoster);
+        setSavedAddSelectionReport(report);
+        previewRows = report.items.map((item) => item.row);
+        initialSelection = Object.fromEntries(report.items.map((item, index) => [index, item.recommended]));
       }
+      setSavedAddRows(previewRows);
+      setSavedAddSelectedRows(initialSelection);
     } finally {
       setSavedAddLoading(false);
     }
   }
 
   async function addRowsToSavedPlanning() {
-    if (!expandedPlanning || savedAddRows.length === 0) return;
-    await api.addPlanningRows(expandedPlanning.id, savedAddRows);
+    if (!expandedPlanning) return;
+    const selectedAddRows = savedAddRows
+      .filter((_, index) => expandedPlanning.planning_type === "Screening" || savedAddSelectedRows[index])
+      .map((row, index) => ({ ...row, patient_number: index + 1 }));
+    if (selectedAddRows.length === 0) return;
+    await api.addPlanningRows(expandedPlanning.id, selectedAddRows);
     setSavedAddFiles([]);
     setSavedAddRoster(null);
-    setSavedAddReport(null);
+    setSavedAddSelectionReport(null);
     setSavedAddRows([]);
+    setSavedAddSelectedRows({});
     await onSaved();
   }
 
@@ -4247,15 +4201,10 @@ function PlanningView({
   const uploadAccept = isScreening ? ".xlsx,.xlsm,.xls,.csv" : "application/pdf";
   const uploadTitle = isScreening ? "Screening Excel-lijst" : "Behandelplan PDF's";
   const emptyUploadText = isScreening ? "Nog geen Excel- of CSV-lijst gekozen." : "Nog geen PDF's gekozen.";
-  const readButtonText = isScreening ? "Namenlijst inlezen" : "Selectie vergelijken";
-  const loadingButtonText = isScreening ? "Namen lezen..." : "Vergelijken...";
+  const readButtonText = isScreening ? "Namenlijst inlezen" : "Behandelplannen uitlezen";
+  const loadingButtonText = isScreening ? "Namen lezen..." : "PDF's lezen...";
   const previewTitle = isScreening ? "Preview screeninglijst" : "Preview behandelplanning";
-  const linkedPdfCount = treatmentPdfAssignments.filter((assignment) => assignment.rosterName).length;
-  const unlinkedTreatmentNames = treatmentMatchReport
-    ? remainingTreatmentRosterNames(treatmentMatchReport.roster_names, treatmentPdfAssignments)
-    : [];
-  const treatmentRosterOptions = Array.from(new Set(treatmentMatchReport?.roster_names || []))
-    .map((patientName) => ({ value: patientName, label: patientName }));
+  const savedAddSelectedCount = savedAddRows.filter((_, index) => expandedPlanning?.planning_type === "Screening" || savedAddSelectedRows[index]).length;
   const treatmentCountForPlanning = (planning: Planning) =>
     planning.rows.reduce((sum, row) => sum + row.treatments.split(",").filter((value) => value.trim() && value.trim() !== "Screening").length, 0);
 
@@ -4276,7 +4225,7 @@ function PlanningView({
             <div className="sectionTitle">
               <div>
                 <h2>{linkedPlanning ? "Ingeplande dag aanvullen" : "Behandelplanning"}</h2>
-                <p className="sectionHint">{isScreening ? "Upload een Excel- of CSV-lijst en controleer wie op de screeninglijst staat." : "Upload de Excel-selectielijst en de behandelplan-PDF's. Alleen zekere naammatches worden automatisch meegenomen."}</p>
+                <p className="sectionHint">{isScreening ? "Upload een Excel- of CSV-lijst en controleer wie op de screeninglijst staat." : "Upload de behandelplan-PDF's, controleer de uitgelezen namen en duid per bewoner aan of die wordt opgenomen."}</p>
               </div>
               <button onClick={resetPlanning}>{linkedPlanning ? "Loskoppelen en leegmaken" : "Alles leegmaken"}</button>
             </div>
@@ -4331,43 +4280,52 @@ function PlanningView({
               </div>
               <div className={`uploadBox ${isScreening ? "" : "treatmentUploadBox"}`.trim()}>
                 {!isScreening && (
-                  <label>Excel-selectielijst
+                  <label className="uploadSourceField"><span className="uploadSourceTitle">Excel-werklijst <span className="optionalLabel">optioneel</span></span>
                     <input
                       key={`roster-${fileInputKey}`}
                       type="file"
                       accept=".xlsx,.xlsm,.xls,.csv"
                       onChange={(event) => {
                         setTreatmentRoster(event.target.files?.[0] || null);
-                        setTreatmentMatchReport(null);
-                        setTreatmentPdfAssignments([]);
+                        setTreatmentSelectionReport(null);
                         setRows([]);
                         setSelectedRows({});
                       }}
                     />
-                    <small className="uploadSelectionText">{treatmentRoster ? treatmentRoster.name : "Nog geen Excel- of CSV-lijst gekozen."}</small>
+                    <small className={`uploadSelectionText ${treatmentRoster ? "hasFile" : ""}`}>{treatmentRoster ? treatmentRoster.name : "Gebruikt volgorde en goedkeuringstekst als voorstel."}</small>
                   </label>
                 )}
-                <label>{uploadTitle}<input key={fileInputKey} type="file" accept={uploadAccept} multiple onChange={(event) => {
-                  setFiles(Array.from(event.target.files || []));
-                  if (!isScreening) {
-                    setTreatmentMatchReport(null);
-                    setTreatmentPdfAssignments([]);
-                    setRows([]);
-                    setSelectedRows({});
-                  }
-                }} /></label>
+                <label className="uploadSourceField"><span className="uploadSourceTitle">{uploadTitle}</span>
+                  <input key={fileInputKey} type="file" accept={uploadAccept} multiple onChange={(event) => {
+                    setFiles(Array.from(event.target.files || []));
+                    if (!isScreening) {
+                      setTreatmentSelectionReport(null);
+                      setRows([]);
+                      setSelectedRows({});
+                    }
+                  }} />
+                  <small className={`uploadSelectionText ${files.length > 0 ? "hasFile" : ""}`}>{files.length > 0 ? `${files.length} bestand${files.length === 1 ? "" : "en"} gekozen` : emptyUploadText}</small>
+                </label>
                 {files.length > 0 ? (
                   <div className="fileSelection compactFiles">
                     <div className="fileSelectionHeader">
-                      <strong>{isScreening ? "Lijstselectie" : "PDF-selectie"}</strong>
-                      <span>{selectedUploadCount}/{files.length} geselecteerd</span>
+                      <div>
+                        <strong>{isScreening ? "Lijstselectie" : "Bestanden opnemen"}</strong>
+                        <span>{selectedUploadCount} van {files.length} geselecteerd</span>
+                      </div>
+                      <div className="fileSelectionActions" aria-label="Bestandsselectie aanpassen">
+                        <button type="button" onClick={() => setSelectedFiles(Object.fromEntries(files.map((file) => [file.name, true])))}>Alles</button>
+                        <button type="button" onClick={() => setSelectedFiles(Object.fromEntries(files.map((file) => [file.name, false])))}>Geen</button>
+                      </div>
                     </div>
-                    {files.map((file, index) => (
-                      <label key={`${file.name}-${index}`} className="checkRow">
-                        <input type="checkbox" checked={!!selectedFiles[file.name]} onChange={(event) => setSelectedFiles({ ...selectedFiles, [file.name]: event.target.checked })} />
-                        <span>{index + 1}. {file.name}</span>
-                      </label>
-                    ))}
+                    <div className="compactFileGrid">
+                      {files.map((file, index) => (
+                        <label key={`${file.name}-${index}`} className="checkRow" title={file.name}>
+                          <input type="checkbox" checked={!!selectedFiles[file.name]} onChange={(event) => setSelectedFiles({ ...selectedFiles, [file.name]: event.target.checked })} />
+                          <span><b>{index + 1}.</b> {file.name.replace(/\.pdf$/i, "")}</span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
                 ) : (
                   <div className="empty compactEmpty">{emptyUploadText}</div>
@@ -4375,11 +4333,11 @@ function PlanningView({
               </div>
             </div>
             <div className="inlineActions planningActions">
-              <button className="primaryButton" disabled={selectedUploadCount === 0 || (!isScreening && !treatmentRoster) || loading} onClick={preview}>{loading ? loadingButtonText : readButtonText}</button>
-              <button disabled={rows.length === 0 && !treatmentMatchReport} onClick={clearPreview}>Preview leegmaken</button>
+              <button className="primaryButton" disabled={selectedUploadCount === 0 || loading} onClick={preview}>{loading ? loadingButtonText : readButtonText}</button>
+              <button disabled={rows.length === 0} onClick={clearPreview}>Preview leegmaken</button>
             </div>
           </section>
-          {(rows.length > 0 || treatmentMatchReport) && (
+          {rows.length > 0 && (
             <section className="panel previewPanel">
               <div className="sectionTitle previewHeader">
                 <div>
@@ -4389,83 +4347,98 @@ function PlanningView({
                 <div className="previewActions">
                   {isScreening && <span className="softBadge">{selectedPreviewCount} persoon/personen</span>}
                   {isScreening && <span className="softBadge">{formatDuration(screeningDurationMinutes)} geschat</span>}
-                  {!isScreening && treatmentMatchReport && <span className="softBadge">{linkedPdfCount}/{treatmentMatchReport.pdf_count} PDF's gekoppeld</span>}
-                  {!isScreening && <span className="softBadge">{selectedPreviewCount}/{rows.length} geselecteerd</span>}
-                  {!isScreening && <button onClick={() => setSelectedRows(Object.fromEntries(rows.map((_, index) => [index, true])))}>Alles aanvinken</button>}
-                  {!isScreening && <button onClick={() => setSelectedRows(Object.fromEntries(rows.map((_, index) => [index, false])))}>Alles uitvinken</button>}
-                  <button disabled={selectedPreviewCount === 0 || savingPlanning} onClick={() => savePlanning(false)}>{linkedPlanning ? "Opslaan in ingeplande dag" : isScreening ? "Screening bewaren" : "Planning bewaren"}</button>
-                  <button className="primaryButton" disabled={selectedPreviewCount === 0 || savingPlanning} onClick={() => savePlanning(true)}>{savingPlanning ? "Genereren..." : "Excel genereren"}</button>
+                  {!isScreening && (
+                    <div className="previewSelectionSummary">
+                      <strong>{selectedPreviewCount}</strong>
+                      <span>van {rows.length} geselecteerd{treatmentSelectionReport && treatmentSelectionReport.excel_count > 0 ? ` · ${treatmentSelectionReport.excel_count} Excelnamen` : ""}</span>
+                    </div>
+                  )}
+                  {!isScreening && (
+                    <div className="previewBulkActions" aria-label="Selectie aanpassen">
+                      <button onClick={() => setSelectedRows(Object.fromEntries(rows.map((_, index) => [index, true])))}>Alles</button>
+                      <button onClick={() => setSelectedRows(Object.fromEntries(rows.map((_, index) => [index, false])))}>Geen</button>
+                    </div>
+                  )}
+                  <div className="previewSaveActions">
+                    <button disabled={selectedPreviewCount === 0 || savingPlanning} onClick={() => savePlanning(false)}>{linkedPlanning ? "Opslaan in ingeplande dag" : isScreening ? "Screening bewaren" : "Planning bewaren"}</button>
+                    <button className="primaryButton" disabled={selectedPreviewCount === 0 || savingPlanning} onClick={() => savePlanning(true)}>{savingPlanning ? "Genereren..." : "Excel genereren"}</button>
+                  </div>
                 </div>
               </div>
-              {!isScreening && treatmentMatchReport && (
-                <div className="treatmentMatchReport">
-                  <div className="treatmentMatchSummary" aria-label="Resultaat naamcontrole">
-                    <span><strong>{treatmentMatchReport.excel_count}</strong> namen in Excel</span>
-                    <span><strong>{treatmentMatchReport.pdf_count}</strong> PDF's gelezen</span>
-                    <span className="matchSuccess"><strong>{linkedPdfCount}</strong> gekoppeld</span>
-                    <span><strong>{unlinkedTreatmentNames.length}</strong> zonder PDF</span>
-                  </div>
-                  {unlinkedTreatmentNames.length > 0 && (
-                    <details className="matchDetail" open>
-                      <summary>Geen PDF gekoppeld ({unlinkedTreatmentNames.length})</summary>
-                      <div className="matchNameList">{unlinkedTreatmentNames.map((patientName, index) => <span key={`${patientName}-${index}`}>{patientName}</span>)}</div>
-                    </details>
-                  )}
-                  <details className="matchDetail pdfLinkDetail" open>
-                    <summary>Alle PDF's koppelen ({treatmentPdfAssignments.length})</summary>
-                    <div className="pdfLinkList">
-                      {treatmentPdfAssignments.map((assignment, index) => (
-                        <div className={`pdfLinkRow ${assignment.rosterName ? "isLinked" : "needsLink"}`} key={assignment.item.pdf_id}>
-                          <div className="pdfLinkDocument">
-                            <strong>{index + 1}. {assignment.item.file_name}</strong>
-                            <small>Herkend als: {assignment.item.pdf_name || "Geen naam herkend"}</small>
-                            {assignment.item.reason && <small>{assignment.item.reason}</small>}
-                          </div>
-                          <SearchableDropdownField
-                            value={assignment.searchValue}
-                            options={treatmentRosterOptions}
-                            onInputChange={(value) => updateTreatmentPdfAssignment(assignment.item.pdf_id, value)}
-                            onSelect={(option) => updateTreatmentPdfAssignment(assignment.item.pdf_id, option.label, option.label)}
-                            placeholder="Typ of kies naam uit Excel"
-                            className="pdfLinkField"
-                            ariaLabel={`Naam koppelen aan ${assignment.item.file_name}`}
-                            emptyText="Geen naam gevonden in Excel"
-                          />
-                          <span className={`pdfLinkStatus ${assignment.rosterName ? "linked" : "unlinked"}`}>{assignment.rosterName ? "Gekoppeld" : "Niet gekoppeld"}</span>
-                          <button
-                            className="pdfLinkClear"
-                            title="Koppeling wissen"
-                            aria-label={`Koppeling voor ${assignment.item.file_name} wissen`}
-                            disabled={!assignment.rosterName && !assignment.searchValue}
-                            onClick={() => updateTreatmentPdfAssignment(assignment.item.pdf_id, "", "")}
-                          >×</button>
-                        </div>
-                      ))}
-                    </div>
-                  </details>
-                </div>
+              {!isScreening && treatmentSelectionReport && treatmentSelectionReport.missing_names.length > 0 && (
+                <details className="matchDetail treatmentMissingNames">
+                  <summary>Wel in Excel, geen behandelplan gevonden ({treatmentSelectionReport.missing_names.length})</summary>
+                  <div className="matchNameList">{treatmentSelectionReport.missing_names.map((patientName, index) => <span key={`${patientName}-${index}`}>{patientName}</span>)}</div>
+                </details>
               )}
               <div className="planningPreviewList">
-                {rows.map((row, index) => (
-                  <article className={`planningPreviewRow ${isScreening ? "screeningPreviewRow" : ""} ${selectedRows[index] === false ? "isMuted" : ""}`} key={`${row.patient_name}-${index}`}>
+                {rows.map((row, index) => {
+                  const selectionItem = treatmentSelectionReport?.items[index];
+                  const needsNameReview = selectionItem?.excel_approved === true && selectionItem.match_kind !== "exact";
+                  const approvalLabel = selectionItem?.excel_name
+                    ? selectionItem.excel_approved === true
+                      ? "Akkoord"
+                      : selectionItem.excel_approved === false
+                        ? "Niet akkoord"
+                        : "Status controleren"
+                    : treatmentRoster
+                      ? "Niet in Excel"
+                      : "";
+                  const approvalClass = selectionItem?.excel_approved === true
+                    ? "approved"
+                    : selectionItem?.excel_approved === false
+                      ? "notApproved"
+                      : "review";
+                  const treatmentSummary = row.treatments.trim() || "Nog geen behandelingen ingevuld";
+
+                  return (
+                  <article className={`planningPreviewRow ${isScreening ? "screeningPreviewRow" : "treatmentPreviewRow"} ${selectedRows[index] === false ? "isMuted" : ""}`} key={`${row.patient_name}-${index}`}>
                     {!isScreening && (
-                      <label className="rowCheck" aria-label={`${row.patient_name} selecteren`}>
+                      <label className="rowDecision" aria-label={`${row.patient_name} opnemen`}>
                         <input type="checkbox" checked={selectedRows[index] !== false} onChange={(event) => setSelectedRows({ ...selectedRows, [index]: event.target.checked })} />
+                        <span>Opnemen</span>
                       </label>
                     )}
                     {isScreening ? (
                       <label className="previewName">Naam bewoner<input value={row.patient_name} onChange={(event) => updatePreviewRow(index, { patient_name: event.target.value })} /></label>
                     ) : (
                       <div className="previewPatient">
-                        <strong>{index + 1}. {row.patient_name}</strong>
-                        <small>{row.date_or_period || formatDate(planningDate)}</small>
+                        <div className="previewPatientHeading">
+                          <strong>{index + 1}. {row.patient_name}</strong>
+                          {approvalLabel && <span className={`approvalStatus ${approvalClass}`}>{approvalLabel}</span>}
+                        </div>
+                        <small className="previewDate">{row.date_or_period || formatDate(planningDate)}</small>
+                        {selectionItem?.excel_name && (
+                          <small className="excelSelectionMeta">
+                            <span>Excel: {selectionItem.excel_name}</span>
+                            <span>Op te volgen behandeling: {selectionItem.excel_status || "leeg in Excel"}</span>
+                            {selectionItem.match_kind === "likely" && <span>Waarschijnlijke naamkoppeling</span>}
+                            {selectionItem.match_kind === "surname" && <span>Suggestie op achternaam, controleren</span>}
+                          </small>
+                        )}
+                        {needsNameReview && (
+                          <small className="nameReviewNotice">Akkoord gevonden · controleer alleen de naamkoppeling</small>
+                        )}
+                        {treatmentRoster && !selectionItem?.excel_name && <small className="excelSelectionMeta notApproved">Niet teruggevonden in Excel · controleer handmatig</small>}
                       </div>
                     )}
-                    {!isScreening && <label className="previewTreatments">Behandelingen<textarea value={row.treatments} onChange={(event) => updatePreviewRow(index, { treatments: event.target.value })} /></label>}
+                    {!isScreening && (
+                      <details className="previewRowDetails">
+                        <summary>
+                          <span>Behandelingen en opmerking</span>
+                          <small>{treatmentSummary}</small>
+                        </summary>
+                        <div className="previewDetailFields">
+                          <label className="previewTreatments">Behandelingen<textarea value={row.treatments} onChange={(event) => updatePreviewRow(index, { treatments: event.target.value })} /></label>
+                          <label className="previewRemarks">Opmerking<input value={row.remarks} placeholder="Opmerkingen" onChange={(event) => updatePreviewRow(index, { remarks: event.target.value })} /></label>
+                        </div>
+                      </details>
+                    )}
                     {isScreening && <div className="previewPatient"><strong>{index + 1}</strong><small>{row.date_or_period || formatDate(planningDate)}</small></div>}
-                    <label className="previewRemarks">Opmerking<input value={row.remarks} placeholder="Opmerkingen" onChange={(event) => updatePreviewRow(index, { remarks: event.target.value })} /></label>
+                    {isScreening && <label className="previewRemarks">Opmerking<input value={row.remarks} placeholder="Opmerkingen" onChange={(event) => updatePreviewRow(index, { remarks: event.target.value })} /></label>}
                   </article>
-                ))}
+                  );
+                })}
               </div>
             </section>
           )}
@@ -4560,20 +4533,67 @@ function PlanningView({
                   ))}
                 </div>
                 <div className="nestedPanel">
-                  <h3>Bewoners toevoegen via {expandedPlanning.planning_type === "Screening" ? "Excel/CSV" : "Excel-selectie en PDF"}</h3>
+                  <h3>Bewoners toevoegen via {expandedPlanning.planning_type === "Screening" ? "Excel/CSV" : "behandelplan-PDF's"}</h3>
                   {expandedPlanning.planning_type !== "Screening" && (
-                    <label>Excel-selectielijst
-                      <input type="file" accept=".xlsx,.xlsm,.xls,.csv" onChange={(event) => setSavedAddRoster(event.target.files?.[0] || null)} />
+                    <label>Excel-werklijst <span className="optionalLabel">optioneel</span>
+                      <input type="file" accept=".xlsx,.xlsm,.xls,.csv" onChange={(event) => {
+                        setSavedAddRoster(event.target.files?.[0] || null);
+                        setSavedAddSelectionReport(null);
+                        setSavedAddRows([]);
+                        setSavedAddSelectedRows({});
+                      }} />
+                      <small className="uploadSelectionText">{savedAddRoster ? savedAddRoster.name : "Gebruikt volgorde en goedkeuringstekst als voorstel."}</small>
                     </label>
                   )}
-                  <input type="file" accept={expandedPlanning.planning_type === "Screening" ? ".xlsx,.xlsm,.xls,.csv" : "application/pdf"} multiple onChange={(event) => setSavedAddFiles(Array.from(event.target.files || []))} />
+                  <input type="file" accept={expandedPlanning.planning_type === "Screening" ? ".xlsx,.xlsm,.xls,.csv" : "application/pdf"} multiple onChange={(event) => {
+                    setSavedAddFiles(Array.from(event.target.files || []));
+                    setSavedAddSelectionReport(null);
+                    setSavedAddRows([]);
+                    setSavedAddSelectedRows({});
+                  }} />
                   <div className="inlineActions">
-                    <button disabled={savedAddFiles.length === 0 || (expandedPlanning.planning_type !== "Screening" && !savedAddRoster) || savedAddLoading} onClick={previewAdditionalRows}>{savedAddLoading ? "Inlezen..." : expandedPlanning.planning_type === "Screening" ? "Namenlijst inlezen" : "Selectie vergelijken"}</button>
-                    <button className="primaryButton" disabled={savedAddRows.length === 0} onClick={addRowsToSavedPlanning}>Toevoegen aan planning</button>
+                    <button disabled={savedAddFiles.length === 0 || savedAddLoading} onClick={previewAdditionalRows}>{savedAddLoading ? "Inlezen..." : expandedPlanning.planning_type === "Screening" ? "Namenlijst inlezen" : "Behandelplannen uitlezen"}</button>
+                    {expandedPlanning.planning_type !== "Screening" && savedAddRows.length > 0 && <button onClick={() => setSavedAddSelectedRows(Object.fromEntries(savedAddRows.map((_, index) => [index, true])))}>Alles op ja</button>}
+                    {expandedPlanning.planning_type !== "Screening" && savedAddRows.length > 0 && <button onClick={() => setSavedAddSelectedRows(Object.fromEntries(savedAddRows.map((_, index) => [index, false])))}>Alles op nee</button>}
+                    <button className="primaryButton" disabled={savedAddSelectedCount === 0} onClick={addRowsToSavedPlanning}>Toevoegen aan planning</button>
                   </div>
-                  {savedAddRows.length > 0 && <div className="sectionHint">{savedAddRows.length} bewoner(s) klaar om toe te voegen.</div>}
-                  {savedAddReport && (savedAddReport.missing_names.length > 0 || savedAddReport.review.length > 0 || savedAddReport.unselected_pdfs.length > 0) && (
-                    <div className="sectionHint">Controle nodig: {savedAddReport.missing_names.length} zonder PDF, {savedAddReport.review.length} dubbel en {savedAddReport.unselected_pdfs.length} niet in de Excel-selectie.</div>
+                  {savedAddRows.length > 0 && (
+                    <div className="savedAddSelectionList">
+                      <div className="sectionHint">{savedAddRows.length} bewoner(s) uitgelezen · {savedAddSelectedCount} opnemen.</div>
+                      {savedAddRows.map((row, index) => (
+                        <label className={`savedAddSelectionRow ${savedAddSelectedRows[index] ? "isSelected" : ""}`} key={`${row.patient_name}-${index}`}>
+                          <input
+                            type="checkbox"
+                            checked={expandedPlanning.planning_type === "Screening" || !!savedAddSelectedRows[index]}
+                            disabled={expandedPlanning.planning_type === "Screening"}
+                            onChange={(event) => setSavedAddSelectedRows({ ...savedAddSelectedRows, [index]: event.target.checked })}
+                          />
+                          <span>
+                            <strong>{index + 1}. {row.patient_name}</strong>
+                            {expandedPlanning.planning_type !== "Screening" && <small>{row.treatments || "Geen behandeling herkend"}</small>}
+                            {savedAddSelectionReport?.items[index]?.excel_name && (
+                              <small className={`excelSelectionMeta ${savedAddSelectionReport.items[index].excel_approved === true ? "approved" : "notApproved"}`}>
+                                Excel: {savedAddSelectionReport.items[index].excel_name}
+                                {` · Op te volgen behandeling: ${savedAddSelectionReport.items[index].excel_status || "leeg in Excel"}`}
+                                {savedAddSelectionReport.items[index].match_kind === "likely" ? " · waarschijnlijke naamkoppeling" : ""}
+                                {savedAddSelectionReport.items[index].match_kind === "surname" ? " · suggestie op achternaam, controleren" : ""}
+                              </small>
+                            )}
+                            {savedAddSelectionReport?.items[index]?.excel_approved === true && savedAddSelectionReport.items[index].match_kind !== "exact" && (
+                              <small className="nameReviewNotice">Akkoord gevonden · controleer alleen de naamkoppeling</small>
+                            )}
+                            {savedAddRoster && !savedAddSelectionReport?.items[index]?.excel_name && <small className="excelSelectionMeta notApproved">Niet teruggevonden in Excel · controleer handmatig</small>}
+                          </span>
+                          <b>{expandedPlanning.planning_type === "Screening" || savedAddSelectedRows[index] ? "Ja" : "Nee"}</b>
+                        </label>
+                      ))}
+                      {savedAddSelectionReport && savedAddSelectionReport.missing_names.length > 0 && (
+                        <details className="matchDetail">
+                          <summary>Wel in Excel, geen behandelplan gevonden ({savedAddSelectionReport.missing_names.length})</summary>
+                          <div className="matchNameList">{savedAddSelectionReport.missing_names.map((patientName, index) => <span key={`${patientName}-${index}`}>{patientName}</span>)}</div>
+                        </details>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

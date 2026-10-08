@@ -353,6 +353,26 @@ class TreatmentMatchReportOut(BaseModel):
     review: list[TreatmentMatchItemOut] = Field(default_factory=list)
 
 
+class TreatmentSelectionItemOut(BaseModel):
+    pdf_id: str
+    pdf_name: str
+    file_name: str
+    excel_name: str = ""
+    excel_status: str = ""
+    excel_approved: bool | None = None
+    excel_order: int = 0
+    recommended: bool = False
+    match_kind: str = "none"
+    row: PlanningRowCreate
+
+
+class TreatmentSelectionReportOut(BaseModel):
+    excel_count: int = 0
+    pdf_count: int
+    items: list[TreatmentSelectionItemOut] = Field(default_factory=list)
+    missing_names: list[str] = Field(default_factory=list)
+
+
 class PlanningRowOut(PlanningRowBase):
     id: int
 

@@ -1,4 +1,4 @@
-import type { AuditLog, DossierPreviewRow, Planning, PlanningRow, Prospect, SavedUrgencyRoutePlan, SavedUrgencyRoutePlanCreate, TeamProfile, TreatmentMatchReport, Urgency, UrgencyRoutePlan, UrgencyRoutePlanRequest, User, Wzc } from "./types";
+import type { AuditLog, DossierPreviewRow, Planning, PlanningRow, Prospect, SavedUrgencyRoutePlan, SavedUrgencyRoutePlanCreate, TeamProfile, TreatmentMatchReport, TreatmentSelectionReport, Urgency, UrgencyRoutePlan, UrgencyRoutePlanRequest, User, Wzc } from "./types";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -117,6 +117,13 @@ export const api = {
     formData.set("roster", roster);
     files.forEach((file) => formData.append("files", file));
     return request<TreatmentMatchReport>("/plannings/treatment-match-preview", { method: "POST", body: formData });
+  },
+  previewTreatmentSelection: async (planningDate: string, files: File[], roster?: File | null) => {
+    const formData = new FormData();
+    formData.set("planning_date", planningDate);
+    if (roster) formData.set("roster", roster);
+    files.forEach((file) => formData.append("files", file));
+    return request<TreatmentSelectionReport>("/plannings/treatment-selection-preview", { method: "POST", body: formData });
   },
   previewDossiers: async (files: File[]) => {
     const formData = new FormData();

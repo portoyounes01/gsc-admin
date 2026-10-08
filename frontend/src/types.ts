@@ -204,6 +204,26 @@ export type TreatmentMatchReport = {
   review: TreatmentMatchItem[];
 };
 
+export type TreatmentSelectionItem = {
+  pdf_id: string;
+  pdf_name: string;
+  file_name: string;
+  excel_name: string;
+  excel_status: string;
+  excel_approved: boolean | null;
+  excel_order: number;
+  recommended: boolean;
+  match_kind: "exact" | "likely" | "surname" | "none" | string;
+  row: PlanningRow;
+};
+
+export type TreatmentSelectionReport = {
+  excel_count: number;
+  pdf_count: number;
+  items: TreatmentSelectionItem[];
+  missing_names: string[];
+};
+
 export type Planning = {
   id: number;
   name: string;

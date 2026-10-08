@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from datetime import date
+from difflib import SequenceMatcher
 from io import BytesIO
 from typing import Iterable
 
@@ -301,10 +302,58 @@ def preview_uploaded_pdfs(files: list[tuple[str, bytes]], planning_date: date) -
 
 
 def treatment_name_key(value: str) -> str:
-    cleaned = re.sub(r"\s*[\[(](?:kamer|kam|k)?\s*[a-z0-9-]+[\])]\s*$", "", str(value or ""), flags=re.IGNORECASE)
+    cleaned = str(value or "").strip()
+    cleaned = re.sub(
+        r"(?:\s+|\s*[\[(])(?:(?:kamer|kam)\b\s*[:#-]?\s*|k\s*[:#-]?\s*)"
+        r"[a-z0-9]+(?:[./-][a-z0-9]+)*(?:\s*[\])])?\s*$",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(r"\s*[\[(]\s*[a-z]?\d+[a-z0-9-]*\s*[\])]\s*$", "", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"^(?:dhr|de heer|mevr|mevrouw)\.?\s+", "", cleaned, flags=re.IGNORECASE)
     tokens = re.findall(r"[a-z0-9]+", simplify_for_matching(cleaned))
     return " ".join(sorted(tokens))
+
+
+def treatment_name_similarity(left: str, right: str) -> float:
+    left_key = treatment_name_key(left)
+    right_key = treatment_name_key(right)
+    if not left_key or not right_key:
+        return 0.0
+    if left_key == right_key:
+        return 1.0
+    left_tokens = set(left_key.split())
+    right_tokens = set(right_key.split())
+    token_score = (2 * len(left_tokens & right_tokens)) / (len(left_tokens) + len(right_tokens))
+    sequence_score = SequenceMatcher(None, left_key, right_key).ratio()
+    return max(token_score, sequence_score)
+
+
+def treatment_name_tokens(value: str) -> list[str]:
+    return treatment_name_key(value).split()
+
+
+def treatment_token_similarity(left: str, right: str) -> float:
+    left_tokens = [token for token in treatment_name_tokens(left) if len(token) >= 3]
+    right_tokens = [token for token in treatment_name_tokens(right) if len(token) >= 3]
+    if not left_tokens or not right_tokens:
+        return 0.0
+    return max(SequenceMatcher(None, left_token, right_token).ratio() for left_token in left_tokens for right_token in right_tokens)
+
+
+def treatment_likely_name_match(left: str, right: str) -> bool:
+    left_tokens = treatment_name_tokens(left)
+    right_tokens = treatment_name_tokens(right)
+    if len(left_tokens) < 2 or len(right_tokens) < 2:
+        return False
+    token_matches = [
+        max(SequenceMatcher(None, left_token, right_token).ratio() for right_token in right_tokens)
+        for left_token in left_tokens
+        if len(left_token) >= 3
+    ]
+    strong_token_matches = sum(score >= 0.82 for score in token_matches)
+    return treatment_name_similarity(left, right) >= 0.80 and strong_token_matches >= 2
 
 
 def preview_treatment_pdf_files(
@@ -662,6 +711,225 @@ def preview_screening_workbooks(files: list[tuple[str, bytes]], planning_date: d
     for number, row in enumerate(rows, start=1):
         row[PATIENT_NR_COL] = number
     return rows
+
+
+def treatment_approval_from_values(values: Iterable[object]) -> tuple[bool | None, str]:
+    negative_pattern = re.compile(
+        r"\b(?:niet\s+goed\s*gekeurd|afgekeurd|niet\s+akkoord|geen\s+akkoord|geen\s+toestemming|"
+        r"toestemming\s+(?:geweigerd|niet\s+gegeven)|weigert|geweigerd|nee|no)\b"
+    )
+    uncertain_pattern = re.compile(
+        r"\b(?:nog\s+niet|te\s+bespreken|nog\s+bespreken|wachten|on\s+hold|twijfel|"
+        r"geen\s+antwoord|niet\s+bereikbaar|toestemming\s+gevraagd)\b"
+    )
+    positive_pattern = re.compile(
+        r"\b(?:goedgekeurd|goed\s+gekeurd|akkoord|toestemming\s+(?:gegeven|gekregen|verleend)|"
+        r"mag\s+(?:ingepland|behandeld)|in\s+orde|ja|yes|ok)\b"
+    )
+    populated_values = []
+    for value in values:
+        display_value = clean_cell_value(value)
+        if not display_value:
+            continue
+        populated_values.append((display_value, screening_name_key(display_value)))
+
+    negative_values = [display for display, normalized in populated_values if negative_pattern.search(normalized)]
+    if negative_values:
+        return False, max(negative_values, key=len)
+
+    uncertain_values = [display for display, normalized in populated_values if uncertain_pattern.search(normalized)]
+    if uncertain_values:
+        return None, max(uncertain_values, key=len)
+
+    positive_values = [
+        display_value
+        for display_value, normalized in populated_values
+        if positive_pattern.search(normalized)
+        or normalized in {"x", "v", "checked", "check"}
+        or any(mark in display_value for mark in ("✓", "✔", "☑"))
+    ]
+    if positive_values:
+        return True, max(
+            positive_values,
+            key=lambda display: (screening_name_key(display) not in {"ja", "yes", "ok", "x", "v", "checked", "check"}, len(display)),
+        )
+    return None, populated_values[0][0] if populated_values else ""
+
+
+def is_followup_treatment_column(column: object) -> bool:
+    header = normalize_excel_header(column)
+    return "behandel" in header and ("op_te_volgen" in header or "opvolg" in header)
+
+
+def extract_treatment_roster_entries(file_name: str, file_bytes: bytes) -> list[dict[str, object]]:
+    try:
+        df = read_screening_table(file_name, file_bytes)
+    except Exception as exc:
+        raise ValueError(f"{file_name} kon niet gelezen worden als Excel/CSV-bestand.") from exc
+
+    if df.empty:
+        return []
+
+    last_name_column, first_name_column, _ = find_screening_name_columns(df)
+    if last_name_column is None:
+        raise ValueError(f"{file_name}: geen duidelijke naamkolom gevonden.")
+
+    name_columns = {last_name_column}
+    if first_name_column is not None:
+        name_columns.add(first_name_column)
+    followup_treatment_column = next(
+        (column for column in df.columns if column not in name_columns and is_followup_treatment_column(column)),
+        None,
+    )
+
+    entries = []
+    for _, item in df.iterrows():
+        name_parts = [clean_cell_value(item.get(last_name_column))]
+        if first_name_column is not None:
+            name_parts.append(clean_cell_value(item.get(first_name_column)))
+        patient_name = clean_patient_name(" ".join(part for part in name_parts if part))
+        if not re.search(r"[A-Za-zÀ-ÿ]", patient_name) or is_screening_non_patient_name(patient_name):
+            continue
+        status = clean_cell_value(item.get(followup_treatment_column)) if followup_treatment_column is not None else ""
+        approved, _ = treatment_approval_from_values([status])
+        entries.append(
+            {
+                "name": patient_name,
+                "status": status,
+                "approved": approved,
+                "order": len(entries) + 1,
+            }
+        )
+    return entries
+
+
+def build_treatment_selection_report(
+    roster_entries: list[dict[str, object]],
+    pdf_items: list[dict[str, object]],
+) -> dict[str, object]:
+    available_pdfs: dict[str, list[dict[str, object]]] = {}
+    for item in pdf_items:
+        key = treatment_name_key(str(item.get("pdf_name", "") or ""))
+        if key:
+            available_pdfs.setdefault(key, []).append(item)
+
+    selected_pdf_ids: set[str] = set()
+    items = []
+    missing_names = []
+
+    for entry in roster_entries:
+        excel_name = str(entry.get("name", "") or "")
+        key = treatment_name_key(excel_name)
+        candidates = available_pdfs.get(key, [])
+        item = next(
+            (
+                candidate
+                for candidate in candidates
+                if str(candidate.get("pdf_id") or candidate.get("file_name")) not in selected_pdf_ids
+            ),
+            None,
+        )
+        match_kind = "exact" if item is not None else ""
+        if item is None:
+            scored_candidates = sorted(
+                (
+                    (
+                        treatment_name_similarity(excel_name, str(candidate.get("pdf_name", "") or "")),
+                        candidate,
+                    )
+                    for candidate in pdf_items
+                    if str(candidate.get("pdf_id") or candidate.get("file_name")) not in selected_pdf_ids
+                ),
+                key=lambda scored: scored[0],
+                reverse=True,
+            )
+            best_score = scored_candidates[0][0] if scored_candidates else 0.0
+            second_score = scored_candidates[1][0] if len(scored_candidates) > 1 else 0.0
+            if (
+                scored_candidates
+                and treatment_likely_name_match(excel_name, str(scored_candidates[0][1].get("pdf_name", "") or ""))
+                and (len(scored_candidates) == 1 or best_score - second_score >= 0.06)
+            ):
+                item = scored_candidates[0][1]
+                match_kind = "likely"
+        if item is None:
+            surname_candidates = sorted(
+                (
+                    (
+                        treatment_token_similarity(excel_name, str(candidate.get("pdf_name", "") or "")),
+                        candidate,
+                    )
+                    for candidate in pdf_items
+                    if str(candidate.get("pdf_id") or candidate.get("file_name")) not in selected_pdf_ids
+                ),
+                key=lambda scored: scored[0],
+                reverse=True,
+            )
+            best_score = surname_candidates[0][0] if surname_candidates else 0.0
+            second_score = surname_candidates[1][0] if len(surname_candidates) > 1 else 0.0
+            if surname_candidates and best_score >= 0.88 and (
+                len(surname_candidates) == 1 or best_score - second_score >= 0.08
+            ):
+                item = surname_candidates[0][1]
+                match_kind = "surname"
+        if item is None:
+            missing_names.append(excel_name)
+            continue
+        pdf_id = str(item.get("pdf_id") or item.get("file_name"))
+        selected_pdf_ids.add(pdf_id)
+        items.append(
+            {
+                "pdf_id": pdf_id,
+                "pdf_name": str(item.get("pdf_name", "") or ""),
+                "file_name": str(item.get("file_name", "") or ""),
+                "excel_name": excel_name,
+                "excel_status": str(entry.get("status", "") or ""),
+                "excel_approved": entry.get("approved") if isinstance(entry.get("approved"), bool) else None,
+                "excel_order": int(entry.get("order", 0) or 0),
+                "recommended": entry.get("approved") is True and match_kind != "surname",
+                "match_kind": match_kind,
+                "row": item["row"],
+            }
+        )
+
+    for item in pdf_items:
+        pdf_id = str(item.get("pdf_id") or item.get("file_name"))
+        if pdf_id in selected_pdf_ids:
+            continue
+        items.append(
+            {
+                "pdf_id": pdf_id,
+                "pdf_name": str(item.get("pdf_name", "") or ""),
+                "file_name": str(item.get("file_name", "") or ""),
+                "excel_name": "",
+                "excel_status": "",
+                "excel_approved": None,
+                "excel_order": 0,
+                "recommended": False,
+                "match_kind": "none",
+                "row": item["row"],
+            }
+        )
+
+    for number, item in enumerate(items, start=1):
+        item["row"][PATIENT_NR_COL] = number
+
+    return {
+        "excel_count": len(roster_entries),
+        "pdf_count": len(pdf_items),
+        "items": items,
+        "missing_names": missing_names,
+    }
+
+
+def preview_treatment_selection(
+    pdf_files: list[tuple[str, bytes]],
+    planning_date: date,
+    roster_file: tuple[str, bytes] | None = None,
+) -> dict[str, object]:
+    pdf_items = preview_treatment_pdf_files(pdf_files, planning_date)
+    roster_entries = extract_treatment_roster_entries(*roster_file) if roster_file else []
+    return build_treatment_selection_report(roster_entries, pdf_items)
 
 
 def build_excel_file(planning_name: str, planning_date: date, location: str, rows: list[dict[str, object]], planning_type: str = "Behandeling") -> BytesIO:

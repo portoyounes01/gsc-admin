@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models import Planning, PlanningRow, User, Wzc
-from app.schemas import PlanningCreate, PlanningOut, PlanningRowCreate, PlanningUpdate, TreatmentMatchReportOut
+from app.schemas import PlanningCreate, PlanningOut, PlanningRowCreate, PlanningUpdate, TreatmentMatchReportOut, TreatmentSelectionReportOut
 from app.services import planning as planning_service
 from app.services.audit import add_audit_log
 
@@ -106,6 +106,40 @@ async def preview_treatment_matches(
     for collection_name in ("pdfs", "matched", "unselected_pdfs", "review"):
         for item in report[collection_name]:
             item["row"] = preview_row_to_schema(item["row"])
+    return report
+
+
+@router.post("/treatment-selection-preview", response_model=TreatmentSelectionReportOut)
+async def preview_treatment_selection(
+    planning_date: date = Form(...),
+    files: list[UploadFile] = File(...),
+    roster: UploadFile | None = File(None),
+    _: User = Depends(get_current_user),
+) -> dict[str, object]:
+    roster_payload = None
+    if roster is not None:
+        allowed_roster_extensions = (".xlsx", ".xlsm", ".xls", ".csv")
+        if not roster.filename.lower().endswith(allowed_roster_extensions):
+            raise HTTPException(status_code=400, detail=f"{roster.filename} is geen Excel- of CSV-bestand.")
+        roster_payload = (roster.filename, await roster.read())
+
+    pdf_payloads = []
+    for uploaded_file in files:
+        if not uploaded_file.filename.lower().endswith(".pdf"):
+            raise HTTPException(status_code=400, detail=f"{uploaded_file.filename} is geen PDF.")
+        pdf_payloads.append((uploaded_file.filename, await uploaded_file.read()))
+
+    try:
+        report = planning_service.preview_treatment_selection(
+            pdf_payloads,
+            planning_date,
+            roster_payload,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    for item in report["items"]:
+        item["row"] = preview_row_to_schema(item["row"])
     return report
 
 
