@@ -13,3 +13,4 @@ dist/
 *.xls
 *.pdf
 tmp/
+deploy/osrm-data/
