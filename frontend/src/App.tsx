@@ -1250,6 +1250,207 @@ function LoginView({ onLogin }: { onLogin: (user: User) => void }) {
   );
 }
 
+const API_DOCS_SECTIONS = [
+  {
+    tag: "Auth",
+    description: "Authentication & current user",
+    endpoints: [
+      { method: "POST", path: "/auth/login", auth: false, summary: "Log in and receive a JWT bearer token", body: "{ email, password }", response: "{ access_token, token_type }" },
+      { method: "GET",  path: "/auth/me",    auth: true,  summary: "Return the currently authenticated user", body: "—", response: "UserOut" },
+    ],
+  },
+  {
+    tag: "Users",
+    description: "User management (admin only)",
+    endpoints: [
+      { method: "GET",    path: "/users",          auth: true,  role: "admin", summary: "List all users", body: "—", response: "UserOut[]" },
+      { method: "POST",   path: "/users",          auth: true,  role: "admin", summary: "Create a new user", body: "{ email, password, role?, is_active? }", response: "UserOut" },
+      { method: "PATCH",  path: "/users/{id}",     auth: true,  role: "admin", summary: "Update a user's password, role, or active status", body: "{ password?, role?, is_active? }", response: "UserOut" },
+      { method: "DELETE", path: "/users/{id}",     auth: true,  role: "admin", summary: "Delete a user (cannot delete yourself)", body: "—", response: '{ status: "deleted" }' },
+    ],
+  },
+  {
+    tag: "Teams",
+    description: "Team member profiles",
+    endpoints: [
+      { method: "GET",    path: "/teams",          auth: true,  summary: "List team profiles (non-admins see active only)", body: "—", response: "TeamProfileOut[]" },
+      { method: "POST",   path: "/teams",          auth: true,  role: "admin", summary: "Create a team profile", body: "{ name, role?, skillsets?, max_treatments_per_day?, remark?, is_active? }", response: "TeamProfileOut" },
+      { method: "PATCH",  path: "/teams/{id}",     auth: true,  role: "admin", summary: "Update a team profile", body: "Partial<TeamProfileCreate>", response: "TeamProfileOut" },
+      { method: "DELETE", path: "/teams/{id}",     auth: true,  role: "admin", summary: "Delete a team profile", body: "—", response: '{ status: "deleted" }' },
+    ],
+  },
+  {
+    tag: "WZCs",
+    description: "Care home database",
+    endpoints: [
+      { method: "GET",    path: "/wzcs",           auth: true,  summary: "List care homes. Query: ?search=&status=", body: "—", response: "WzcOut[] (includes open_urgencies count)" },
+      { method: "POST",   path: "/wzcs",           auth: true,  role: "admin", summary: "Create a care home", body: "WzcCreate (name required; address fields trigger geocoding)", response: "WzcOut" },
+      { method: "PATCH",  path: "/wzcs/{id}",      auth: true,  role: "admin", summary: "Update a care home", body: "Partial<WzcUpdate>", response: "WzcOut" },
+      { method: "DELETE", path: "/wzcs/{id}",      auth: true,  role: "admin", summary: "Delete a care home. Query: ?confirm_name= (must match exactly)", body: "—", response: '{ status: "deleted" }' },
+    ],
+  },
+  {
+    tag: "Prospects",
+    description: "Sales pipeline / prospecting",
+    endpoints: [
+      { method: "GET",    path: "/prospects",                         auth: true,  summary: "List prospects. Query: ?search=&status=", body: "—", response: "ProspectOut[]" },
+      { method: "POST",   path: "/prospects",                         auth: true,  role: "admin", summary: "Create a prospect", body: "ProspectCreate", response: "ProspectOut" },
+      { method: "PATCH",  path: "/prospects/{id}",                    auth: true,  role: "admin", summary: "Update a prospect", body: "Partial<ProspectUpdate>", response: "ProspectOut" },
+      { method: "POST",   path: "/prospects/{id}/convert-to-wzc",     auth: true,  role: "admin", summary: "Promote a prospect to an active care home (WZC)", body: "—", response: "WzcOut" },
+      { method: "DELETE", path: "/prospects/{id}",                    auth: true,  role: "admin", summary: "Delete a prospect. Query: ?confirm_name= (must match exactly)", body: "—", response: '{ status: "deleted" }' },
+    ],
+  },
+  {
+    tag: "Urgencies",
+    description: "Urgent patient requests & route planning",
+    endpoints: [
+      { method: "GET",    path: "/urgencies",                          auth: true, summary: "List urgencies. Query: ?status=&wzc_id=", body: "—", response: "UrgencyOut[]" },
+      { method: "POST",   path: "/urgencies",                          auth: true, summary: "Create an urgency", body: "{ reported_on, wzc_id?, wzc_name?, patient_name, urgency_type, status?, remark? }", response: "UrgencyOut" },
+      { method: "PATCH",  path: "/urgencies/{id}",                     auth: true, summary: "Update an urgency", body: "Partial<UrgencyUpdate>", response: "UrgencyOut" },
+      { method: "POST",   path: "/urgencies/{id}/complete",            auth: true, summary: "Mark an urgency as completed", body: "—", response: "UrgencyOut" },
+      { method: "POST",   path: "/urgencies/route-plan",               auth: true, summary: "Calculate optimised route plan for selected urgencies", body: "{ urgency_ids[], execution_date, start_location, end_location?, return_to_start?, route_count?, service_duration_minutes?, max_route_duration_minutes?, start_time? }", response: "UrgencyRoutePlanOut" },
+      { method: "GET",    path: "/urgencies/saved-route-plans",        auth: true, summary: "List saved route plans. Query: ?execution_date=", body: "—", response: "SavedUrgencyRoutePlanOut[]" },
+      { method: "POST",   path: "/urgencies/saved-route-plans",        auth: true, summary: "Save a calculated route plan", body: "{ execution_date, title?, plan: UrgencyRoutePlanOut }", response: "SavedUrgencyRoutePlanOut" },
+      { method: "DELETE", path: "/urgencies/saved-route-plans/{id}",   auth: true, summary: "Delete a saved route plan", body: "—", response: '{ status: "deleted" }' },
+    ],
+  },
+  {
+    tag: "Plannings",
+    description: "Treatment planning & patient lists",
+    endpoints: [
+      { method: "GET",    path: "/plannings",                          auth: true, summary: "List plannings. Query: ?upcoming_only=true", body: "—", response: "PlanningOut[]" },
+      { method: "GET",    path: "/plannings/{id}",                     auth: true, summary: "Get a single planning with all rows", body: "—", response: "PlanningOut" },
+      { method: "POST",   path: "/plannings",                          auth: true, summary: "Create a planning", body: "{ name, planning_type?, planning_date, start_time?, end_time?, planning_status?, team_label?, location?, wzc_id?, note?, rows[] }", response: "PlanningOut" },
+      { method: "PATCH",  path: "/plannings/{id}",                     auth: true, summary: "Update planning metadata", body: "Partial<PlanningUpdate>", response: "PlanningOut" },
+      { method: "DELETE", path: "/plannings/{id}",                     auth: true, summary: "Delete a planning", body: "—", response: '{ status: "deleted" }' },
+      { method: "POST",   path: "/plannings/{id}/rows",                auth: true, summary: "Append patient rows to an existing planning", body: "PlanningRowCreate[]", response: "PlanningOut" },
+      { method: "PUT",    path: "/plannings/{id}/rows",                auth: true, summary: "Replace all patient rows", body: "PlanningRowCreate[]", response: "PlanningOut" },
+      { method: "DELETE", path: "/plannings/{id}/rows/{rowId}",        auth: true, summary: "Remove a single patient row", body: "—", response: "PlanningOut" },
+      { method: "GET",    path: "/plannings/{id}/excel",               auth: true, summary: "Download planning as Excel (.xlsx) file", body: "—", response: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+      { method: "POST",   path: "/plannings/preview",                  auth: true, summary: "Extract patient rows from uploaded PDF files (multipart form: planning_date + files[])", body: "multipart/form-data", response: "PlanningRowCreate[]" },
+      { method: "POST",   path: "/plannings/screening-preview",        auth: true, summary: "Extract rows from screening Excel/CSV files (multipart form: planning_date + files[])", body: "multipart/form-data", response: "PlanningRowCreate[]" },
+      { method: "POST",   path: "/plannings/treatment-match-preview",  auth: true, summary: "Match PDF patients against a roster Excel (multipart form: planning_date + roster + files[])", body: "multipart/form-data", response: "TreatmentMatchReportOut" },
+      { method: "POST",   path: "/plannings/treatment-selection-preview", auth: true, summary: "Auto-select patients from PDFs with optional roster (multipart form: planning_date + files[] + roster?)", body: "multipart/form-data", response: "TreatmentSelectionReportOut" },
+    ],
+  },
+  {
+    tag: "Dossiers",
+    description: "Dental record extraction from PDF files",
+    endpoints: [
+      { method: "POST", path: "/dossiers/preview", auth: true, summary: "Extract patient data from uploaded dental record PDFs (multipart form: files[])", body: "multipart/form-data (PDF files)", response: "DossierPreviewRow[]" },
+    ],
+  },
+  {
+    tag: "Audit Logs",
+    description: "Activity log (admin only)",
+    endpoints: [
+      { method: "GET",    path: "/audit-logs", auth: true, role: "admin", summary: "List audit logs (max 1000). Query: ?actor=&module=&from_date=&to_date=", body: "—", response: "AuditLogOut[]" },
+      { method: "DELETE", path: "/audit-logs", auth: true, role: "admin", summary: "Clear all audit logs", body: "—", response: '{ status: "cleared" }' },
+    ],
+  },
+  {
+    tag: "Portal",
+    description: "Care home portal (WZC self-service)",
+    endpoints: [
+      { method: "POST", path: "/portal/auth/login",        auth: false, summary: "Portal login — returns a portal-scoped JWT", body: "{ email, password }", response: "{ access_token, token_type }" },
+      { method: "GET",  path: "/portal/me",                auth: true,  summary: "Return the authenticated portal account with linked WZC name", body: "—", response: "PortalMeOut" },
+      { method: "GET",  path: "/portal/appointments",      auth: true,  summary: "List upcoming appointments for the portal account's care home", body: "—", response: "PortalAppointmentOut[]" },
+      { method: "GET",  path: "/portal/services",          auth: true,  summary: "List past services for the portal account's care home", body: "—", response: "PortalServiceOut[]" },
+      { method: "GET",  path: "/portal/urgencies",         auth: true,  summary: "List urgencies linked to the portal account's care home", body: "—", response: "PortalUrgencyOut[]" },
+      { method: "POST", path: "/portal/urgencies",         auth: true,  summary: "Submit a new urgency from the portal", body: "{ reported_on, patient_name, urgency_type, remark? }", response: "PortalUrgencyOut" },
+      { method: "GET",  path: "/portal/urgencies/{id}",    auth: true,  summary: "Get a single urgency (scoped to own care home)", body: "—", response: "PortalUrgencyOut" },
+      { method: "GET",  path: "/portal/accounts",          auth: true,  role: "admin", summary: "List all portal accounts", body: "—", response: "PortalAccountOut[]" },
+      { method: "POST", path: "/portal/accounts",          auth: true,  role: "admin", summary: "Create a portal account linked to a care home", body: "{ email, password (≥8 chars), wzc_id, role? }", response: "PortalAccountOut" },
+      { method: "GET",  path: "/portal/demo-centres",      auth: false, summary: "List demo WZCs (local environment only)", body: "—", response: "PortalDemoCentreOut[]" },
+    ],
+  },
+  {
+    tag: "Health",
+    description: "System health checks",
+    endpoints: [
+      { method: "GET", path: "/health",            auth: false, summary: "Basic liveness check", body: "—", response: '{ status: "ok" }' },
+      { method: "GET", path: "/health/geocoding",  auth: false, summary: "Check outbound HTTPS / geocoding connectivity", body: "—", response: "{ reachable, latency_ms, error? }" },
+    ],
+  },
+];
+
+const METHOD_COLORS: Record<string, string> = {
+  GET: "#22c55e", POST: "#3b82f6", PATCH: "#f59e0b", PUT: "#8b5cf6", DELETE: "#ef4444",
+};
+
+const API_BASE_URL: string = (import.meta as { env: Record<string, string> }).env.VITE_API_URL || "http://localhost:8000";
+
+function ApiDocsModal({ lang, onClose }: { lang: Lang; onClose: () => void }) {
+  const [activeTag, setActiveTag] = useState(API_DOCS_SECTIONS[0].tag);
+  const [copied, setCopied] = useState(false);
+  const activeSection = API_DOCS_SECTIONS.find((s) => s.tag === activeTag) ?? API_DOCS_SECTIONS[0];
+  const isNl = lang === "nl";
+
+  function copyBase() {
+    navigator.clipboard.writeText(API_BASE_URL).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    });
+  }
+
+  return (
+    <div className="apiDocsOverlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="apiDocsModal">
+        <div className="apiDocsHeader">
+          <div>
+            <h2 className="apiDocsTitle">{isNl ? "API Documentatie" : "API Documentation"}</h2>
+            <p className="apiDocsSubtitle">{isNl ? "Alle beschikbare endpoints van de backend REST API." : "All available endpoints of the backend REST API."}</p>
+          </div>
+          <button className="apiDocsClose" onClick={onClose} aria-label="Sluiten">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="4" x2="16" y2="16"/><line x1="16" y1="4" x2="4" y2="16"/></svg>
+          </button>
+        </div>
+        <div className="apiDocsBaseUrl">
+          <span className="apiDocsBaseLabel">{isNl ? "Basis-URL" : "Base URL"}</span>
+          <code className="apiDocsBaseValue">{API_BASE_URL}</code>
+          <button className="apiDocsCopyBtn" onClick={copyBase} title={isNl ? "Kopiëren" : "Copy"}>
+            {copied
+              ? <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="#22c55e" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 10 8 14 16 6"/></svg>
+              : <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="8" y="8" width="10" height="10" rx="2"/><path d="M4 12H3a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v1"/></svg>
+            }
+            {copied ? (isNl ? "Gekopieerd" : "Copied") : (isNl ? "Kopiëren" : "Copy")}
+          </button>
+          <span className="apiDocsBaseHint">{isNl ? "Voeg het pad toe aan deze URL voor elk verzoek, bijv." : "Append the path to this URL for each request, e.g."} <code>{API_BASE_URL}/auth/login</code></span>
+        </div>
+        <div className="apiDocsBody">
+          <nav className="apiDocsTags">
+            {API_DOCS_SECTIONS.map((s) => (
+              <button key={s.tag} className={`apiDocsTag ${activeTag === s.tag ? "active" : ""}`} onClick={() => setActiveTag(s.tag)}>
+                {s.tag}
+              </button>
+            ))}
+          </nav>
+          <div className="apiDocsContent">
+            <div className="apiDocsSectionDesc">{activeSection.description}</div>
+            <div className="apiDocsEndpoints">
+              {activeSection.endpoints.map((ep, i) => (
+                <div className="apiDocsEndpoint" key={i}>
+                  <div className="apiDocsEndpointTop">
+                    <span className="apiDocsMethod" style={{ background: METHOD_COLORS[ep.method] ?? "#6b7280" }}>{ep.method}</span>
+                    <code className="apiDocsPath">{API_BASE_URL}<strong>{ep.path}</strong></code>
+                    {"role" in ep && ep.role === "admin" && <span className="apiDocsBadge adminBadge">admin</span>}
+                    {!ep.auth && <span className="apiDocsBadge publicBadge">{isNl ? "publiek" : "public"}</span>}
+                  </div>
+                  <p className="apiDocsSummary">{ep.summary}</p>
+                  <div className="apiDocsMeta">
+                    <span><strong>{isNl ? "Body" : "Body"}:</strong> <code>{ep.body}</code></span>
+                    <span><strong>{isNl ? "Response" : "Response"}:</strong> <code>{ep.response}</code></span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Shell({
   user,
   section,
@@ -1268,6 +1469,7 @@ function Shell({
   children: ReactNode;
 }) {
   const L = (key: string) => t(lang, key);
+  const [showApiDocs, setShowApiDocs] = useState(false);
   const visibleSections = sections.filter((item) => !["Admin", "WZC database"].includes(item) || user.role === "admin");
   function navigate(nextSection: Section) {
     setSection(nextSection);
@@ -1317,6 +1519,11 @@ function Shell({
                   </div>
                 </div>
                 <div className="sidebarSettingsDivider" />
+                <button className="sidebarApiDocsButton" onClick={() => setShowApiDocs(true)}>
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="2" width="14" height="16" rx="2"/><line x1="7" y1="7" x2="13" y2="7"/><line x1="7" y1="10" x2="13" y2="10"/><line x1="7" y1="13" x2="11" y2="13"/></svg>
+                  {lang === "nl" ? "API Documentatie" : "API Documentation"}
+                </button>
+                <div className="sidebarSettingsDivider" />
                 <span className="sidebarConfidential">{L("Intern en vertrouwelijk")}</span>
                 <button className="sidebarLogoutButton" onClick={onLogout}>{L("Afmelden")}</button>
               </div>
@@ -1325,6 +1532,7 @@ function Shell({
         </div>
       </aside>
       <main className="content">{children}</main>
+      {showApiDocs && <ApiDocsModal lang={lang} onClose={() => setShowApiDocs(false)} />}
     </div>
   );
 }

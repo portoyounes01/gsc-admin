@@ -582,7 +582,7 @@ label {
 }
 
 .sidebarSettingsMenu {
-  position: static;
+  position: relative;
   flex-shrink: 0;
 }
 
@@ -4522,3 +4522,276 @@ label {
 /* Separate upcoming portal activity from completed history. */
 .portal-page-section>.portal-panel{margin-top:24px}.portal-page-section>.portal-panel h2{margin:0 0 18px;font-size:19px;color:#163359}.portal-page-section>.portal-history{margin-top:18px}
 .portal-login-card{width:min(520px,calc(100% - 36px));max-height:calc(100vh - 36px);overflow:auto}.portal-demo-picker{border:1px solid #d9e9f4;background:#f4f9fd;border-radius:13px;padding:15px;display:grid;gap:10px}.portal-demo-heading{display:flex;justify-content:space-between;gap:12px;align-items:center;color:#15345e;font-size:14px}.portal-demo-heading span{font-size:12px;color:#6683a1}.portal-demo-picker label{font-size:12px}.portal-demo-options{max-height:176px;overflow:auto;background:#fff;border:1px solid #e2ebf2;border-radius:9px}.portal-demo-options button{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:0;border-bottom:1px solid #eef2f6;background:#fff;text-align:left;color:#1b416a;cursor:pointer}.portal-demo-options button:hover,.portal-demo-options button.selected{background:#e7f4f9}.portal-demo-options button strong,.portal-demo-options button small{display:block}.portal-demo-options button strong{font-size:12px}.portal-demo-options button small{font-size:11px;color:#6c879e;margin-top:3px}.portal-demo-options p{font-size:12px;color:#7089a2;margin:10px 12px}.portal-demo-selected{font-size:12px;color:#176b78;margin:0}.portal-sidebar-foot{display:block}.portal-account{display:flex;align-items:center;gap:10px;min-width:0}.portal-account>div:last-child{min-width:0}.portal-sidebar-foot .portal-account strong,.portal-sidebar-foot .portal-account small{max-width:145px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.portal-switch{width:100%;margin-top:15px;border:1px solid #d9e6f1;border-radius:9px;background:#f4f9fd;color:#225680;padding:10px 8px;font-size:12px;font-weight:700;cursor:pointer;text-align:center}.portal-switch:hover{background:#e8f3fb}@media(max-width:980px){.portal-sidebar-foot>.portal-account{display:none}.portal-switch{font-size:0;padding:9px 0}.portal-switch:before{content:"↗";font-size:22px}}@media(max-width:650px){.portal-login-card{padding:25px}.portal-demo-picker{padding:12px}}
+
+/* API Documentation modal */
+.sidebarApiDocsButton {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 4px 16px 2px;
+  padding: 7px 12px;
+  border: 1px solid var(--gsc-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--gsc-muted);
+  font-size: 0.76rem;
+  font-weight: 520;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  text-align: left;
+  width: calc(100% - 32px);
+}
+.sidebarApiDocsButton:hover {
+  background: var(--gsc-surface);
+  color: var(--gsc-text);
+}
+
+.apiDocsOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(2px);
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.apiDocsModal {
+  background: var(--gsc-card-bg, #fff);
+  border: 1px solid var(--gsc-border);
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
+  width: min(900px, 100%);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.apiDocsHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 24px 28px 18px;
+  border-bottom: 1px solid var(--gsc-border);
+  flex-shrink: 0;
+}
+
+.apiDocsTitle {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0 0 4px;
+  color: var(--gsc-text);
+  letter-spacing: -0.02em;
+}
+
+.apiDocsSubtitle {
+  font-size: 0.8rem;
+  color: var(--gsc-muted);
+  margin: 0;
+}
+
+.apiDocsClose {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--gsc-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--gsc-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.apiDocsClose:hover { background: var(--gsc-surface); color: var(--gsc-text); }
+
+.apiDocsBody {
+  display: flex;
+  overflow: hidden;
+  flex: 1;
+}
+
+.apiDocsTags {
+  flex: 0 0 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 16px 12px;
+  border-right: 1px solid var(--gsc-border);
+  overflow-y: auto;
+}
+
+.apiDocsTag {
+  text-align: left;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--gsc-muted);
+  font-size: 0.78rem;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.apiDocsTag:hover { background: var(--gsc-surface); color: var(--gsc-text); }
+.apiDocsTag.active { background: var(--gsc-surface); color: var(--gsc-accent, #0e6ac7); border-color: var(--gsc-border); font-weight: 680; }
+
+.apiDocsContent {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.apiDocsSectionDesc {
+  font-size: 0.8rem;
+  color: var(--gsc-muted);
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--gsc-border);
+}
+
+.apiDocsEndpoints {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.apiDocsEndpoint {
+  border: 1px solid var(--gsc-border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: var(--gsc-surface, #f9fafb);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.apiDocsEndpointTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.apiDocsMethod {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 5px;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  font-family: ui-monospace, monospace;
+  flex-shrink: 0;
+}
+
+.apiDocsPath {
+  font-size: 0.82rem;
+  font-family: ui-monospace, monospace;
+  color: var(--gsc-text);
+  font-weight: 600;
+}
+
+.apiDocsBadge {
+  font-size: 0.67rem;
+  font-weight: 680;
+  padding: 2px 6px;
+  border-radius: 5px;
+  letter-spacing: 0.02em;
+}
+.adminBadge { background: #fef3c7; color: #92400e; }
+.publicBadge { background: #dcfce7; color: #166534; }
+
+.apiDocsSummary {
+  font-size: 0.81rem;
+  color: var(--gsc-text);
+  margin: 0;
+  line-height: 1.45;
+}
+
+.apiDocsMeta {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 0.76rem;
+  color: var(--gsc-muted);
+}
+.apiDocsMeta code {
+  font-family: ui-monospace, monospace;
+  font-size: 0.74rem;
+  background: var(--gsc-border);
+  padding: 1px 4px;
+  border-radius: 4px;
+  color: var(--gsc-text);
+}
+
+@media (max-width: 620px) {
+  .apiDocsBody { flex-direction: column; }
+  .apiDocsTags { flex-direction: row; flex-wrap: wrap; flex: none; border-right: none; border-bottom: 1px solid var(--gsc-border); }
+  .apiDocsMeta { flex-direction: column; gap: 4px; }
+}
+
+/* API docs base URL bar */
+.apiDocsBaseUrl {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 11px 28px;
+  background: var(--gsc-surface, #f4f6f9);
+  border-bottom: 1px solid var(--gsc-border);
+  flex-shrink: 0;
+}
+.apiDocsBaseLabel {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--gsc-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+.apiDocsBaseValue {
+  font-family: ui-monospace, monospace;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--gsc-text);
+  background: var(--gsc-card-bg, #fff);
+  border: 1px solid var(--gsc-border);
+  border-radius: 7px;
+  padding: 3px 10px;
+}
+.apiDocsCopyBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--gsc-border);
+  border-radius: 7px;
+  background: var(--gsc-card-bg, #fff);
+  color: var(--gsc-muted);
+  font-size: 0.73rem;
+  font-weight: 580;
+  padding: 4px 9px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  white-space: nowrap;
+}
+.apiDocsCopyBtn:hover { background: var(--gsc-surface); color: var(--gsc-text); }
+.apiDocsBaseHint {
+  font-size: 0.73rem;
+  color: var(--gsc-muted);
+  line-height: 1.4;
+}
+.apiDocsBaseHint code {
+  font-family: ui-monospace, monospace;
+  font-size: 0.72rem;
+  background: var(--gsc-border);
+  padding: 1px 4px;
+  border-radius: 4px;
+  color: var(--gsc-text);
+}
