@@ -1361,6 +1361,8 @@ const API_DOCS_SECTIONS = [
       { method: "GET",  path: "/portal/urgencies/{id}",    auth: true,  summary: "Get a single urgency (scoped to own care home)", body: "—", response: "PortalUrgencyOut" },
       { method: "GET",  path: "/portal/accounts",          auth: true,  role: "admin", summary: "List all portal accounts", body: "—", response: "PortalAccountOut[]" },
       { method: "POST", path: "/portal/accounts",          auth: true,  role: "admin", summary: "Create a portal account linked to a care home", body: "{ email, password (≥8 chars), wzc_id, role? }", response: "PortalAccountOut" },
+      { method: "PATCH", path: "/portal/accounts/{id}",    auth: true,  role: "admin", summary: "Change email, password, role or revoke/restore access", body: "{ email?, password? (≥8 chars), role?, is_active? }", response: "PortalAccountOut" },
+      { method: "DELETE", path: "/portal/accounts/{id}",   auth: true,  role: "admin", summary: "Delete a portal account", body: "—", response: "{ status }" },
       { method: "GET",  path: "/portal/demo-centres",      auth: false, summary: "List demo WZCs (local environment only)", body: "—", response: "PortalDemoCentreOut[]" },
     ],
   },
@@ -3897,6 +3899,9 @@ function WzcDatabaseView({
   const [portalAccounts, setPortalAccounts] = useState<PortalAccount[]>([]);
   const [portalAccountsLoaded, setPortalAccountsLoaded] = useState(false);
   const [portalForm, setPortalForm] = useState({ email: "", password: "", wzc_id: "", role: "staff" });
+  const [editingPortalId, setEditingPortalId] = useState<number | null>(null);
+  const [portalEdit, setPortalEdit] = useState({ email: "", password: "" });
+  const [portalNotice, setPortalNotice] = useState("");
   const [portalError, setPortalError] = useState("");
   const [logFilters, setLogFilters] = useState({
     actor: "",
@@ -4016,6 +4021,45 @@ function WzcDatabaseView({
   async function updateUserStatus(selectedUser: User, isActive: boolean) {
     await api.updateUser(selectedUser.id, { is_active: isActive });
     await onSaved();
+  }
+
+  async function patchPortalAccount(account: PortalAccount, payload: { email?: string; password?: string; role?: string; is_active?: boolean }, notice: string) {
+    setPortalError("");
+    setPortalNotice("");
+    try {
+      const updated = await api.updatePortalAccount(account.id, payload);
+      setPortalAccounts((prev) => prev.map((item) => item.id === updated.id ? updated : item));
+      setPortalNotice(notice);
+      return true;
+    } catch (error) {
+      setPortalError(error instanceof Error ? error.message : "Bijwerken mislukt.");
+      return false;
+    }
+  }
+
+  async function removePortalAccount(account: PortalAccount) {
+    if (!window.confirm(`Bent u zeker? U staat op het punt om portal-account ${account.email} (${account.wzc_name}) te verwijderen.`)) return;
+    setPortalError("");
+    setPortalNotice("");
+    try {
+      await api.deletePortalAccount(account.id);
+      setPortalAccounts((prev) => prev.filter((item) => item.id !== account.id));
+    } catch (error) {
+      setPortalError(error instanceof Error ? error.message : "Verwijderen mislukt.");
+    }
+  }
+
+  async function savePortalEdit(event: FormEvent, account: PortalAccount) {
+    event.preventDefault();
+    const payload: { email?: string; password?: string } = {};
+    if (portalEdit.email.trim() && portalEdit.email.trim().toLowerCase() !== account.email) payload.email = portalEdit.email.trim();
+    if (portalEdit.password) payload.password = portalEdit.password;
+    if (!payload.email && !payload.password) {
+      setEditingPortalId(null);
+      return;
+    }
+    const ok = await patchPortalAccount(account, payload, lang === "nl" ? `Portal-account bijgewerkt voor ${account.wzc_name}.` : `Portal account updated for ${account.wzc_name}.`);
+    if (ok) setEditingPortalId(null);
   }
 
   async function removeUser(selectedUser: User) {
@@ -4347,6 +4391,7 @@ function WzcDatabaseView({
               </select>
             </label>
             {portalError && <p className="errorNotice" role="alert">{portalError}</p>}
+            {portalNotice && <p className="successNotice" role="status">{portalNotice}</p>}
             <button className="primaryButton">{lang === "nl" ? "Account aanmaken" : "Create account"}</button>
           </form>
           <div className="databaseList">
@@ -4358,8 +4403,33 @@ function WzcDatabaseView({
                   <small>{account.role === "admin" ? (lang === "nl" ? "Beheerder" : "Admin") : (lang === "nl" ? "Medewerker" : "Staff")} · {account.is_active ? (lang === "nl" ? "Actief" : "Active") : (lang === "nl" ? "Inactief" : "Inactive")}</small>
                 </div>
                 <div className="rowMeta">
-                  <span className="softBadge">{account.is_active ? (lang === "nl" ? "Actief" : "Active") : (lang === "nl" ? "Inactief" : "Inactive")}</span>
+                  <select value={account.role} onChange={(event) => patchPortalAccount(account, { role: event.target.value }, lang === "nl" ? `Rol gewijzigd voor ${account.email}.` : `Role changed for ${account.email}.`)}>
+                    <option value="staff">{lang === "nl" ? "Medewerker" : "Staff"}</option>
+                    <option value="admin">{lang === "nl" ? "Beheerder" : "Admin"}</option>
+                  </select>
+                  <button type="button" onClick={() => patchPortalAccount(account, { is_active: !account.is_active }, account.is_active ? (lang === "nl" ? `Toegang ingetrokken voor ${account.email}.` : `Access revoked for ${account.email}.`) : (lang === "nl" ? `Toegang hersteld voor ${account.email}.` : `Access restored for ${account.email}.`))}>
+                    {account.is_active ? (lang === "nl" ? "Toegang intrekken" : "Revoke access") : (lang === "nl" ? "Activeren" : "Activate")}
+                  </button>
+                  <button type="button" aria-expanded={editingPortalId === account.id} onClick={() => {
+                    setPortalNotice("");
+                    setPortalError("");
+                    setPortalEdit({ email: account.email, password: "" });
+                    setEditingPortalId((current) => current === account.id ? null : account.id);
+                  }}>{lang === "nl" ? "E-mail / wachtwoord wijzigen" : "Change email / password"}</button>
+                  <button type="button" onClick={() => removePortalAccount(account)}>{lang === "nl" ? "Verwijderen" : "Delete"}</button>
                 </div>
+                {editingPortalId === account.id && (
+                  <form className="formGrid compact" onSubmit={(event) => savePortalEdit(event, account)}>
+                    <label>{lang === "nl" ? "E-mailadres portaal" : "Portal email"}
+                      <input type="email" value={portalEdit.email} onChange={(event) => setPortalEdit({ ...portalEdit, email: event.target.value })} required />
+                    </label>
+                    <label>{lang === "nl" ? "Nieuw wachtwoord (leeg = ongewijzigd)" : "New password (empty = unchanged)"}
+                      <input type="password" value={portalEdit.password} onChange={(event) => setPortalEdit({ ...portalEdit, password: event.target.value })} minLength={8} autoComplete="new-password" />
+                    </label>
+                    <button className="primaryButton">{lang === "nl" ? "Opslaan" : "Save"}</button>
+                    <button type="button" onClick={() => setEditingPortalId(null)}>{lang === "nl" ? "Annuleren" : "Cancel"}</button>
+                  </form>
+                )}
               </article>
             ))}
             {portalAccountsLoaded && portalAccounts.length === 0 && <div className="empty">{lang === "nl" ? "Nog geen portaal accounts." : "No portal accounts yet."}</div>}

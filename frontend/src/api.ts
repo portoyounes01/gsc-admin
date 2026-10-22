@@ -176,4 +176,7 @@ export const api = {
   portalAccounts: () => request<PortalAccount[]>("/portal/accounts"),
   createPortalAccount: (payload: { email: string; password: string; wzc_id: number; role: string }) =>
     request<PortalAccount>("/portal/accounts", { method: "POST", body: JSON.stringify(payload) }),
+  updatePortalAccount: (id: number, payload: { email?: string; password?: string; role?: string; is_active?: boolean }) =>
+    request<PortalAccount>(`/portal/accounts/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  deletePortalAccount: (id: number) => request<{ status: string }>(`/portal/accounts/${id}`, { method: "DELETE" }),
 };

@@ -22,6 +22,13 @@ class PortalAccountCreate(BaseModel):
     role: str = "staff"
 
 
+class PortalAccountUpdate(BaseModel):
+    email: EmailStr | None = None
+    password: str | None = Field(default=None, min_length=8)
+    role: str | None = None
+    is_active: bool | None = None
+
+
 class PortalAccountOut(BaseModel):
     id: int
     email: str

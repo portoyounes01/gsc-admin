@@ -9,10 +9,12 @@ from app.core.config import settings
 from app.core.security import create_portal_access_token, hash_password, verify_password
 from app.db.session import get_db
 from app.models import Planning, PortalAccount, Urgency, User, Wzc
+from app.services.audit import add_audit_log
 from app.schemas import (
     LoginIn,
     PortalAccountCreate,
     PortalAccountOut,
+    PortalAccountUpdate,
     PortalAppointmentOut,
     PortalDemoCentreOut,
     PortalMeOut,
@@ -80,6 +82,56 @@ def create_portal_account(
     db.commit()
     db.refresh(account)
     return PortalAccountOut.model_validate({**account.__dict__, "wzc_name": account.wzc.name})
+
+
+@router.patch("/accounts/{account_id}", response_model=PortalAccountOut)
+def update_portal_account(
+    account_id: int,
+    payload: PortalAccountUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+) -> PortalAccountOut:
+    account = db.get(PortalAccount, account_id)
+    if not account:
+        raise HTTPException(status_code=404, detail="Portal-account niet gevonden.")
+    changes: dict[str, object] = {}
+    if payload.email is not None:
+        email = payload.email.strip().lower()
+        if email != account.email:
+            if db.scalar(select(PortalAccount).where(PortalAccount.email == email)):
+                raise HTTPException(status_code=409, detail="Dit portal-e-mailadres bestaat al.")
+            changes["email"] = f"{account.email} -> {email}"
+            account.email = email
+    if payload.password is not None:
+        account.password_hash = hash_password(payload.password)
+        changes["password"] = True
+    if payload.role is not None:
+        if payload.role not in {"staff", "admin"}:
+            raise HTTPException(status_code=422, detail="Ongeldige rol.")
+        account.role = payload.role
+        changes["role"] = payload.role
+    if payload.is_active is not None:
+        account.is_active = payload.is_active
+        changes["is_active"] = payload.is_active
+    add_audit_log(db, current_user, "Portaal", "Portal-account bijgewerkt", {"account_id": account.id, **changes})
+    db.commit()
+    db.refresh(account)
+    return PortalAccountOut.model_validate({**account.__dict__, "wzc_name": account.wzc.name})
+
+
+@router.delete("/accounts/{account_id}")
+def delete_portal_account(
+    account_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+) -> dict[str, str]:
+    account = db.get(PortalAccount, account_id)
+    if not account:
+        raise HTTPException(status_code=404, detail="Portal-account niet gevonden.")
+    add_audit_log(db, current_user, "Portaal", "Portal-account verwijderd", {"account_id": account.id, "wzc_id": account.wzc_id})
+    db.delete(account)
+    db.commit()
+    return {"status": "deleted"}
 
 
 @router.get("/me", response_model=PortalMeOut)
