@@ -2,7 +2,6 @@ FROM node:20-alpine AS dev
 
 WORKDIR /app
 COPY package.json package-lock.json* ./
-COPY scripts ./scripts
 RUN npm install
 COPY . .
 EXPOSE 5173

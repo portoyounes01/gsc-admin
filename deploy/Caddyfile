@@ -1,0 +1,7 @@
+{$ADMIN_HOST} {
+	reverse_proxy frontend:80
+}
+
+{$API_HOST} {
+	reverse_proxy backend:8000
+}

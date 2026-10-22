@@ -51,19 +51,6 @@ def create_access_token(subject: str, role: str) -> str:
     return f"{payload_value}.{_b64encode(signature)}"
 
 
-def create_portal_access_token(subject: str, role: str) -> str:
-    expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_minutes)
-    payload = {"sub": subject, "role": role, "account_type": "portal", "exp": int(expires_at.timestamp())}
-    payload_bytes = json.dumps(payload, separators=(",", ":")).encode("utf-8")
-    payload_value = _b64encode(payload_bytes)
-    signature = hmac.new(
-        settings.secret_key.encode("utf-8"),
-        payload_value.encode("ascii"),
-        hashlib.sha256,
-    ).digest()
-    return f"{payload_value}.{_b64encode(signature)}"
-
-
 def decode_access_token(token: str) -> dict[str, object] | None:
     try:
         payload_value, signature_value = token.split(".", 1)

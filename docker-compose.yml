@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: gsc
       POSTGRES_PASSWORD: gsc
     ports:
-      - "5433:5432"
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -29,7 +29,7 @@ services:
       PLANNING_RETENTION_DAYS: ${PLANNING_RETENTION_DAYS:-365}
       GEOCODING_OUTBOUND_ENABLED: ${GEOCODING_OUTBOUND_ENABLED:-true}
     ports:
-      - "8001:8000"
+      - "8000:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -42,7 +42,7 @@ services:
       context: ./frontend
       target: dev
     environment:
-      VITE_API_URL: http://localhost:8001
+      VITE_API_URL: http://localhost:8000
       VITE_CARTO_BASEMAP_KEY: ${VITE_CARTO_BASEMAP_KEY:-}
     ports:
       - "5173:5173"

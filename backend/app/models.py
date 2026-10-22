@@ -24,21 +24,6 @@ class User(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
 
 
-class PortalAccount(Base):
-    __tablename__ = "portal_accounts"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    wzc_id: Mapped[int] = mapped_column(ForeignKey("wzcs.id"), nullable=False, index=True)
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
-    password_hash: Mapped[str] = mapped_column(String(255))
-    role: Mapped[str] = mapped_column(String(40), default="staff")
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
-
-    wzc: Mapped["Wzc"] = relationship(back_populates="portal_accounts")
-
-
 class Wzc(Base):
     __tablename__ = "wzcs"
 
@@ -70,7 +55,6 @@ class Wzc(Base):
 
     urgencies: Mapped[list["Urgency"]] = relationship(back_populates="wzc")
     plannings: Mapped[list["Planning"]] = relationship(back_populates="wzc")
-    portal_accounts: Mapped[list[PortalAccount]] = relationship(back_populates="wzc")
 
 
 class Prospect(Base):
