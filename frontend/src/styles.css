@@ -605,53 +605,59 @@ label {
   position: absolute;
   bottom: calc(100% + 8px);
   right: 0;
-  width: 220px;
+  width: 256px;
   background: #fff;
   border: 1px solid var(--gsc-border);
-  border-radius: 12px;
+  border-radius: 14px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
-  padding: 10px 0;
+  padding: 8px 0 10px;
   z-index: 100;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
 }
 
 .sidebarSettingsSection {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 14px;
-  gap: 8px;
+  padding: 7px 16px;
+  gap: 10px;
+  min-width: 0;
 }
 
 .sidebarSettingsLabel {
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   color: var(--gsc-muted);
   font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .sidebarSettingsValue {
-  font-size: 0.78rem;
-  font-weight: 620;
+  font-size: 0.76rem;
+  font-weight: 640;
   color: var(--gsc-ink);
   text-align: right;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
+  max-width: 140px;
 }
 
 .sidebarSettingsDivider {
   height: 1px;
   background: var(--gsc-border);
-  margin: 4px 14px;
+  margin: 6px 16px;
 }
 
 .sidebarConfidential {
-  font-size: 0.72rem;
+  font-size: 0.70rem;
   color: var(--gsc-muted);
-  padding: 2px 14px;
-  opacity: 0.7;
+  padding: 2px 16px 4px;
+  opacity: 0.65;
+  letter-spacing: 0.01em;
 }
 
 .sidebarLangSwitch {
@@ -683,13 +689,13 @@ label {
 }
 
 .sidebarLogoutButton {
-  margin: 2px 14px;
-  padding: 6px 12px;
+  margin: 4px 16px 2px;
+  padding: 7px 12px;
   border: 1px solid var(--gsc-border);
   border-radius: 8px;
   background: transparent;
   color: var(--gsc-muted);
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 520;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
@@ -935,6 +941,17 @@ label {
   margin: 0;
 }
 
+.agendaCreateSummary > div {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.agendaCreateSummary p {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .agendaCreateSummaryMeta {
   min-width: 0;
   color: #66707a;
@@ -1175,6 +1192,7 @@ label {
   min-width: 0;
   display: grid;
   gap: 3px;
+  overflow: hidden;
 }
 
 .agendaItemHeader strong,
@@ -1182,6 +1200,7 @@ label {
 .agendaItemMeta span,
 .agendaItemNote span {
   overflow-wrap: anywhere;
+  min-width: 0;
 }
 
 .agendaItemHeader span,
@@ -1676,10 +1695,12 @@ label {
   justify-items: start;
   gap: 3px;
   min-height: 54px;
-  padding: 10px 12px;
+  height: auto;
+  padding: 12px 14px;
   border-color: #e8ecf0;
   background: #fbfcfd;
   box-shadow: none;
+  white-space: normal;
 }
 
 .planningKindSelector button.selected {
@@ -1697,6 +1718,8 @@ label {
   color: #66707a;
   font-size: 12px;
   font-weight: 600;
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
 
 .planningSetupGrid {
