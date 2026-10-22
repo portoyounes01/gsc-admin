@@ -1404,7 +1404,7 @@ function ApiDocsModal({ lang, onClose }: { lang: Lang; onClose: () => void }) {
             <p className="apiDocsSubtitle">{isNl ? "Alle beschikbare endpoints van de backend REST API." : "All available endpoints of the backend REST API."}</p>
           </div>
           <button className="apiDocsClose" onClick={onClose} aria-label="Sluiten">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="4" x2="16" y2="16"/><line x1="16" y1="4" x2="4" y2="16"/></svg>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" /></svg>
           </button>
         </div>
         <div className="apiDocsBaseUrl">
@@ -1856,7 +1856,7 @@ function WzcMap({
               onChange={(event) => setQuery(event.target.value)}
               onFocus={() => setPanelVisible(Boolean(selectedRecord))}
             />
-            <button className={`gscSearchClear ${query ? "isVisible" : ""}`} type="button" onClick={() => setQuery("")} aria-label={L("Zoekveld wissen")}>x</button>
+            <button className={`gscSearchClear ${query ? "isVisible" : ""}`} type="button" onClick={() => setQuery("")} aria-label={L("Zoekveld wissen")}><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" /></svg></button>
           </div>
           {query && (
             <div className="gscSearchResults">
@@ -1879,7 +1879,7 @@ function WzcMap({
                 <div className="gscPanelTitle">{selectedRecord.name}</div>
                 <div className="gscPanelPlace">{[selectedRecord.postalCode, selectedRecord.city].filter(Boolean).join(" ") || "-"}</div>
               </div>
-              <button className="gscPanelClose" type="button" aria-label={L("Sluiten")} onClick={() => setPanelVisible(false)}>x</button>
+              <button className="gscPanelClose" type="button" aria-label={L("Sluiten")} onClick={() => setPanelVisible(false)}><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" /></svg></button>
             </div>
             <div className="gscPanelActions">
               {selectedRecord.kind === "prospect" ? (
@@ -3892,6 +3892,7 @@ function WzcDatabaseView({
   const L = (key: string) => t(lang, key);
   const [unlocked, setUnlocked] = useState(false);
   const [accessCode, setAccessCode] = useState("");
+  const [accessError, setAccessError] = useState(false);
   const [activeTab, setActiveTab] = useState<DatabaseTab>("WZC database");
   const [query, setQuery] = useState("");
   const [groupFilter, setGroupFilter] = useState("");
@@ -4115,14 +4116,37 @@ function WzcDatabaseView({
   if (!unlocked) {
     return (
       <section className="accessPanel">
-        <img src="/logo-icon.svg" alt="" />
+        <div className="accessIcon" aria-hidden="true">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="4.5" y="10.5" width="15" height="10.5" rx="2.5" /><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" /><path d="M12 14.5v2.5" /></svg>
+        </div>
         <h2>{L("WZC database")}</h2>
         <p>{lang === "nl" ? "Extra beveiligde adminzone voor WZC-masterdata, teams, gebruikers en user log." : "Extra secured admin zone for care home master data, teams, users and user log."}</p>
-        <form onSubmit={(event) => { event.preventDefault(); setUnlocked(accessCode === "0000"); }}>
-          <label>{lang === "nl" ? "Toegangscode" : "Access code"}<input value={accessCode} onChange={(event) => setAccessCode(event.target.value)} type="password" autoComplete="off" /></label>
-          <button className="primaryButton">{lang === "nl" ? "Openen" : "Open"}</button>
+        <form
+          className={accessError ? "accessForm shake" : "accessForm"}
+          onSubmit={(event) => {
+            event.preventDefault();
+            const ok = accessCode === "0000";
+            setAccessError(!ok);
+            setUnlocked(ok);
+          }}
+        >
+          <input
+            value={accessCode}
+            onChange={(event) => { setAccessCode(event.target.value); setAccessError(false); }}
+            type="password"
+            autoComplete="off"
+            autoFocus
+            placeholder={lang === "nl" ? "Toegangscode" : "Access code"}
+            aria-label={lang === "nl" ? "Toegangscode" : "Access code"}
+            aria-invalid={accessError}
+          />
+          <button className="primaryButton" disabled={!accessCode}>{lang === "nl" ? "Openen" : "Open"}</button>
         </form>
-        {accessCode && accessCode !== "0000" && <div className="error">{lang === "nl" ? "Toegangscode klopt niet." : "Access code is incorrect."}</div>}
+        <span className={accessError ? "accessMessage error" : "accessMessage"} role={accessError ? "alert" : undefined}>
+          {accessError
+            ? (lang === "nl" ? "Toegangscode klopt niet. Probeer opnieuw." : "Access code is incorrect. Try again.")
+            : (lang === "nl" ? "Alleen voor beheerders van Global Smile Care." : "For Global Smile Care administrators only.")}
+        </span>
       </section>
     );
   }
