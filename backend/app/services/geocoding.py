@@ -19,7 +19,7 @@ from app.models import Prospect, Wzc
 
 USER_AGENT = "GlobalSmileCareInternalDashboard/1.0"
 BETA_DIR = Path(__file__).resolve().parents[3]
-WORKSPACE_DIR = Path(__file__).resolve().parents[4]
+WORKSPACE_DIR = BETA_DIR.parent
 APPLE_GEOCODE_SCRIPT = WORKSPACE_DIR / "tools" / "apple_geocode.swift"
 SWIFT_GEOCODE_MODULE_CACHE_DIR = BETA_DIR / "tmp" / "swift-module-cache-geocode"
 
