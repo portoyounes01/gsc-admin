@@ -582,7 +582,7 @@ label {
 }
 
 .sidebarSettingsMenu {
-  position: relative;
+  position: static;
   flex-shrink: 0;
 }
 
@@ -610,17 +610,16 @@ label {
 }
 
 .sidebarSettingsDropdown {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 0;
-  right: 0;
-  width: auto;
+  position: fixed;
+  bottom: 60px;
+  left: 14px;
+  width: 220px;
   background: #fff;
   border: 1px solid var(--gsc-border);
   border-radius: 14px;
   box-shadow: var(--gsc-shadow-lg);
   padding: 8px 0 10px;
-  z-index: 100;
+  z-index: 1000;
   display: flex;
   flex-direction: column;
   gap: 0;
