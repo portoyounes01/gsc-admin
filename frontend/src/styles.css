@@ -1192,6 +1192,7 @@ label {
 }
 
 .agendaItemHeader {
+  min-width: 0;
   display: flex;
   justify-content: space-between;
   gap: 10px;
@@ -1278,8 +1279,9 @@ label {
 }
 
 .agendaItemActions {
+  min-width: 0;
   display: grid;
-  grid-template-columns: minmax(150px, 1fr) max-content max-content;
+  grid-template-columns: minmax(0, 1fr) max-content max-content;
   gap: 8px;
   align-items: end;
 }
