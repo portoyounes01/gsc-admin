@@ -2,6 +2,7 @@ FROM node:20-alpine AS dev
 
 WORKDIR /app
 COPY package.json package-lock.json* ./
+COPY scripts/ ./scripts/
 RUN npm install
 COPY . .
 EXPOSE 5173
@@ -15,6 +16,7 @@ ARG VITE_CARTO_BASEMAP_KEY=
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_CARTO_BASEMAP_KEY=$VITE_CARTO_BASEMAP_KEY
 COPY package.json package-lock.json* ./
+COPY scripts/ ./scripts/
 RUN npm install
 COPY . .
 RUN npm run build
