@@ -274,3 +274,12 @@ export type DossierPreviewRow = {
   medication: string;
   remarks: string;
 };
+
+export type AddressSuggestion = {
+  label: string;
+  address: string;
+  postal_code: string;
+  city: string;
+  latitude: number | null;
+  longitude: number | null;
+};

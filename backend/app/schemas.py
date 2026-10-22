@@ -15,6 +15,15 @@ class LoginIn(BaseModel):
     password: str
 
 
+class AddressSuggestionOut(BaseModel):
+    label: str
+    address: str
+    postal_code: str
+    city: str
+    latitude: float | None = None
+    longitude: float | None = None
+
+
 class PortalAccountCreate(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8)

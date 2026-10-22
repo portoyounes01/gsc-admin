@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import audit_logs, auth, dossiers, plannings, portal, prospects, teams, urgencies, users, wzcs
+from app.api import audit_logs, auth, dossiers, geocoding, plannings, portal, prospects, teams, urgencies, users, wzcs
 from app.core.config import settings
 from app.db.migrations import ensure_lightweight_schema
 from app.db.session import Base, SessionLocal, engine
@@ -30,6 +30,7 @@ def create_app() -> FastAPI:
     api.include_router(audit_logs.router)
     api.include_router(dossiers.router)
     api.include_router(portal.router)
+    api.include_router(geocoding.router)
 
     @api.on_event("startup")
     def startup() -> None:

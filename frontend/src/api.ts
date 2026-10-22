@@ -1,4 +1,4 @@
-import type { AuditLog, DossierPreviewRow, Planning, PlanningRow, PortalAccount, Prospect, SavedUrgencyRoutePlan, SavedUrgencyRoutePlanCreate, TeamProfile, TreatmentMatchReport, TreatmentSelectionReport, Urgency, UrgencyRoutePlan, UrgencyRoutePlanRequest, User, Wzc } from "./types";
+import type { AddressSuggestion, AuditLog, DossierPreviewRow, Planning, PlanningRow, PortalAccount, Prospect, SavedUrgencyRoutePlan, SavedUrgencyRoutePlanCreate, TeamProfile, TreatmentMatchReport, TreatmentSelectionReport, Urgency, UrgencyRoutePlan, UrgencyRoutePlanRequest, User, Wzc } from "./types";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -179,4 +179,5 @@ export const api = {
   updatePortalAccount: (id: number, payload: { email?: string; password?: string; role?: string; is_active?: boolean }) =>
     request<PortalAccount>(`/portal/accounts/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
   deletePortalAccount: (id: number) => request<{ status: string }>(`/portal/accounts/${id}`, { method: "DELETE" }),
+  suggestAddresses: (query: string) => request<AddressSuggestion[]>(`/geocoding/suggest?q=${encodeURIComponent(query)}`),
 };

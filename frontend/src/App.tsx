@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useId, useMemo, useRef, useState 
 import type { FormEvent, KeyboardEvent, ReactNode } from "react";
 import { api, clearToken, getToken } from "./api";
 import { UserPasswordForm } from "./UserPasswordForm";
-import type { AuditLog, DossierPreviewRow, Planning, PlanningRow, PortalAccount, Prospect, SavedUrgencyRoutePlan, TeamProfile, TreatmentSelectionReport, Urgency, UrgencyRoutePlan, User, Wzc } from "./types";
+import type { AddressSuggestion, AuditLog, DossierPreviewRow, Planning, PlanningRow, PortalAccount, Prospect, SavedUrgencyRoutePlan, TeamProfile, TreatmentSelectionReport, Urgency, UrgencyRoutePlan, User, Wzc } from "./types";
 import { PortalApp } from "./portal/PortalApp";
 
 type Lang = "nl" | "en";
@@ -727,9 +727,11 @@ function SearchableWzcSelect({
   placeholder?: string;
   className?: string;
 }) {
+  const lang = useLang();
   const options = useMemo(() => wzcSearchOptions(wzcs), [wzcs]);
   const optionByLabel = useMemo(() => new Map(options.map((option) => [option.label, option.wzc])), [options]);
   const selectedLabel = value === "" ? "" : options.find((option) => option.wzc.id === Number(value))?.label || "";
+  const selectedWzc = value === "" ? undefined : wzcs.find((wzc) => wzc.id === Number(value));
   const [inputValue, setInputValue] = useState(selectedLabel);
 
   useEffect(() => {
@@ -744,19 +746,158 @@ function SearchableWzcSelect({
   }
 
   return (
-    <SearchableDropdownField
-      label={label}
-      value={inputValue}
-      options={options.map((option) => ({ value: String(option.wzc.id), label: option.label }))}
-      onInputChange={changeWzc}
-      onSelect={(option) => {
-        const selectedWzc = wzcs.find((wzc) => wzc.id === Number(option.value));
-        setInputValue(option.label);
-        onChange(selectedWzc ? selectedWzc.id : "");
-      }}
-      placeholder={placeholder}
-      className={className}
-    />
+    <div className={`wzcPickerField ${className || ""}`.trim()}>
+      <SearchableDropdownField
+        label={label}
+        value={inputValue}
+        options={options.map((option) => ({ value: String(option.wzc.id), label: option.label, meta: wzcAddressLine(option.wzc) }))}
+        onInputChange={changeWzc}
+        onSelect={(option) => {
+          const pickedWzc = wzcs.find((wzc) => wzc.id === Number(option.value));
+          setInputValue(option.label);
+          onChange(pickedWzc ? pickedWzc.id : "");
+        }}
+        placeholder={placeholder}
+      />
+      {selectedWzc && (
+        <div className="wzcPickerDetails">
+          <span>{wzcAddressLine(selectedWzc) || (lang === "nl" ? "Geen adres gekend" : "No address on file")}</span>
+          {(selectedWzc.contact_name || selectedWzc.phone || selectedWzc.email) && (
+            <small>{[selectedWzc.contact_name, selectedWzc.phone, selectedWzc.email].filter(Boolean).join(" · ")}</small>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function wzcAddressLine(wzc: Wzc) {
+  const place = [formatPostalCode(wzc.postal_code), wzc.city].filter(Boolean).join(" ");
+  return [wzc.address, place].filter(Boolean).join(", ");
+}
+
+function AddressAutocompleteField({
+  label,
+  value,
+  onChange,
+  onPick
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  onPick: (suggestion: AddressSuggestion) => void;
+}) {
+  const lang = useLang();
+  const listId = useId();
+  const fieldRef = useRef<HTMLDivElement | null>(null);
+  const latestQuery = useRef("");
+  const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [typed, setTyped] = useState(false);
+
+  useEffect(() => {
+    const query = value.trim();
+    latestQuery.current = query;
+    if (!typed || query.length < 3) {
+      setSuggestions([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const timer = window.setTimeout(() => {
+      api.suggestAddresses(query)
+        .then((results) => {
+          if (latestQuery.current !== query) return;
+          setSuggestions(results);
+          setHighlightedIndex(0);
+        })
+        .catch(() => {
+          if (latestQuery.current === query) setSuggestions([]);
+        })
+        .finally(() => {
+          if (latestQuery.current === query) setLoading(false);
+        });
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [value, typed]);
+
+  useEffect(() => {
+    function closeOnOutsideClick(event: MouseEvent) {
+      if (!fieldRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    return () => document.removeEventListener("mousedown", closeOnOutsideClick);
+  }, []);
+
+  function pick(suggestion: AddressSuggestion) {
+    onPick(suggestion);
+    setTyped(false);
+    setSuggestions([]);
+    setOpen(false);
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (!open || suggestions.length === 0) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setHighlightedIndex((index) => Math.min(index + 1, suggestions.length - 1));
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setHighlightedIndex((index) => Math.max(index - 1, 0));
+    } else if (event.key === "Enter" && suggestions[highlightedIndex]) {
+      event.preventDefault();
+      pick(suggestions[highlightedIndex]);
+    } else if (event.key === "Escape") {
+      setOpen(false);
+    }
+  }
+
+  const showMenu = open && typed && value.trim().length >= 3 && (loading || suggestions.length > 0);
+
+  return (
+    <div className="searchableDropdownField" ref={fieldRef}>
+      <span className="searchableDropdownLabel">{label}</span>
+      <div className="searchableDropdownControl">
+        <input
+          value={value}
+          onChange={(event) => {
+            onChange(event.target.value);
+            setTyped(true);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={handleKeyDown}
+          placeholder={lang === "nl" ? "Begin te typen, bv. Kerkstraat 12 Lokeren" : "Start typing, e.g. Kerkstraat 12 Lokeren"}
+          role="combobox"
+          aria-expanded={showMenu}
+          aria-controls={listId}
+          aria-label={label}
+          autoComplete="off"
+        />
+        {showMenu && (
+          <div className="searchableDropdownMenu" id={listId} role="listbox">
+            {loading && suggestions.length === 0 && <div className="searchableDropdownEmpty">{lang === "nl" ? "Adressen zoeken…" : "Searching addresses…"}</div>}
+            {suggestions.map((suggestion, index) => (
+              <button
+                className={`searchableDropdownOption addressOption ${index === highlightedIndex ? "isHighlighted" : ""}`}
+                key={suggestion.label}
+                type="button"
+                role="option"
+                aria-selected={index === highlightedIndex}
+                onMouseEnter={() => setHighlightedIndex(index)}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => pick(suggestion)}
+              >
+                <span>{suggestion.address}</span>
+                <small>{[suggestion.postal_code, suggestion.city].filter(Boolean).join(" ")}</small>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -3493,7 +3634,7 @@ function ProspectView({
           <form className="formGrid compact" onSubmit={submit}>
             <label>{lang === "nl" ? "Naam" : "Name"}<input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required /></label>
             <GroupNameField label={L("Groep")} groups={groupOptions} value={form.group_name} onChange={(group_name) => setForm({ ...form, group_name })} />
-            <label>{L("Adres")}<input value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} /></label>
+            <AddressAutocompleteField label={L("Adres")} value={form.address} onChange={(address) => setForm({ ...form, address })} onPick={(picked) => setForm({ ...form, address: picked.address, postal_code: picked.postal_code, city: picked.city })} />
             <label>{lang === "nl" ? "Postcode" : "Postal code"}<input value={form.postal_code} onChange={(event) => setForm({ ...form, postal_code: event.target.value })} /></label>
             <label>{lang === "nl" ? "Gemeente" : "City"}<input value={form.city} onChange={(event) => setForm({ ...form, city: event.target.value })} /></label>
             <label>{L("Contact")}<input value={form.contact_name} onChange={(event) => setForm({ ...form, contact_name: event.target.value })} /></label>
@@ -3558,7 +3699,7 @@ function ProspectView({
           <div className="formGrid compact">
             <label>{lang === "nl" ? "WZC naam" : "Care home name"}<input value={editForm.name} onChange={(event) => setEditForm({ ...editForm, name: event.target.value })} /></label>
             <SearchableGroupSelect label={L("Groep")} value={editForm.group_name} groups={groupOptions} onChange={(group_name) => setEditForm({ ...editForm, group_name })} placeholder={L("Typ of kies groep")} />
-            <label>{L("Adres")}<input value={editForm.address} onChange={(event) => setEditForm({ ...editForm, address: event.target.value })} /></label>
+            <AddressAutocompleteField label={L("Adres")} value={editForm.address} onChange={(address) => setEditForm({ ...editForm, address })} onPick={(picked) => setEditForm({ ...editForm, address: picked.address, postal_code: picked.postal_code, city: picked.city })} />
             <label>{lang === "nl" ? "Postcode" : "Postal code"}<input value={editForm.postal_code} onChange={(event) => setEditForm({ ...editForm, postal_code: event.target.value })} /></label>
             <label>{lang === "nl" ? "Gemeente" : "City"}<input value={editForm.city} onChange={(event) => setEditForm({ ...editForm, city: event.target.value })} /></label>
             <label>{lang === "nl" ? "Hoofdcontact" : "Main contact"}<input value={editForm.contact_name} onChange={(event) => setEditForm({ ...editForm, contact_name: event.target.value })} /></label>
@@ -3771,7 +3912,7 @@ function ActiveWzcFollowupView({
           <div className="formGrid compact">
             <label>{lang === "nl" ? "WZC naam" : "Care home name"}<input value={editForm.name} onChange={(event) => setEditForm({ ...editForm, name: event.target.value })} /></label>
             <SearchableGroupSelect label={L("Groep")} value={editForm.group_name} groups={groupOptions} onChange={(group_name) => setEditForm({ ...editForm, group_name })} placeholder={L("Typ of kies groep")} />
-            <label>{L("Adres")}<input value={editForm.address} onChange={(event) => setEditForm({ ...editForm, address: event.target.value })} /></label>
+            <AddressAutocompleteField label={L("Adres")} value={editForm.address} onChange={(address) => setEditForm({ ...editForm, address })} onPick={(picked) => setEditForm({ ...editForm, address: picked.address, postal_code: picked.postal_code, city: picked.city })} />
             <label>{lang === "nl" ? "Postcode" : "Postal code"}<input value={editForm.postal_code} onChange={(event) => setEditForm({ ...editForm, postal_code: event.target.value })} /></label>
             <label>{lang === "nl" ? "Gemeente" : "City"}<input value={editForm.city} onChange={(event) => setEditForm({ ...editForm, city: event.target.value })} /></label>
             <label>{lang === "nl" ? "Hoofdcontact" : "Main contact"}<input value={editForm.contact_name} onChange={(event) => setEditForm({ ...editForm, contact_name: event.target.value })} /></label>
@@ -3949,6 +4090,7 @@ function WzcDatabaseView({
     date: ""
   });
   const realWzcs = useMemo(() => actualWzcs(wzcs), [wzcs]);
+  const activePortalWzcs = useMemo(() => realWzcs.filter((w) => w.collaboration_status === "Actief"), [realWzcs]);
   const groupRows = useMemo(() => wzcs.filter(isGroupRecord), [wzcs]);
   const groupOptions = useMemo(() => groupOptionsForWzcs(wzcs), [wzcs]);
   const formGroupOptions = useMemo(() => groupOptionsForWzcsAndProspects(wzcs, prospects), [wzcs, prospects]);
@@ -4185,7 +4327,7 @@ function WzcDatabaseView({
           <form className="formGrid compact" onSubmit={submit}>
             <label>{lang === "nl" ? "WZC naam" : "Care home name"}<input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required /></label>
             <GroupNameField label={L("Groep/organisatie")} groups={formGroupOptions} value={form.group_name} onChange={(group_name) => setForm({ ...form, group_name })} />
-            <label>{L("Adres")}<input value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} /></label>
+            <AddressAutocompleteField label={L("Adres")} value={form.address} onChange={(address) => setForm({ ...form, address })} onPick={(picked) => setForm({ ...form, address: picked.address, postal_code: picked.postal_code, city: picked.city })} />
             <label>{lang === "nl" ? "Postcode" : "Postal code"}<input value={form.postal_code} onChange={(event) => setForm({ ...form, postal_code: event.target.value })} /></label>
             <label>{lang === "nl" ? "Gemeente" : "City"}<input value={form.city} onChange={(event) => setForm({ ...form, city: event.target.value })} /></label>
             <label>{lang === "nl" ? "Hoofdcontact" : "Main contact"}<input value={form.contact_name} onChange={(event) => setForm({ ...form, contact_name: event.target.value })} /></label>
@@ -4427,6 +4569,10 @@ function WzcDatabaseView({
           <form className="formGrid compact" onSubmit={async (event) => {
             event.preventDefault();
             setPortalError("");
+            if (!portalForm.wzc_id) {
+              setPortalError(lang === "nl" ? "Kies eerst een zorgcentrum." : "Choose a care centre first.");
+              return;
+            }
             try {
               const created = await api.createPortalAccount({ email: portalForm.email, password: portalForm.password, wzc_id: Number(portalForm.wzc_id), role: portalForm.role });
               setPortalAccounts((prev) => [...prev, created]);
@@ -4435,12 +4581,13 @@ function WzcDatabaseView({
               setPortalError(error instanceof Error ? error.message : "Aanmaken mislukt.");
             }
           }}>
-            <label>{lang === "nl" ? "Zorgcentrum" : "Care centre"}
-              <select value={portalForm.wzc_id} onChange={(event) => setPortalForm({ ...portalForm, wzc_id: event.target.value })} required>
-                <option value="">{lang === "nl" ? "Kies een WZC" : "Choose a care home"}</option>
-                {realWzcs.filter((w) => w.collaboration_status === "Actief").map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
-              </select>
-            </label>
+            <SearchableWzcSelect
+              label={lang === "nl" ? "Zorgcentrum" : "Care centre"}
+              value={portalForm.wzc_id === "" ? "" : Number(portalForm.wzc_id)}
+              wzcs={activePortalWzcs}
+              onChange={(wzcId) => setPortalForm({ ...portalForm, wzc_id: wzcId === "" ? "" : String(wzcId) })}
+              placeholder={lang === "nl" ? "Zoek op naam, adres of gemeente" : "Search by name, address or city"}
+            />
             <label>{lang === "nl" ? "E-mailadres portaal" : "Portal email"}
               <input type="email" value={portalForm.email} onChange={(event) => setPortalForm({ ...portalForm, email: event.target.value })} required />
             </label>

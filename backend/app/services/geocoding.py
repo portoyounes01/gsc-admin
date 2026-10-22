@@ -5,6 +5,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -152,6 +153,91 @@ def geocode_geopunt(query: str) -> dict[str, Any] | None:
         "map_source": "Automatisch via Geopunt",
         "address_source": str(first_result.get("FormattedAddress", "") or query),
     }
+
+
+BELGIUM_BBOX = "2.5,49.45,6.45,51.55"
+SUGGESTION_CACHE_SECONDS = 600
+SUGGESTION_CACHE_MAX = 500
+_suggestion_cache: dict[str, tuple[float, list[dict[str, Any]]]] = {}
+
+
+def suggestion_from_parts(address: str, postal_code: str, city: str, latitude: float | None = None, longitude: float | None = None) -> dict[str, Any]:
+    label = ", ".join(part for part in [address, " ".join(p for p in [postal_code, city] if p)] if part)
+    return {
+        "label": label,
+        "address": address,
+        "postal_code": postal_code,
+        "city": city,
+        "latitude": latitude,
+        "longitude": longitude,
+    }
+
+
+def photon_suggestions(query: str, limit: int) -> list[dict[str, Any]]:
+    params = urllib.parse.urlencode(
+        [("q", query), ("limit", limit), ("bbox", BELGIUM_BBOX), ("layer", "house"), ("layer", "street")]
+    )
+    payload = fetch_json_url(f"https://photon.komoot.io/api/?{params}", timeout=2.5)
+    features = payload.get("features") if isinstance(payload, dict) else None
+    suggestions: list[dict[str, Any]] = []
+    for feature in features or []:
+        if not isinstance(feature, dict):
+            continue
+        properties = feature.get("properties") or {}
+        if str(properties.get("countrycode", "") or "").upper() != "BE":
+            continue
+        street = str(properties.get("street") or properties.get("name") or "").strip()
+        housenumber = str(properties.get("housenumber") or "").strip()
+        postal_code = str(properties.get("postcode") or "").strip()
+        city = str(properties.get("city") or properties.get("locality") or properties.get("district") or "").strip()
+        if not street or not city:
+            continue
+        coordinates = (feature.get("geometry") or {}).get("coordinates") or []
+        longitude = coordinate_float(coordinates[0]) if len(coordinates) > 1 else None
+        latitude = coordinate_float(coordinates[1]) if len(coordinates) > 1 else None
+        if not is_belgian_coordinate_pair(latitude, longitude):
+            latitude = longitude = None
+        suggestions.append(suggestion_from_parts(f"{street} {housenumber}".strip(), postal_code, city, latitude, longitude))
+    return suggestions
+
+
+def geopunt_suggestions(query: str, limit: int) -> list[dict[str, Any]]:
+    params = urllib.parse.urlencode({"q": query, "c": limit})
+    payload = fetch_json_url(f"https://geo.api.vlaanderen.be/geolocation/v4/Suggestion?{params}", timeout=2.5)
+    rows = payload.get("SuggestionResult") if isinstance(payload, dict) else None
+    suggestions: list[dict[str, Any]] = []
+    for row in rows or []:
+        match = re.match(r"^(?P<address>.+?),\s*(?P<postal>\d{4})\s+(?P<city>.+)$", str(row))
+        if match:
+            suggestions.append(suggestion_from_parts(match["address"].strip(), match["postal"], match["city"].strip()))
+    return suggestions
+
+
+def suggest_addresses(query: str, limit: int = 6) -> list[dict[str, Any]]:
+    clean_query = " ".join(query.split())[:120]
+    if len(clean_query) < 3 or not settings.geocoding_outbound_enabled:
+        return []
+    cache_key = clean_query.lower()
+    cached = _suggestion_cache.get(cache_key)
+    if cached and time.monotonic() - cached[0] < SUGGESTION_CACHE_SECONDS:
+        return cached[1]
+
+    suggestions = photon_suggestions(clean_query, limit) or geopunt_suggestions(clean_query, limit)
+    unique: dict[str, dict[str, Any]] = {}
+    for suggestion in suggestions:
+        unique.setdefault(suggestion["label"].lower(), suggestion)
+    query_tokens = re.findall(r"\w+", cache_key)
+
+    def matched_tokens(suggestion: dict[str, Any]) -> int:
+        words = re.findall(r"\w+", suggestion["label"].lower())
+        return sum(any(word.startswith(token) for word in words) for token in query_tokens)
+
+    results = sorted(unique.values(), key=matched_tokens, reverse=True)[:limit]
+
+    if len(_suggestion_cache) >= SUGGESTION_CACHE_MAX:
+        _suggestion_cache.clear()
+    _suggestion_cache[cache_key] = (time.monotonic(), results)
+    return results
 
 
 def geocode_photon(query: str) -> dict[str, Any] | None:

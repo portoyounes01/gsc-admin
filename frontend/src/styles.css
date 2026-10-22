@@ -184,6 +184,7 @@ textarea:focus {
 
 label {
   display: grid;
+  align-content: start;
   gap: 7px;
   color: #3f4650;
   font-size: 14px;
@@ -246,16 +247,19 @@ label {
 
 .searchableDropdownOption {
   width: 100%;
-  min-height: 36px;
+  min-height: 40px;
   display: grid;
   gap: 2px;
   justify-items: start;
-  padding: 8px 9px;
+  padding: 8px 11px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 9px;
   background: #ffffff;
   color: #24262d;
   text-align: left;
+  box-shadow: none;
+  font-size: 14px;
+  font-weight: 560;
 }
 
 .searchableDropdownOption:hover,
@@ -276,7 +280,7 @@ label {
 .searchableDropdownOption small {
   color: #59616a;
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 450;
 }
 
 .searchableDropdownEmpty {
@@ -5133,4 +5137,36 @@ label {
   padding: 1px 4px;
   border-radius: 4px;
   color: var(--gsc-ink);
+}
+
+.wzcPickerField {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  min-width: 0;
+}
+
+.wzcPickerDetails {
+  display: grid;
+  gap: 2px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--gsc-green-soft);
+  color: var(--gsc-green-dark);
+  font-size: 13px;
+  font-weight: 560;
+  min-width: 0;
+}
+
+.wzcPickerDetails span,
+.wzcPickerDetails small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wzcPickerDetails small {
+  color: #3f6f62;
+  font-size: 12px;
+  font-weight: 450;
 }
