@@ -511,6 +511,7 @@ label {
 }
 
 .sidebarFooter {
+  position: relative;
   display: grid;
   gap: 0;
   min-width: 0;
@@ -574,7 +575,7 @@ label {
 }
 
 .sidebarSettingsMenu {
-  position: relative;
+  position: static;
   flex-shrink: 0;
 }
 
@@ -604,8 +605,9 @@ label {
 .sidebarSettingsDropdown {
   position: absolute;
   bottom: calc(100% + 8px);
+  left: 0;
   right: 0;
-  width: 256px;
+  width: auto;
   background: #fff;
   border: 1px solid var(--gsc-border);
   border-radius: 14px;
