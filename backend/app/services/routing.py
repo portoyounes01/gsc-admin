@@ -759,6 +759,54 @@ def build_route_response(
     )
 
 
+def fetch_osrm_route_geometry(waypoints: Sequence[Coordinates]) -> list[list[float]] | None:
+    """Road path through the waypoints in visiting order, as [latitude, longitude] pairs."""
+    base_url = settings.routing_osrm_base_url.strip().rstrip("/")
+    if not base_url or not settings.routing_outbound_enabled or len(waypoints) < 2:
+        return None
+    coordinate_path = ";".join(f"{item.longitude:.6f},{item.latitude:.6f}" for item in waypoints)
+    query = urllib.parse.urlencode({"overview": "full", "geometries": "geojson"})
+    request = urllib.request.Request(
+        f"{base_url}/route/v1/driving/{coordinate_path}?{query}",
+        headers={"Accept": "application/json", "User-Agent": USER_AGENT},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=float(settings.routing_timeout_seconds or 8.0)) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        points = payload["routes"][0]["geometry"]["coordinates"]
+    except (TimeoutError, json.JSONDecodeError, OSError, KeyError, IndexError, TypeError) as exc:
+        LOGGER.warning("OSRM-wegtrace kon niet opgehaald worden: %s", type(exc).__name__)
+        return None
+    if payload.get("code") != "Ok" or len(points) < 2:
+        return None
+    return [[round(float(lat), 5), round(float(lon), 5)] for lon, lat in points]
+
+
+def attach_route_geometries(
+    route_outputs: Sequence[UrgencyRouteOut],
+    start_location: RoutePlanLocation,
+    end_location: RoutePlanLocation | None,
+    return_to_start: bool,
+) -> bool:
+    start = Coordinates(start_location.latitude, start_location.longitude)
+    end: Coordinates | None = None
+    if end_location:
+        end = Coordinates(end_location.latitude, end_location.longitude)
+    elif return_to_start:
+        end = start
+    all_ok = True
+    for route in route_outputs:
+        waypoints = [start, *(Coordinates(stop.latitude, stop.longitude) for stop in route.stops)]
+        if end is not None:
+            waypoints.append(end)
+        geometry = fetch_osrm_route_geometry(waypoints)
+        if geometry:
+            route.geometry = geometry
+        else:
+            all_ok = False
+    return all_ok and bool(route_outputs)
+
+
 def build_urgency_route_plan(
     urgencies: Sequence[Urgency],
     payload: UrgencyRoutePlanRequest,
@@ -861,13 +909,19 @@ def build_urgency_route_plan(
             if route.total_duration_minutes > payload.max_route_duration_minutes:
                 route.warnings.append("Deze route overschrijdt de ingestelde maximale duur.")
 
+    has_route_geometry = False
+    if matrix.provider == "osrm":
+        has_route_geometry = attach_route_geometries(route_outputs, start_location, end_location, payload.return_to_start)
+        if not has_route_geometry:
+            warnings.append("Wegtracé kon niet (volledig) opgehaald worden; stippellijn toont enkel de volgorde.")
+
     return UrgencyRoutePlanOut(
         generated_at=datetime.now(timezone.utc),
         execution_date=payload.execution_date,
         provider=matrix.provider,
         uses_real_road_network=matrix.uses_real_road_network,
         uses_live_traffic=matrix.uses_live_traffic,
-        has_route_geometry=False,
+        has_route_geometry=has_route_geometry,
         start_location=start_location,
         end_location=end_location,
         return_to_start=payload.return_to_start,

@@ -1978,12 +1978,17 @@ function RoutePlanMap({ plan }: { plan: UrgencyRoutePlan }) {
             }).addTo(map);
           });
           if (endPoint) routePoints.push(endPoint);
-          if (routePoints.length > 1) {
+          const roadPath = route.geometry && route.geometry.length > 1 ? route.geometry : null;
+          if (roadPath) {
+            L.polyline(roadPath, { color: "#ffffff", weight: 8, opacity: 0.9 }).addTo(map);
+            L.polyline(roadPath, { color: route.color, weight: 5, opacity: 0.9 }).addTo(map);
+            boundsPoints.push(...roadPath);
+          } else if (routePoints.length > 1) {
             L.polyline(routePoints, {
               color: route.color,
               weight: 4,
               opacity: 0.74,
-              dashArray: plan.has_route_geometry ? undefined : "6 8",
+              dashArray: "6 8",
             }).addTo(map);
           }
         });

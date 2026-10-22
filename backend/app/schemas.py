@@ -351,6 +351,7 @@ class UrgencyRouteOut(BaseModel):
     end_location_label: str
     final_driving_minutes: int
     final_distance_km: float
+    geometry: list[list[float]] = []
     warnings: list[str] = []
 
 

@@ -133,6 +133,7 @@ export type UrgencyRoute = {
   end_location_label: string;
   final_driving_minutes: number;
   final_distance_km: number;
+  geometry?: [number, number][];
   warnings: string[];
 };
 
