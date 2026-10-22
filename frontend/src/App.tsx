@@ -1482,13 +1482,18 @@ function Shell({
     <div className="appShell">
       <aside className="sidebar">
         <div className="brandBlock">
-          <img src="/logo-icon.svg" alt="Global Smile Care" className="sidebarLogo" />
+          <img src="/logo-icon.svg" alt="" className="sidebarLogo" />
+          <div className="brandText">
+            <strong>Global Smile Care</strong>
+            <span>{L("Intern dashboard")}</span>
+          </div>
         </div>
         <nav>
           {visibleSections.map((item) => (
             <div key={item} className={item === "WZC database" ? "navSeparated" : ""}>
-              <button className={item === section ? "active" : ""} onClick={() => navigate(item)}>
-                {L(item)}
+              <button className={item === section ? "active" : ""} onClick={() => navigate(item)} aria-current={item === section ? "page" : undefined}>
+                <NavIcon section={item} />
+                <span>{L(item)}</span>
               </button>
             </div>
           ))}
@@ -1539,14 +1544,43 @@ function Shell({
   );
 }
 
+const SECTION_DESCRIPTIONS: Record<Section, { nl: string; en: string }> = {
+  Home: { nl: "Overzicht van zorgcentra, bezoeken en urgenties.", en: "Overview of care homes, visits and urgencies." },
+  Planning: { nl: "Screening- en behandeldagen in de agenda.", en: "Screening and treatment days in the calendar." },
+  Behandelplanning: { nl: "Bewonerslijsten koppelen aan ingeplande dagen.", en: "Link resident lists to scheduled days." },
+  Mondzorgdossiers: { nl: "Mondzorgdossiers per bewoner.", en: "Oral care records per resident." },
+  Urgenties: { nl: "Meldingen opvolgen en routes plannen.", en: "Follow up reports and plan routes." },
+  "WZC opvolging": { nl: "Prospectie en actieve zorgcentra op de kaart.", en: "Prospects and active care homes on the map." },
+  "WZC database": { nl: "Masterdata, teams, gebruikers en portaaltoegang.", en: "Master data, teams, users and portal access." },
+};
+
+function NavIcon({ section }: { section: Section }) {
+  const paths: Record<Section, ReactNode> = {
+    Home: <><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5" /></>,
+    Planning: <><rect x="3" y="4.5" width="18" height="16" rx="2.5" /><path d="M3 9.5h18M8 2.5v4M16 2.5v4" /></>,
+    Behandelplanning: <><rect x="5" y="3.5" width="14" height="18" rx="2.5" /><path d="M9 3.5V2.5h6v1M9 10h6M9 14h6M9 18h3" /></>,
+    Mondzorgdossiers: <><path d="M4 6.5a2 2 0 0 1 2-2h4l2 2.5h6a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" /></>,
+    Urgenties: <><path d="M12 3.5 2.8 19.5h18.4Z" /><path d="M12 10v4.5M12 17.2v.3" /></>,
+    "WZC opvolging": <><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11Z" /><circle cx="12" cy="10" r="2.3" /></>,
+    "WZC database": <><ellipse cx="12" cy="5.5" rx="7.5" ry="2.8" /><path d="M4.5 5.5v13c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8v-13M4.5 12c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8" /></>,
+  };
+  return (
+    <svg className="navIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {paths[section]}
+    </svg>
+  );
+}
+
 function Header({ section }: { section: Section }) {
   const lang = useLang();
   const L = (key: string) => t(lang, key);
+  const today = new Intl.DateTimeFormat(lang === "nl" ? "nl-BE" : "en-GB", { weekday: "long", day: "numeric", month: "long" }).format(new Date());
   return (
     <header className="pageHeader">
       <div>
-        <h1>{L("Intern dashboard")}</h1>
-        <p>{L(section)}</p>
+        <span className="pageEyebrow">{L("Intern dashboard")} · {today}</span>
+        <h1>{L(section)}</h1>
+        <p>{SECTION_DESCRIPTIONS[section][lang]}</p>
       </div>
       <span className="trustBadge">Vertrouwelijk</span>
     </header>
@@ -1879,7 +1913,7 @@ function WzcMap({
                   >
                     {L("Open WZC-fiche")}
                   </button>
-                  {onPlan && <button className="gscPanelPlanningLink" type="button" onClick={() => onPlan(selectedRecord.source as Wzc)}>{L("Planning maken")}</button>}
+                  {onPlan && <button className="gscPanelUrgencyAddLink" type="button" onClick={() => onPlan(selectedRecord.source as Wzc)}>{L("Planning maken")}</button>}
                   {onUrgency && <button className="gscPanelUrgencyAddLink" type="button" onClick={() => onUrgency(selectedRecord.source as Wzc)}>{L("Urgentie toevoegen")}</button>}
                 </>
               )}
@@ -2102,7 +2136,7 @@ function Home({
         <div className="kpi"><span>{L("Actieve WZC's")}</span><strong>{activeWzcs.length}</strong></div>
         <div className="kpi"><span>{L("Evaluaties")}</span><strong>0</strong></div>
         <div className="kpi"><span>{L("Prospecties")}</span><strong>{prospects.length}</strong></div>
-        <div className="kpi"><span>{L("Urgenties")}</span><strong>{openUrgencyCount}</strong></div>
+        <div className={openUrgencyCount > 0 ? "kpi attention" : "kpi"}><span>{L("Urgenties")}</span><strong>{openUrgencyCount}</strong></div>
         <div className="kpi"><span>{L("Gem. score")}</span><strong>-</strong></div>
         <div className="kpi"><span>{L("Hoog risico")}</span><strong>0</strong></div>
         <div className="kpi"><span>{L("Gepland")}</span><strong>{upcoming.length}</strong></div>
