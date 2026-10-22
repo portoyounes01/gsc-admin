@@ -1497,7 +1497,7 @@ function Shell({
           <div className="sidebarUserBlock">
             <div className="sidebarAvatar">{user.email.slice(0, 1).toUpperCase()}</div>
             <div className="sidebarUserInfo">
-              <strong>{user.email}</strong>
+              <strong title={user.email}>{user.email}</strong>
               <small>{user.role}</small>
             </div>
             <details className="sidebarSettingsMenu">
@@ -3178,7 +3178,7 @@ function ExtraContactsEditor({
             <label>{lang === "nl" ? "Functie" : "Function"}<input value={contact.role} onChange={(event) => updateContact(index, { role: event.target.value })} /></label>
             <label>{L("Telefoon")}<input value={contact.phone} onChange={(event) => updateContact(index, { phone: event.target.value })} /></label>
             <label>{L("E-mail")}<input value={contact.email} onChange={(event) => updateContact(index, { email: event.target.value })} /></label>
-            <button type="button" onClick={() => removeContact(index)}>{L("Verwijderen")}</button>
+            <button className="dangerButton" type="button" onClick={() => removeContact(index)}>{L("Verwijderen")}</button>
           </div>
         ))}
         {contacts.length === 0 && <div className="empty compactEmpty">{lang === "nl" ? "Nog geen extra contactpersonen." : "No extra contacts yet."}</div>}
@@ -3512,7 +3512,7 @@ function ProspectView({
             </div>
             <div className="inlineActions noMargin">
               <button className="primaryButton" disabled={converting} onClick={convertSelectedToWzc}>{converting ? (lang === "nl" ? "Omzetten..." : "Converting...") : (lang === "nl" ? "Zet om naar actieve WZC" : "Convert to active care home")}</button>
-              <button onClick={removeSelected}>{L("Verwijderen")}</button>
+              <button className="dangerButton" onClick={removeSelected}>{L("Verwijderen")}</button>
               <button className="primaryButton" onClick={saveSelected}>{lang === "nl" ? "Bewaren" : "Save"}</button>
             </div>
           </div>
@@ -4166,7 +4166,7 @@ function WzcDatabaseView({
               <div className="rowMeta">
                 {wzc.group_name && <span className="softBadge">{wzc.group_name}</span>}
                 <span className="softBadge">{wzc.collaboration_status}</span>
-                <button onClick={() => removeWzc(wzc)}>{L("Verwijderen")}</button>
+                <button className="dangerButton" onClick={() => removeWzc(wzc)}>{L("Verwijderen")}</button>
               </div>
             </article>
           ))}
@@ -4242,7 +4242,7 @@ function WzcDatabaseView({
                       <span className="softBadge">{profile.is_active ? L("Actief") : (lang === "nl" ? "Inactief" : "Inactive")}</span>
                       <button onClick={() => startEditTeam(profile)}>{lang === "nl" ? "Aanpassen" : "Edit"}</button>
                       <button onClick={() => toggleTeam(profile)}>{profile.is_active ? (lang === "nl" ? "Deactiveren" : "Deactivate") : (lang === "nl" ? "Activeren" : "Activate")}</button>
-                      <button onClick={() => removeTeam(profile)}>{L("Verwijderen")}</button>
+                      <button className="dangerButton" onClick={() => removeTeam(profile)}>{L("Verwijderen")}</button>
                     </div>
                   </>
                 )}
@@ -4298,7 +4298,7 @@ function WzcDatabaseView({
                       setPasswordUserId((current) => current === selectedUser.id ? null : selectedUser.id);
                     }}
                   >{lang === "nl" ? "Wachtwoord wijzigen" : "Change password"}</button>
-                  <button onClick={() => removeUser(selectedUser)}>{L("Verwijderen")}</button>
+                  <button className="dangerButton" onClick={() => removeUser(selectedUser)}>{L("Verwijderen")}</button>
                 </div>
                 {passwordUserId === selectedUser.id && (
                   <UserPasswordForm
@@ -4407,7 +4407,7 @@ function WzcDatabaseView({
                     <option value="staff">{lang === "nl" ? "Medewerker" : "Staff"}</option>
                     <option value="admin">{lang === "nl" ? "Beheerder" : "Admin"}</option>
                   </select>
-                  <button type="button" onClick={() => patchPortalAccount(account, { is_active: !account.is_active }, account.is_active ? (lang === "nl" ? `Toegang ingetrokken voor ${account.email}.` : `Access revoked for ${account.email}.`) : (lang === "nl" ? `Toegang hersteld voor ${account.email}.` : `Access restored for ${account.email}.`))}>
+                  <button type="button" className={account.is_active ? "dangerButton" : ""} onClick={() => patchPortalAccount(account, { is_active: !account.is_active }, account.is_active ? (lang === "nl" ? `Toegang ingetrokken voor ${account.email}.` : `Access revoked for ${account.email}.`) : (lang === "nl" ? `Toegang hersteld voor ${account.email}.` : `Access restored for ${account.email}.`))}>
                     {account.is_active ? (lang === "nl" ? "Toegang intrekken" : "Revoke access") : (lang === "nl" ? "Activeren" : "Activate")}
                   </button>
                   <button type="button" aria-expanded={editingPortalId === account.id} onClick={() => {
@@ -4416,7 +4416,7 @@ function WzcDatabaseView({
                     setPortalEdit({ email: account.email, password: "" });
                     setEditingPortalId((current) => current === account.id ? null : account.id);
                   }}>{lang === "nl" ? "E-mail / wachtwoord wijzigen" : "Change email / password"}</button>
-                  <button type="button" onClick={() => removePortalAccount(account)}>{lang === "nl" ? "Verwijderen" : "Delete"}</button>
+                  <button className="dangerButton" type="button" onClick={() => removePortalAccount(account)}>{lang === "nl" ? "Verwijderen" : "Delete"}</button>
                 </div>
                 {editingPortalId === account.id && (
                   <form className="formGrid compact" onSubmit={(event) => savePortalEdit(event, account)}>
@@ -5180,7 +5180,7 @@ function PlanningView({
                   <div className="inlineActions noMargin">
                     <button onClick={() => openPlanning(expandedPlanning)}>{lang === "nl" ? "Aanvullen" : "Supplement"}</button>
                     <button onClick={() => api.downloadPlanningExcel(expandedPlanning.id, cleanFileName(expandedPlanning.name))}>{lang === "nl" ? "Excel downloaden" : "Download Excel"}</button>
-                    <button onClick={() => deletePlanning(expandedPlanning)}>{L("Verwijderen")}</button>
+                    <button className="dangerButton" onClick={() => deletePlanning(expandedPlanning)}>{L("Verwijderen")}</button>
                   </div>
                 </div>
                 <div className="inlineForm">
@@ -5340,7 +5340,7 @@ function AdminView({ users, auditLogs, onSaved }: { users: User[]; auditLogs: Au
           <button className="primaryButton">{lang === "nl" ? "Gebruiker toevoegen" : "Add user"}</button>
         </form>
         <div className="cardList">
-          {users.map((user) => <div className="listRow" key={user.id}><strong>{user.email}</strong><span>{user.role}</span></div>)}
+          {users.map((user) => <div className="listRow" key={user.id}><strong title={user.email}>{user.email}</strong><span>{user.role}</span></div>)}
         </div>
       </section>
       <section className="panel">

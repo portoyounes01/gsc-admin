@@ -1,27 +1,38 @@
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("/fonts/InterVariable.woff2") format("woff2-variations"), url("/fonts/InterVariable.woff2") format("woff2");
+}
+
 :root {
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-feature-settings: "cv05", "cv08";
   --gsc-green: #86c8ae;
-  --gsc-green-dark: #2f6f62;
-  --gsc-green-soft: #ecf6f2;
-  --gsc-green-line: #d7ebe3;
+  --gsc-green-dark: #1f6a58;
+  --gsc-green-soft: #eef6f2;
+  --gsc-green-line: #d3e7de;
   --gsc-blue: #2e6f95;
   --gsc-amber: #b7791f;
   --gsc-red: #b42318;
-  --gsc-ink: #1d1d1f;
-  --gsc-muted: #72767d;
-  --gsc-border: #eaecf1;
+  --gsc-ink: #15191d;
+  --gsc-muted: #5c636b;
+  --gsc-border: #e6e9ed;
   --gsc-panel: #ffffff;
-  --gsc-page: #f4f5f7;
-  --gsc-shadow-sm: 0 2px 8px rgba(29, 29, 31, 0.06);
-  --gsc-shadow-md: 0 8px 24px rgba(29, 29, 31, 0.07);
-  --gsc-shadow-lg: 0 18px 48px rgba(29, 29, 31, 0.09);
+  --gsc-page: #f3f5f4;
+  --gsc-shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.05);
+  --gsc-shadow-md: 0 1px 2px rgba(16, 24, 40, 0.04), 0 6px 18px rgba(16, 24, 40, 0.055);
+  --gsc-shadow-lg: 0 2px 4px rgba(16, 24, 40, 0.03), 0 18px 44px rgba(16, 24, 40, 0.08);
   --gsc-radius-sm: 10px;
-  --gsc-radius-md: 14px;
+  --gsc-radius-md: 16px;
   --gsc-radius-lg: 20px;
-  color: #1d1d1f;
-  background: #f5f6f7;
+  color: var(--gsc-ink);
+  background: var(--gsc-page);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 * {
@@ -42,22 +53,40 @@ textarea {
 }
 
 button {
-  border: 1px solid #e2e6ec;
+  border: 1px solid #dde2e7;
   background: #ffffff;
-  color: #24262d;
+  color: #1f2429;
   border-radius: 10px;
   min-height: 38px;
   padding: 8px 13px;
+  font-weight: 550;
   cursor: pointer;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
 }
 
 button:hover {
-  border-color: #71b69e;
+  border-color: #b5d3c7;
+  background-color: #fafcfb;
+}
+
+button:active {
+  box-shadow: none;
 }
 
 button:focus-visible {
-  outline: 3px solid rgba(77, 159, 133, 0.22);
+  outline: 3px solid rgba(31, 106, 88, 0.25);
   outline-offset: 2px;
+}
+
+button.dangerButton {
+  color: var(--gsc-red);
+  border-color: #f0cdc9;
+}
+
+button.dangerButton:hover {
+  background-color: #fef4f3;
+  border-color: #e3a29b;
 }
 
 button:disabled {
@@ -70,13 +99,20 @@ input,
 select,
 textarea {
   width: 100%;
-  border: 1px solid #e2e6ec;
+  border: 1px solid #dbe0e5;
   background: #ffffff;
-  color: #1d1d1f;
+  color: var(--gsc-ink);
   border-radius: 10px;
   min-height: 40px;
   padding: 9px 11px;
   outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+input:hover,
+select:hover,
+textarea:hover {
+  border-color: #c6cdd4;
 }
 
 input,
@@ -88,8 +124,8 @@ select {
   appearance: none;
   -webkit-appearance: none;
   background-image:
-    linear-gradient(45deg, transparent 50%, #66707a 50%),
-    linear-gradient(135deg, #66707a 50%, transparent 50%);
+    linear-gradient(45deg, transparent 50%, #59616a 50%),
+    linear-gradient(135deg, #59616a 50%, transparent 50%);
   background-position:
     calc(100% - 17px) 17px,
     calc(100% - 12px) 17px;
@@ -106,15 +142,15 @@ textarea {
 input:focus,
 select:focus,
 textarea:focus {
-  border-color: #4d9f85;
-  box-shadow: 0 0 0 3px rgba(77, 159, 133, 0.16);
+  border-color: #3f8f78;
+  box-shadow: 0 0 0 4px rgba(31, 106, 88, 0.12);
 }
 
 label {
   display: grid;
   gap: 7px;
-  color: #505661;
-  font-size: 13px;
+  color: #3f4650;
+  font-size: 14px;
   font-weight: 650;
 }
 
@@ -124,8 +160,8 @@ label {
   gap: 7px;
   align-content: start;
   min-width: 0;
-  color: #505661;
-  font-size: 13px;
+  color: #3f4650;
+  font-size: 14px;
   font-weight: 650;
 }
 
@@ -145,8 +181,8 @@ label {
   right: 13px;
   width: 7px;
   height: 7px;
-  border-right: 2px solid #66707a;
-  border-bottom: 2px solid #66707a;
+  border-right: 2px solid #59616a;
+  border-bottom: 2px solid #59616a;
   transform: rotate(45deg);
   pointer-events: none;
 }
@@ -202,15 +238,15 @@ label {
 }
 
 .searchableDropdownOption small {
-  color: #66707a;
-  font-size: 11px;
+  color: #59616a;
+  font-size: 12px;
   font-weight: 650;
 }
 
 .searchableDropdownEmpty {
   padding: 9px 10px;
-  color: #66707a;
-  font-size: 12px;
+  color: #59616a;
+  font-size: 13px;
   font-weight: 650;
 }
 
@@ -220,8 +256,8 @@ label {
   gap: 7px;
   align-content: start;
   min-width: 0;
-  color: #505661;
-  font-size: 13px;
+  color: #3f4650;
+  font-size: 14px;
   font-weight: 650;
 }
 
@@ -254,15 +290,15 @@ label {
   right: 13px;
   width: 7px;
   height: 7px;
-  border-right: 2px solid #66707a;
-  border-bottom: 2px solid #66707a;
+  border-right: 2px solid #59616a;
+  border-bottom: 2px solid #59616a;
   transform: rotate(45deg);
   pointer-events: none;
 }
 
 .teamSelectDisclosure[open] summary {
-  border-color: #4d9f85;
-  box-shadow: 0 0 0 3px rgba(77, 159, 133, 0.16);
+  border-color: #3f8f78;
+  box-shadow: 0 0 0 4px rgba(31, 106, 88, 0.12);
 }
 
 .teamSelectDisclosure summary span,
@@ -278,8 +314,8 @@ label {
 }
 
 .teamSelectDisclosure summary small {
-  color: #66707a;
-  font-size: 11px;
+  color: #59616a;
+  font-size: 12px;
   font-weight: 650;
 }
 
@@ -340,12 +376,12 @@ label {
 }
 
 .teamSelectOption strong {
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .teamSelectOption small {
-  color: #66707a;
-  font-size: 11px;
+  color: #59616a;
+  font-size: 12px;
   font-weight: 650;
 }
 
@@ -388,20 +424,21 @@ label {
 .loginCard p,
 .pageHeader p {
   margin: 0;
-  color: #66707a;
+  color: #59616a;
 }
 
 .primaryButton {
-  background: #2d7c69;
+  background: linear-gradient(180deg, #2a7c67 0%, #1f6a58 100%);
   color: #ffffff;
-  border-color: #2d7c69;
-  font-weight: 700;
-  letter-spacing: 0.01em;
+  border-color: #1b5d4d;
+  font-weight: 650;
+  letter-spacing: 0.005em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 1px 2px rgba(16, 24, 40, 0.14), 0 2px 8px rgba(31, 106, 88, 0.16);
 }
 
 .primaryButton:hover {
-  background: #236b5a;
-  border-color: #236b5a;
+  background: linear-gradient(180deg, #247260 0%, #1a5d4d 100%);
+  border-color: #174f42;
 }
 
 .error {
@@ -432,11 +469,10 @@ label {
   grid-template-rows: auto 1fr auto;
   gap: 18px;
   padding: 18px;
-  background: rgba(255, 255, 255, 0.94);
+  background: #ffffff;
   border: 1px solid var(--gsc-border);
   border-radius: 20px;
-  box-shadow: var(--gsc-shadow-lg);
-  backdrop-filter: blur(14px);
+  box-shadow: var(--gsc-shadow-md);
 }
 
 .brandBlock {
@@ -457,7 +493,7 @@ label {
 
 .sidebarKicker {
   color: var(--gsc-green-dark);
-  font-size: 0.76rem;
+  font-size: 0.8125rem;
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -475,7 +511,7 @@ label {
 .recordCard span,
 .recordCard small,
 .pipelineRow small {
-  color: #66707a;
+  color: #59616a;
 }
 
 .sidebar nav {
@@ -487,28 +523,33 @@ label {
 .sidebar nav button {
   width: 100%;
   text-align: left;
-  border: 1px solid rgba(234, 236, 241, 0.9);
-  background: rgba(247, 247, 248, 0.82);
-  color: var(--gsc-muted);
-  border-radius: 13px;
+  border: 1px solid transparent;
+  background: transparent;
+  box-shadow: none;
+  color: #454c54;
+  border-radius: 12px;
   min-height: 46px;
   margin: 3px 0;
   padding: 11px 16px;
-  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
-  font-size: 14px;
-  font-weight: 480;
+  font-size: 15px;
+  font-weight: 520;
   line-height: 1.15;
-  letter-spacing: 0;
+  letter-spacing: -0.005em;
   white-space: nowrap;
-  -webkit-font-smoothing: antialiased;
+}
+
+.sidebar nav button:hover {
+  background: #f3f6f5;
+  border-color: transparent;
+  color: var(--gsc-ink);
 }
 
 .sidebar nav button.active {
-  background: #eff7f4;
-  border-color: #bfd8cf;
-  box-shadow: inset 4px 0 0 var(--gsc-green-dark), var(--gsc-shadow-sm);
+  background: var(--gsc-green-soft);
+  border-color: var(--gsc-green-line);
+  box-shadow: inset 3px 0 0 var(--gsc-green-dark);
   color: var(--gsc-green-dark);
-  font-weight: 620;
+  font-weight: 640;
 }
 
 .navSeparated {
@@ -529,7 +570,7 @@ label {
 .sidebarFooter span {
   overflow-wrap: anywhere;
   color: var(--gsc-muted);
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   line-height: 1.35;
 }
 
@@ -576,7 +617,7 @@ label {
 }
 
 .sidebarUserInfo small {
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   color: var(--gsc-muted);
   text-transform: capitalize;
 }
@@ -635,7 +676,7 @@ label {
 }
 
 .sidebarSettingsLabel {
-  font-size: 0.76rem;
+  font-size: 0.8125rem;
   color: var(--gsc-muted);
   font-weight: 500;
   white-space: nowrap;
@@ -643,7 +684,7 @@ label {
 }
 
 .sidebarSettingsValue {
-  font-size: 0.76rem;
+  font-size: 0.8125rem;
   font-weight: 640;
   color: var(--gsc-ink);
   text-align: right;
@@ -678,7 +719,7 @@ label {
 
 .sidebarLangSwitch button {
   padding: 3px 10px;
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   font-weight: 600;
   border: none;
   background: transparent;
@@ -703,7 +744,7 @@ label {
   border-radius: 8px;
   background: transparent;
   color: var(--gsc-muted);
-  font-size: 0.76rem;
+  font-size: 0.8125rem;
   font-weight: 520;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
@@ -733,10 +774,17 @@ label {
 
 .pageHeader h1 {
   color: var(--gsc-ink);
-  font-size: 2.55rem;
-  line-height: 1.03;
-  letter-spacing: -0.02em;
+  font-size: 2.4rem;
+  font-weight: 660;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
   margin-bottom: 5px;
+}
+
+.loginCard h1,
+.panel h2 {
+  font-weight: 680;
+  letter-spacing: -0.02em;
 }
 
 .trustBadge {
@@ -745,8 +793,8 @@ label {
   color: #216656;
   padding: 8px 13px;
   border-radius: 999px;
-  font-size: 12px;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .kpiGrid {
@@ -759,8 +807,8 @@ label {
 .panel,
 .mapPanel {
   background: #ffffff;
-  border: 1px solid #eaecf1;
-  border-radius: 14px;
+  border: 1px solid var(--gsc-border);
+  border-radius: var(--gsc-radius-md);
   box-shadow: var(--gsc-shadow-md);
 }
 
@@ -777,20 +825,24 @@ label {
   content: "";
   position: absolute;
   inset: 0 0 auto;
-  height: 2px;
-  background: var(--gsc-green);
+  height: 3px;
+  background: linear-gradient(90deg, var(--gsc-green-dark), var(--gsc-green) 60%, rgba(134, 200, 174, 0));
 }
 
 .kpi span {
   color: var(--gsc-muted);
-  font-size: 0.72rem;
-  font-weight: 760;
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .kpi strong {
   color: var(--gsc-ink);
-  font-size: 2rem;
+  font-size: 2.2rem;
+  font-weight: 680;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
   line-height: 1;
 }
 
@@ -859,12 +911,12 @@ label {
 }
 
 .accessPanel p {
-  color: #66707a;
+  color: #59616a;
 }
 
 .sectionHint {
   margin: 5px 0 0;
-  color: #66707a;
+  color: #59616a;
 }
 
 .stack {
@@ -902,8 +954,8 @@ label {
 }
 
 .followupSwitch span {
-  color: #66707a;
-  font-size: 12px;
+  color: #59616a;
+  font-size: 13px;
   font-weight: 650;
 }
 
@@ -963,9 +1015,9 @@ label {
 
 .agendaCreateSummaryMeta {
   min-width: 0;
-  color: #66707a;
-  font-size: 12px;
-  font-weight: 800;
+  color: #59616a;
+  font-size: 13px;
+  font-weight: 700;
   white-space: nowrap;
 }
 
@@ -979,8 +1031,8 @@ label {
   border-radius: 8px;
   background: #ffffff;
   color: #216656;
-  font-size: 12px;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 700;
   line-height: 1.2;
   white-space: nowrap;
 }
@@ -1010,7 +1062,7 @@ label {
 .agendaToolbar button {
   min-height: 34px;
   padding: 7px 10px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 750;
 }
 
@@ -1072,8 +1124,8 @@ label {
   align-items: center;
   height: 18px;
   padding: 0 6px;
-  color: #66707a;
-  font-size: 11px;
+  color: #59616a;
+  font-size: 12px;
   font-weight: 850;
   line-height: 1;
   text-align: left;
@@ -1130,8 +1182,8 @@ label {
   display: inline-flex;
   align-items: center;
   color: #1d1d1f;
-  font-size: 12px;
-  font-weight: 900;
+  font-size: 13px;
+  font-weight: 760;
   line-height: 1;
 }
 
@@ -1143,7 +1195,7 @@ label {
   min-width: 0;
   min-height: 0;
   display: grid;
-  gap: 3px;
+  gap: 2px;
   align-content: start;
   margin-top: 1px;
   overflow: hidden;
@@ -1152,14 +1204,14 @@ label {
 .agendaDayItems em {
   min-width: 0;
   display: block;
-  padding: 2px 5px;
+  padding: 1px 5px;
   border-radius: 5px;
   background: #edf7f3;
   color: #216656;
-  font-size: 10px;
+  font-size: 10.5px;
   font-style: normal;
   font-weight: 750;
-  line-height: 1.18;
+  line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1222,8 +1274,8 @@ label {
 .agendaItemHeader span,
 .agendaItemMeta,
 .agendaItemNote {
-  color: #66707a;
-  font-size: 12px;
+  color: #59616a;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -1290,7 +1342,7 @@ label {
 }
 
 .planningTabSwitch span {
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .tabBar {
@@ -1361,8 +1413,8 @@ label {
   padding: 12px 14px;
   cursor: pointer;
   color: #2c3037;
-  font-size: 13px;
-  font-weight: 800;
+  font-size: 14px;
+  font-weight: 700;
   list-style: none;
 }
 
@@ -1388,8 +1440,8 @@ label {
 
 .extraContactsBox summary small {
   margin-left: auto;
-  color: #66707a;
-  font-size: 12px;
+  color: #59616a;
+  font-size: 13px;
   font-weight: 750;
 }
 
@@ -1473,7 +1525,7 @@ label {
   background: #f8fafb;
   border-color: #e8ecf0;
   color: #565d68;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 750;
 }
 
@@ -1571,8 +1623,8 @@ label {
   border-color: #c9e1d7;
   background: #ffffff;
   color: #216656;
-  font-size: 12px;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 700;
   line-height: 1.2;
   text-decoration: none;
 }
@@ -1605,11 +1657,11 @@ label {
   display: grid;
   justify-items: end;
   gap: 7px;
-  color: #66707a;
+  color: #59616a;
 }
 
 .pipelineMeta small {
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .attentionBadge {
@@ -1621,8 +1673,8 @@ label {
   background: #eef5f2;
   color: #216656;
   border: 1px solid #c9e1d7;
-  font-size: 12px;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .privacyStrip {
@@ -1632,7 +1684,7 @@ label {
   background: #f2faf7;
   color: #216656;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -1647,8 +1699,8 @@ label {
 }
 
 .fileSelection > span {
-  color: #66707a;
-  font-size: 12px;
+  color: #59616a;
+  font-size: 13px;
   font-weight: 750;
 }
 
@@ -1679,7 +1731,7 @@ label {
 .linkedPlanningSummary.isMuted {
   border-color: #eaecf1;
   background: #fbfcfd;
-  color: #66707a;
+  color: #59616a;
 }
 
 .linkedPlanningSummary strong,
@@ -1691,12 +1743,12 @@ label {
 
 .linkedPlanningSummary strong {
   color: inherit;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .linkedPlanningSummary span,
 .linkedPlanningSummary small {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -1732,8 +1784,8 @@ label {
 }
 
 .planningKindSelector span {
-  color: #66707a;
-  font-size: 12px;
+  color: #59616a;
+  font-size: 13px;
   font-weight: 600;
   overflow-wrap: anywhere;
   min-width: 0;
@@ -1776,7 +1828,7 @@ label {
 .uploadSourceTitle {
   min-height: 18px;
   color: #4f5862;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 750;
 }
 
@@ -1812,8 +1864,8 @@ label {
 .uploadSelectionText {
   display: block;
   min-height: 18px;
-  color: #66707a;
-  font-size: 12px;
+  color: #59616a;
+  font-size: 13px;
   font-weight: 650;
   overflow-wrap: anywhere;
 }
@@ -1836,8 +1888,8 @@ label {
   gap: 10px;
   align-items: center;
   margin-bottom: 7px;
-  color: #66707a;
-  font-size: 12px;
+  color: #59616a;
+  font-size: 13px;
   font-weight: 750;
 }
 
@@ -1849,7 +1901,7 @@ label {
 
 .fileSelectionHeader strong {
   color: #2c3037;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .fileSelectionActions {
@@ -1860,7 +1912,7 @@ label {
 .fileSelectionActions button {
   min-height: 30px;
   padding: 5px 9px;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .compactFileGrid {
@@ -1969,7 +2021,7 @@ label {
   border-radius: 999px;
   color: #2d6f60;
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .urgencyMonthlyDisclosure[open] summary::after {
@@ -1984,16 +2036,16 @@ label {
 
 .urgencyMonthlySummaryMain {
   color: #2c3037;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 850;
   text-transform: uppercase;
 }
 
 .urgencyMonthlySummaryMeta {
   margin-left: auto;
-  color: #66707a;
-  font-size: 12px;
-  font-weight: 800;
+  color: #59616a;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .urgencyMonthlyContent {
@@ -2040,13 +2092,13 @@ label {
 
 .urgencyMonthHeader strong {
   color: #2c3037;
-  font-size: 12px;
+  font-size: 13px;
   text-transform: capitalize;
 }
 
 .urgencyMonthHeader span {
   color: #2d6f60;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 850;
 }
 
@@ -2075,13 +2127,13 @@ label {
   border-radius: 999px;
   background: #eef4f2;
   color: #52606b;
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .urgencyMonthCard small {
-  color: #66707a;
-  font-size: 11px;
+  color: #59616a;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -2117,11 +2169,11 @@ label {
 .urgencyMain span,
 .urgencyTypeBlock small,
 .urgencyRemark {
-  color: #66707a;
+  color: #59616a;
 }
 
 .urgencyRemark {
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .savedRoutesPanel {
@@ -2132,8 +2184,8 @@ label {
 .savedRouteDateField {
   min-width: min(230px, 100%);
   color: #2c3037;
-  font-size: 12px;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .savedRouteList {
@@ -2172,8 +2224,8 @@ label {
 }
 
 .savedRouteHeader span {
-  color: #66707a;
-  font-size: 12px;
+  color: #59616a;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -2187,14 +2239,14 @@ label {
   gap: 2px;
   padding-top: 6px;
   border-top: 1px solid #eef2f3;
-  color: #66707a;
-  font-size: 12px;
+  color: #59616a;
+  font-size: 13px;
   font-weight: 700;
 }
 
 .savedRouteMiniList strong {
   color: #2c3037;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .routePlannerPanel {
@@ -2221,7 +2273,7 @@ label {
 
 .routeSubTitle {
   color: #2c3037;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 850;
   text-transform: uppercase;
 }
@@ -2236,13 +2288,13 @@ label {
 .routeSelectionActions button {
   min-height: 32px;
   padding: 6px 10px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 750;
 }
 
 .routeSelectionActions span {
-  color: #66707a;
-  font-size: 12px;
+  color: #59616a;
+  font-size: 13px;
   font-weight: 750;
 }
 
@@ -2288,14 +2340,14 @@ label {
 }
 
 .routeUrgencyOption small {
-  color: #66707a;
-  font-size: 12px;
+  color: #59616a;
+  font-size: 13px;
   font-weight: 650;
 }
 
 .routeUrgencyOption em {
   color: #a23d3d;
-  font-size: 12px;
+  font-size: 13px;
   font-style: normal;
   font-weight: 750;
 }
@@ -2330,12 +2382,12 @@ label {
 
 .routePresetInfo strong {
   color: #2c3037;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .routePresetInfo span {
-  color: #66707a;
-  font-size: 12px;
+  color: #59616a;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -2350,7 +2402,7 @@ label {
   gap: 9px;
   min-height: 32px;
   color: #2c3037;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -2391,8 +2443,8 @@ label {
 }
 
 .routeResultBar span {
-  color: #66707a;
-  font-size: 12px;
+  color: #59616a;
+  font-size: 13px;
   font-weight: 750;
 }
 
@@ -2414,8 +2466,8 @@ label {
   border-radius: 8px;
   background: #eef8f4;
   color: #216656;
-  font-size: 12px;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .routeWarningsDisclosure {
@@ -2428,7 +2480,7 @@ label {
 .routeWarningsDisclosure summary {
   cursor: pointer;
   color: #8a5518;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 850;
 }
 
@@ -2488,8 +2540,8 @@ label {
 
 .routeDispatchHeader span,
 .routeMobileNote {
-  color: #66707a;
-  font-size: 12px;
+  color: #59616a;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -2515,14 +2567,14 @@ label {
   border: 1px solid #eaecf1;
   border-radius: 8px;
   background: #fbfcfd;
-  color: #66707a;
-  font-size: 11px;
+  color: #59616a;
+  font-size: 12px;
   font-weight: 750;
 }
 
 .routeDispatchSummary strong {
   color: #2c3037;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .routeActionRow {
@@ -2542,14 +2594,14 @@ label {
   border-radius: 8px;
   background: #216656;
   color: #ffffff;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 850;
   text-decoration: none;
 }
 
 .routeLinkLimit {
   color: #8a5518;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 750;
 }
 
@@ -2563,13 +2615,13 @@ label {
 .routeStopList li {
   min-width: 0;
   color: #2c3037;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
 }
 
 .routeStopList li::marker {
   color: #216656;
-  font-weight: 900;
+  font-weight: 760;
 }
 
 .routeStopList strong,
@@ -2579,8 +2631,8 @@ label {
 }
 
 .routeStopList span {
-  color: #66707a;
-  font-size: 12px;
+  color: #59616a;
+  font-size: 13px;
   font-weight: 650;
 }
 
@@ -2592,7 +2644,7 @@ label {
 .routeDetails summary {
   cursor: pointer;
   color: #216656;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 850;
 }
 
@@ -2623,8 +2675,8 @@ label {
 }
 
 .routePlanHeader span {
-  color: #66707a;
-  font-size: 12px;
+  color: #59616a;
+  font-size: 13px;
   font-weight: 750;
 }
 
@@ -2644,7 +2696,7 @@ label {
   border-radius: 8px;
   background: #fffaf2;
   color: #8a5518;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 750;
 }
 
@@ -2654,7 +2706,7 @@ label {
   border-radius: 8px;
   background: #fbfcfd;
   color: #49515a;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 780;
 }
 
@@ -2710,7 +2762,7 @@ label {
 
 .routeOrderHeader span {
   color: #216656;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 850;
 }
 
@@ -2724,12 +2776,12 @@ label {
 .routeOrderColumn li {
   padding-left: 2px;
   color: #2c3037;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .routeOrderColumn li::marker {
   color: #216656;
-  font-weight: 900;
+  font-weight: 760;
 }
 
 .routeOrderColumn li strong,
@@ -2741,8 +2793,8 @@ label {
 
 .routeOrderColumn li span,
 .routeOrderColumn small {
-  color: #66707a;
-  font-size: 12px;
+  color: #59616a;
+  font-size: 13px;
   font-weight: 650;
 }
 
@@ -2769,8 +2821,8 @@ label {
   border-radius: 999px;
   color: #ffffff;
   box-shadow: 0 8px 20px rgba(29, 29, 31, 0.20);
-  font-size: 12px;
-  font-weight: 900;
+  font-size: 13px;
+  font-weight: 760;
 }
 
 .gsc-route-start {
@@ -2778,7 +2830,7 @@ label {
 }
 
 .gsc-route-end {
-  background: #6e6e73;
+  background: #5c636b;
 }
 
 .routeMapLegend {
@@ -2797,7 +2849,7 @@ label {
   background: rgba(255, 255, 255, 0.94);
   box-shadow: 0 10px 24px rgba(29, 29, 31, 0.10);
   color: #4b5560;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -2810,7 +2862,7 @@ label {
   border-radius: 999px;
   background: #1d1d1f;
   color: #ffffff;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .routeCards {
@@ -2851,8 +2903,8 @@ label {
 
 .routeCardHeader span,
 .routeCardHeader small {
-  color: #66707a;
-  font-size: 12px;
+  color: #59616a;
+  font-size: 13px;
   font-weight: 750;
 }
 
@@ -2877,14 +2929,14 @@ label {
   border: 1px solid #eaecf1;
   border-radius: 8px;
   background: #fbfcfd;
-  color: #66707a;
-  font-size: 12px;
+  color: #59616a;
+  font-size: 13px;
   font-weight: 750;
 }
 
 .routeSummaryGrid strong {
   color: #2c3037;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .routeTimeline {
@@ -2901,7 +2953,7 @@ label {
 
 .routeTimelineRow time {
   color: #216656;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 850;
 }
 
@@ -2910,14 +2962,14 @@ label {
   display: grid;
   gap: 2px;
   color: #2c3037;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   overflow-wrap: anywhere;
 }
 
 .routeTimelineRow small {
-  color: #66707a;
-  font-size: 12px;
+  color: #59616a;
+  font-size: 13px;
   font-weight: 650;
 }
 
@@ -2948,7 +3000,7 @@ label {
 
 .unassignedPanel small {
   color: #8f2621;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -2972,7 +3024,7 @@ label {
   gap: 10px;
   min-height: 34px;
   color: #2c3037;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 650;
 }
 
@@ -3013,7 +3065,7 @@ label {
 }
 
 .planningRowCard small {
-  color: #66707a;
+  color: #59616a;
 }
 
 .previewPanel {
@@ -3041,8 +3093,8 @@ label {
   display: flex;
   align-items: baseline;
   gap: 5px;
-  color: #66707a;
-  font-size: 12px;
+  color: #59616a;
+  font-size: 13px;
 }
 
 .previewSelectionSummary strong {
@@ -3087,8 +3139,8 @@ label {
   border: 1px solid #eaecf1;
   border-radius: 6px;
   background: #fbfcfd;
-  color: #66707a;
-  font-size: 12px;
+  color: #59616a;
+  font-size: 13px;
 }
 
 .treatmentMatchSummary strong {
@@ -3109,7 +3161,7 @@ label {
 .matchDetail summary {
   cursor: pointer;
   color: #414851;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 750;
 }
 
@@ -3126,7 +3178,7 @@ label {
   border-radius: 6px;
   background: #f4f6f7;
   color: #4f5862;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .matchReviewRow {
@@ -3185,7 +3237,7 @@ label {
 .pdfLinkDocument small {
   margin-top: 2px;
   color: #717a84;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .pdfLinkField {
@@ -3198,7 +3250,7 @@ label {
 
 .pdfLinkStatus {
   white-space: nowrap;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 750;
 }
 
@@ -3250,8 +3302,8 @@ label {
   grid-template-columns: 18px minmax(0, 1fr);
   align-items: center;
   gap: 7px;
-  color: #66707a;
-  font-size: 11px;
+  color: #59616a;
+  font-size: 12px;
 }
 
 .rowDecision input {
@@ -3269,7 +3321,7 @@ label {
 
 .rowDecision strong {
   color: #2c3037;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .savedAddSelectionList {
@@ -3313,13 +3365,13 @@ label {
 
 .savedAddSelectionRow small {
   margin-top: 2px;
-  color: #66707a;
-  font-size: 11px;
+  color: #59616a;
+  font-size: 12px;
 }
 
 .savedAddSelectionRow b {
   color: #4f5862;
-  font-size: 12px;
+  font-size: 13px;
   text-align: right;
 }
 
@@ -3346,14 +3398,14 @@ label {
 
 .previewPatient small {
   margin-top: 3px;
-  color: #66707a;
-  font-size: 12px;
+  color: #59616a;
+  font-size: 13px;
   font-weight: 650;
 }
 
 .previewPatient .previewDate {
   color: #7a838c;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 650;
 }
 
@@ -3366,8 +3418,8 @@ label {
   border-radius: 999px;
   background: #f0f2f4;
   color: #5b646e;
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .approvalStatus.approved {
@@ -3387,7 +3439,7 @@ label {
 
 .optionalLabel {
   color: #7a838c;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 650;
 }
 
@@ -3419,7 +3471,7 @@ label {
   align-items: center;
   gap: 5px;
   margin-top: 5px;
-  color: #66707a !important;
+  color: #59616a !important;
   font-weight: 750 !important;
 }
 
@@ -3433,7 +3485,7 @@ label {
   border-radius: 50%;
   background: #c94149;
   color: #ffffff;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1;
 }
 
@@ -3452,7 +3504,7 @@ label {
   align-items: center;
   cursor: pointer;
   color: #414851;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 750;
   list-style: none;
 }
@@ -3478,7 +3530,7 @@ label {
   min-width: 0;
   overflow: hidden;
   color: #7a838c;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3532,7 +3584,7 @@ label {
 }
 
 .savedPatientNameField span {
-  color: #66707a;
+  color: #59616a;
   font-weight: 750;
 }
 
@@ -3566,7 +3618,7 @@ label {
 .patientNameMenuButton {
   border-color: transparent;
   background: transparent;
-  color: #66707a;
+  color: #59616a;
 }
 
 .savedPatientMenu {
@@ -3665,7 +3717,7 @@ label {
 }
 
 .databaseRow small {
-  color: #66707a;
+  color: #59616a;
 }
 
 .rowMeta {
@@ -3727,13 +3779,13 @@ label {
   border-radius: 999px;
   background: #edf3f1;
   color: #2d6f60;
-  font-size: 12px;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .empty {
   padding: 18px;
-  color: #66707a;
+  color: #59616a;
   border: 1px dashed #cfd6de;
   border-radius: 8px;
 }
@@ -3783,7 +3835,7 @@ label {
 .leaflet-control-attribution {
   background: rgba(255, 255, 255, 0.82) !important;
   color: #8a8a8e !important;
-  font-size: 10px !important;
+  font-size: 11px !important;
 }
 
 .leaflet-control-zoom {
@@ -3915,7 +3967,7 @@ label {
   border-radius: 999px;
   border-color: #e5e5ea;
   background: #f5f5f7;
-  color: #6e6e73;
+  color: #5c636b;
   font-weight: 650;
 }
 
@@ -3958,8 +4010,8 @@ label {
 
 .gscSearchOption span,
 .gscSearchEmpty {
-  color: #6e6e73;
-  font-size: 0.76rem;
+  color: #5c636b;
+  font-size: 0.8125rem;
   line-height: 1.25;
   overflow-wrap: anywhere;
 }
@@ -4002,7 +4054,7 @@ label {
   border-radius: 999px;
   border-color: #e5e5ea;
   background: #f5f5f7;
-  color: #6e6e73;
+  color: #5c636b;
   font-size: 1rem;
   font-weight: 650;
 }
@@ -4025,8 +4077,8 @@ label {
 
 .gscPanelPlace {
   margin-bottom: 0.75rem;
-  color: #6e6e73;
-  font-size: 0.82rem;
+  color: #5c636b;
+  font-size: 0.86rem;
   line-height: 1.35;
 }
 
@@ -4046,18 +4098,19 @@ label {
   justify-content: center;
   padding: 0 0.85rem;
   border-radius: 999px;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 750;
 }
 
 .gscPanelPlanningLink {
   border: 0;
-  background: #1d1d1f;
+  background: linear-gradient(180deg, #2a7c67 0%, #1f6a58 100%);
   color: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 1px 2px rgba(16, 24, 40, 0.14);
 }
 
 .gscPanelPlanningLink:hover {
-  background: #2f6f62;
+  background: linear-gradient(180deg, #247260 0%, #1a5d4d 100%);
   color: #ffffff;
 }
 
@@ -4074,7 +4127,7 @@ label {
   border-radius: 10px;
   background: #ecf6f2;
   color: #2f6f62;
-  font-size: 0.8rem;
+  font-size: 0.84rem;
   font-weight: 700;
 }
 
@@ -4086,8 +4139,8 @@ label {
 }
 
 .gscPanelLine span {
-  color: #6e6e73;
-  font-size: 0.72rem;
+  color: #5c636b;
+  font-size: 0.78rem;
   font-weight: 650;
   text-transform: uppercase;
 }
@@ -4142,7 +4195,7 @@ label {
   align-items: center;
   gap: 6px;
   color: #59616c;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -4428,12 +4481,12 @@ label {
   .agendaWeekday {
     height: 16px;
     padding: 0 5px;
-    font-size: 10px;
+    font-size: 11px;
   }
 
   .agendaDayNumber {
     min-height: 20px;
-    font-size: 11px;
+    font-size: 12px;
   }
 
   .agendaDay.today .agendaDayNumber {
@@ -4447,7 +4500,7 @@ label {
 
   .agendaDayItems em {
     padding: 3px 4px;
-    font-size: 10px;
+    font-size: 11px;
   }
 
   .previewHeader {
@@ -4515,12 +4568,12 @@ label {
   }
 }
 /* Care-centre portal */
-.portal-shell{min-height:100vh;background:#f7faff;color:#132b52;display:flex;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.portal-sidebar{width:248px;flex:0 0 248px;background:#fff;border-right:1px solid #e6edf5;padding:30px 16px 20px;display:flex;flex-direction:column}.portal-brand{display:flex;align-items:center;gap:10px;font-size:14px;line-height:1.05;color:#0d3766;margin:0 18px 64px}.portal-brand strong{font-size:22px;letter-spacing:-.04em}.portal-brand-mark,.portal-mark{display:grid;place-items:center;background:#d7f3ef;color:#168e89;border-radius:14px;width:40px;height:40px;font-size:22px}.portal-sidebar nav{display:grid;gap:8px}.portal-sidebar nav button{border:0;background:transparent;border-radius:12px;color:#426184;text-align:left;padding:14px 18px;font-size:16px;display:flex;align-items:center;gap:15px;cursor:pointer}.portal-sidebar nav button.active{background:#e2f1fb;color:#0e3260;font-weight:700}.portal-nav-icon{font-size:23px;width:22px;text-align:center}.portal-sidebar-foot{margin-top:auto;border-top:1px solid #e8eef5;padding:18px 8px 0;display:flex;gap:10px;align-items:center}.portal-avatar,.portal-user-button{display:grid;place-items:center;border:0;background:#dbeafe;color:#1764b0;border-radius:50%;width:38px;height:38px;font-weight:800}.portal-sidebar-foot strong{display:block;font-size:12px;white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis}.portal-sidebar-foot small{display:block;color:#8396ad;font-size:11px;margin-top:3px}.portal-logout{margin-left:auto;border:0;background:transparent;color:#7190af;font-size:20px;cursor:pointer}.portal-content{flex:1;min-width:0}.portal-topbar{height:76px;background:#fff;border-bottom:1px solid #e7edf4;display:flex;align-items:center;justify-content:space-between;padding:0 44px}.portal-breadcrumb{color:#8194ac;font-size:13px}.portal-breadcrumb span{margin:0 10px;color:#c4cfdb}.portal-top-actions{display:flex;align-items:center;gap:22px}.portal-top-actions>button:first-child{border:0;background:transparent;color:#12345d;font-size:22px;position:relative;cursor:pointer}.portal-top-actions i{position:absolute;width:7px;height:7px;background:#1284e5;border-radius:50%;right:0;top:0}.portal-user-button{cursor:pointer}.portal-hero{max-width:1320px;margin:0 auto;padding:46px 44px 28px;display:flex;justify-content:space-between;align-items:center;min-height:185px}.portal-kicker{text-transform:uppercase;letter-spacing:.12em;color:#5683b0;font-size:11px;font-weight:800;margin:0 0 9px}.portal-hero h1,.portal-page-section h1{font-size:42px;letter-spacing:-.05em;line-height:1.05;margin:0;color:#102b55}.portal-hero p:not(.portal-kicker){font-size:17px;color:#667d99;margin:14px 0 0}.portal-building{position:relative;width:340px;height:130px;overflow:hidden}.portal-building-body{position:absolute;right:28px;bottom:10px;width:170px;height:85px;background:#f7f0e8;border:4px solid #d4bfb0;border-bottom-width:10px;display:grid;grid-template-columns:repeat(3,1fr);gap:13px;padding:17px 14px}.portal-building-body:before{content:"";position:absolute;left:35px;top:-34px;border-left:50px solid transparent;border-right:50px solid transparent;border-bottom:34px solid #d7c5ba}.portal-building-body span{background:#9ec8ce;border:3px solid #fff}.portal-cloud{position:absolute;background:#dceff2;border-radius:999px;width:115px;height:30px}.cloud-one{right:0;top:24px}.cloud-two{left:56px;top:44px;width:85px}.portal-trees{position:absolute;right:228px;bottom:8px;width:27px;height:78px;border-radius:30px 30px 4px 4px;background:#8ec5b8;box-shadow:38px 20px 0 -3px #6caeae,68px 12px 0 -5px #9acdbb}.portal-metrics{max-width:1320px;margin:0 auto;padding:0 44px 28px;display:grid;grid-template-columns:repeat(3,1fr);gap:20px}.metric{border:1px solid transparent;border-radius:15px;padding:22px;display:flex;align-items:center;text-align:left;gap:17px;color:#132b52;cursor:pointer;min-height:108px}.metric-mint{background:#effaf8;border-color:#d5eeeb}.metric-gold{background:#fff8e9;border-color:#faeac3}.metric-blue{background:#eff7ff;border-color:#dbeaf8}.metric-icon{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;font-size:27px;background:#d5f2e9}.metric-gold .metric-icon{background:#ffedc9}.metric-blue .metric-icon{background:#d7eafd}.metric span:nth-child(2){display:grid;gap:3px;min-width:0}.metric small{color:#7288a2;font-size:12px}.metric strong{font-size:18px}.metric em{font-style:normal;color:#7187a2;font-size:12px}.metric b{font-size:26px;font-weight:400;margin-left:auto;color:#6d8aa9}.portal-panels{max-width:1320px;margin:0 auto;padding:0 44px 60px;display:grid;grid-template-columns:1.15fr .85fr;gap:20px}.portal-panel{background:#fff;border:1px solid #e5edf5;border-radius:15px;padding:24px;box-shadow:0 10px 30px rgba(33,75,118,.04)}.panel-heading,.portal-page-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}.panel-heading h2{margin:0;font-size:19px;letter-spacing:-.02em}.panel-heading button{border:0;background:transparent;color:#0876d4;font-weight:700;cursor:pointer}.portal-cta{background:#0788aa!important;color:#fff!important;border-radius:10px;padding:12px 16px;box-shadow:0 7px 18px rgba(8,136,170,.18)}.portal-list{display:grid}.portal-list-row{display:grid;grid-template-columns:1.2fr 1fr 1.5fr .8fr;align-items:center;gap:12px;padding:15px 0;border-top:1px solid #edf2f7;font-size:13px}.portal-list-row strong{font-weight:700}.portal-list-row span,.portal-list-row small{color:#687f9c}.portal-list-row em{font-style:normal;color:#6e8199;text-align:right;font-size:12px}.urgency-row{grid-template-columns:auto 1fr 1.2fr auto}.status-pill{display:inline-flex!important;border-radius:999px;padding:7px 10px;font-size:11px;font-weight:700;width:max-content}.status-open{background:#fff0d8;color:#d77b13}.status-progress{background:#e2f0ff;color:#1672ce}.portal-empty{color:#8497ae;font-size:14px}.portal-page-section{max-width:1320px;margin:0 auto;padding:48px 44px}.portal-page-title{align-items:end}.portal-page-section h1{font-size:36px}.portal-urgency-form{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px}.portal-urgency-form label{display:grid;gap:7px;color:#607995;font-size:12px;font-weight:700}.portal-urgency-form textarea{grid-column:1/-1;min-height:90px}.portal-urgency-form button{justify-self:start}.portal-primary{border:0;background:#0788aa;color:#fff;border-radius:10px;padding:13px 19px;font-weight:700;cursor:pointer}.portal-login{min-height:100vh;display:grid;place-items:center;background:linear-gradient(135deg,#eef8fb,#f6f9fd);color:#15345e}.portal-login-card{width:min(420px,calc(100% - 36px));background:#fff;border:1px solid #e3edf4;border-radius:20px;padding:38px;box-shadow:0 20px 55px rgba(24,62,102,.1)}.portal-login-card h1{font-size:31px;line-height:1.08;letter-spacing:-.04em;margin:12px 0}.portal-muted{color:#7188a1;line-height:1.55}.portal-login-card form{display:grid;gap:15px;margin-top:28px}.portal-login-card label{display:grid;gap:7px;font-size:12px;font-weight:700;color:#607995}.portal-login-card input,.portal-urgency-form input,.portal-urgency-form select,.portal-urgency-form textarea{font:inherit;border:1px solid #d7e3ef;border-radius:9px;padding:12px;color:#17375f;background:#fbfdff}.portal-error{color:#c74b4b;font-size:13px}@media(max-width:980px){.portal-sidebar{width:74px;flex-basis:74px;padding:24px 10px}.portal-brand span:last-child,.portal-sidebar nav button:not(.active)::after,.portal-sidebar nav button{font-size:0}.portal-sidebar nav button{justify-content:center;padding:14px}.portal-sidebar-foot>div:not(.portal-avatar),.portal-logout{display:none}.portal-topbar,.portal-hero,.portal-metrics,.portal-panels,.portal-page-section{padding-left:24px;padding-right:24px}.portal-hero{align-items:flex-start}.portal-building{transform:scale(.8);transform-origin:right center}.portal-panels{grid-template-columns:1fr}}@media(max-width:650px){.portal-hero{display:block}.portal-building{margin-left:auto}.portal-metrics{grid-template-columns:1fr}.portal-panels{padding-left:14px;padding-right:14px}.portal-topbar{padding:0 16px}.portal-list-row{grid-template-columns:1fr 1fr}.portal-list-row small,.portal-list-row em{ text-align:left}.portal-urgency-form{grid-template-columns:1fr}.portal-hero h1{font-size:33px}}
+.portal-shell{min-height:100vh;background:#f7faff;color:#132b52;display:flex;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.portal-sidebar{width:248px;flex:0 0 248px;background:#fff;border-right:1px solid #e6edf5;padding:30px 16px 20px;display:flex;flex-direction:column}.portal-brand{display:flex;align-items:center;gap:10px;font-size:14px;line-height:1.05;color:#0d3766;margin:0 18px 64px}.portal-brand strong{font-size:22px;letter-spacing:-.04em}.portal-brand-mark,.portal-mark{display:grid;place-items:center;background:#d7f3ef;color:#168e89;border-radius:14px;width:40px;height:40px;font-size:22px}.portal-sidebar nav{display:grid;gap:8px}.portal-sidebar nav button{border:0;background:transparent;border-radius:12px;color:#426184;text-align:left;padding:14px 18px;font-size:16px;display:flex;align-items:center;gap:15px;cursor:pointer}.portal-sidebar nav button.active{background:#e2f1fb;color:#0e3260;font-weight:700}.portal-nav-icon{font-size:23px;width:22px;text-align:center}.portal-sidebar-foot{margin-top:auto;border-top:1px solid #e8eef5;padding:18px 8px 0;display:flex;gap:10px;align-items:center}.portal-avatar,.portal-user-button{display:grid;place-items:center;border:0;background:#dbeafe;color:#1764b0;border-radius:50%;width:38px;height:38px;font-weight:800}.portal-sidebar-foot strong{display:block;font-size:13px;white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis}.portal-sidebar-foot small{display:block;color:#8396ad;font-size:12px;margin-top:3px}.portal-logout{margin-left:auto;border:0;background:transparent;color:#7190af;font-size:20px;cursor:pointer}.portal-content{flex:1;min-width:0}.portal-topbar{height:76px;background:#fff;border-bottom:1px solid #e7edf4;display:flex;align-items:center;justify-content:space-between;padding:0 44px}.portal-breadcrumb{color:#8194ac;font-size:14px}.portal-breadcrumb span{margin:0 10px;color:#c4cfdb}.portal-top-actions{display:flex;align-items:center;gap:22px}.portal-top-actions>button:first-child{border:0;background:transparent;color:#12345d;font-size:22px;position:relative;cursor:pointer}.portal-top-actions i{position:absolute;width:7px;height:7px;background:#1284e5;border-radius:50%;right:0;top:0}.portal-user-button{cursor:pointer}.portal-hero{max-width:1320px;margin:0 auto;padding:46px 44px 28px;display:flex;justify-content:space-between;align-items:center;min-height:185px}.portal-kicker{text-transform:uppercase;letter-spacing:.12em;color:#5683b0;font-size:12px;font-weight:800;margin:0 0 9px}.portal-hero h1,.portal-page-section h1{font-size:42px;letter-spacing:-.05em;line-height:1.05;margin:0;color:#102b55}.portal-hero p:not(.portal-kicker){font-size:17px;color:#667d99;margin:14px 0 0}.portal-building{position:relative;width:340px;height:130px;overflow:hidden}.portal-building-body{position:absolute;right:28px;bottom:10px;width:170px;height:85px;background:#f7f0e8;border:4px solid #d4bfb0;border-bottom-width:10px;display:grid;grid-template-columns:repeat(3,1fr);gap:13px;padding:17px 14px}.portal-building-body:before{content:"";position:absolute;left:35px;top:-34px;border-left:50px solid transparent;border-right:50px solid transparent;border-bottom:34px solid #d7c5ba}.portal-building-body span{background:#9ec8ce;border:3px solid #fff}.portal-cloud{position:absolute;background:#dceff2;border-radius:999px;width:115px;height:30px}.cloud-one{right:0;top:24px}.cloud-two{left:56px;top:44px;width:85px}.portal-trees{position:absolute;right:228px;bottom:8px;width:27px;height:78px;border-radius:30px 30px 4px 4px;background:#8ec5b8;box-shadow:38px 20px 0 -3px #6caeae,68px 12px 0 -5px #9acdbb}.portal-metrics{max-width:1320px;margin:0 auto;padding:0 44px 28px;display:grid;grid-template-columns:repeat(3,1fr);gap:20px}.metric{border:1px solid transparent;border-radius:15px;padding:22px;display:flex;align-items:center;text-align:left;gap:17px;color:#132b52;cursor:pointer;min-height:108px}.metric-mint{background:#effaf8;border-color:#d5eeeb}.metric-gold{background:#fff8e9;border-color:#faeac3}.metric-blue{background:#eff7ff;border-color:#dbeaf8}.metric-icon{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;font-size:27px;background:#d5f2e9}.metric-gold .metric-icon{background:#ffedc9}.metric-blue .metric-icon{background:#d7eafd}.metric span:nth-child(2){display:grid;gap:3px;min-width:0}.metric small{color:#7288a2;font-size:13px}.metric strong{font-size:18px}.metric em{font-style:normal;color:#7187a2;font-size:13px}.metric b{font-size:26px;font-weight:400;margin-left:auto;color:#6d8aa9}.portal-panels{max-width:1320px;margin:0 auto;padding:0 44px 60px;display:grid;grid-template-columns:1.15fr .85fr;gap:20px}.portal-panel{background:#fff;border:1px solid #e5edf5;border-radius:15px;padding:24px;box-shadow:0 10px 30px rgba(33,75,118,.04)}.panel-heading,.portal-page-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}.panel-heading h2{margin:0;font-size:19px;letter-spacing:-.02em}.panel-heading button{border:0;background:transparent;color:#0876d4;font-weight:700;cursor:pointer}.portal-cta{background:#0788aa!important;color:#fff!important;border-radius:10px;padding:12px 16px;box-shadow:0 7px 18px rgba(8,136,170,.18)}.portal-list{display:grid}.portal-list-row{display:grid;grid-template-columns:1.2fr 1fr 1.5fr .8fr;align-items:center;gap:12px;padding:15px 0;border-top:1px solid #edf2f7;font-size:14px}.portal-list-row strong{font-weight:700}.portal-list-row span,.portal-list-row small{color:#687f9c}.portal-list-row em{font-style:normal;color:#6e8199;text-align:right;font-size:13px}.urgency-row{grid-template-columns:auto 1fr 1.2fr auto}.status-pill{display:inline-flex!important;border-radius:999px;padding:7px 10px;font-size:12px;font-weight:700;width:max-content}.status-open{background:#fff0d8;color:#d77b13}.status-progress{background:#e2f0ff;color:#1672ce}.portal-empty{color:#8497ae;font-size:14px}.portal-page-section{max-width:1320px;margin:0 auto;padding:48px 44px}.portal-page-title{align-items:end}.portal-page-section h1{font-size:36px}.portal-urgency-form{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px}.portal-urgency-form label{display:grid;gap:7px;color:#607995;font-size:13px;font-weight:700}.portal-urgency-form textarea{grid-column:1/-1;min-height:90px}.portal-urgency-form button{justify-self:start}.portal-primary{border:0;background:#0788aa;color:#fff;border-radius:10px;padding:13px 19px;font-weight:700;cursor:pointer}.portal-login{min-height:100vh;display:grid;place-items:center;background:linear-gradient(135deg,#eef8fb,#f6f9fd);color:#15345e}.portal-login-card{width:min(420px,calc(100% - 36px));background:#fff;border:1px solid #e3edf4;border-radius:20px;padding:38px;box-shadow:0 20px 55px rgba(24,62,102,.1)}.portal-login-card h1{font-size:31px;line-height:1.08;letter-spacing:-.04em;margin:12px 0}.portal-muted{color:#7188a1;line-height:1.55}.portal-login-card form{display:grid;gap:15px;margin-top:28px}.portal-login-card label{display:grid;gap:7px;font-size:13px;font-weight:700;color:#607995}.portal-login-card input,.portal-urgency-form input,.portal-urgency-form select,.portal-urgency-form textarea{font:inherit;border:1px solid #d7e3ef;border-radius:9px;padding:12px;color:#17375f;background:#fbfdff}.portal-error{color:#c74b4b;font-size:14px}@media(max-width:980px){.portal-sidebar{width:74px;flex-basis:74px;padding:24px 10px}.portal-brand span:last-child,.portal-sidebar nav button:not(.active)::after,.portal-sidebar nav button{font-size:0}.portal-sidebar nav button{justify-content:center;padding:14px}.portal-sidebar-foot>div:not(.portal-avatar),.portal-logout{display:none}.portal-topbar,.portal-hero,.portal-metrics,.portal-panels,.portal-page-section{padding-left:24px;padding-right:24px}.portal-hero{align-items:flex-start}.portal-building{transform:scale(.8);transform-origin:right center}.portal-panels{grid-template-columns:1fr}}@media(max-width:650px){.portal-hero{display:block}.portal-building{margin-left:auto}.portal-metrics{grid-template-columns:1fr}.portal-panels{padding-left:14px;padding-right:14px}.portal-topbar{padding:0 16px}.portal-list-row{grid-template-columns:1fr 1fr}.portal-list-row small,.portal-list-row em{ text-align:left}.portal-urgency-form{grid-template-columns:1fr}.portal-hero h1{font-size:33px}}
 /* Keep the urgency action compact beside its panel heading. */
-.portal-panels .panel-heading{gap:14px}.portal-panels .panel-heading>div{min-width:0}.portal-panels .panel-heading h2{white-space:nowrap}.portal-panels .portal-cta{max-width:210px;flex:0 0 auto;font-size:13px;line-height:1.2;white-space:normal;padding:11px 15px}
+.portal-panels .panel-heading{gap:14px}.portal-panels .panel-heading>div{min-width:0}.portal-panels .panel-heading h2{white-space:nowrap}.portal-panels .portal-cta{max-width:210px;flex:0 0 auto;font-size:14px;line-height:1.2;white-space:normal;padding:11px 15px}
 /* Separate upcoming portal activity from completed history. */
 .portal-page-section>.portal-panel{margin-top:24px}.portal-page-section>.portal-panel h2{margin:0 0 18px;font-size:19px;color:#163359}.portal-page-section>.portal-history{margin-top:18px}
-.portal-login-card{width:min(520px,calc(100% - 36px));max-height:calc(100vh - 36px);overflow:auto}.portal-demo-picker{border:1px solid #d9e9f4;background:#f4f9fd;border-radius:13px;padding:15px;display:grid;gap:10px}.portal-demo-heading{display:flex;justify-content:space-between;gap:12px;align-items:center;color:#15345e;font-size:14px}.portal-demo-heading span{font-size:12px;color:#6683a1}.portal-demo-picker label{font-size:12px}.portal-demo-options{max-height:176px;overflow:auto;background:#fff;border:1px solid #e2ebf2;border-radius:9px}.portal-demo-options button{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:0;border-bottom:1px solid #eef2f6;background:#fff;text-align:left;color:#1b416a;cursor:pointer}.portal-demo-options button:hover,.portal-demo-options button.selected{background:#e7f4f9}.portal-demo-options button strong,.portal-demo-options button small{display:block}.portal-demo-options button strong{font-size:12px}.portal-demo-options button small{font-size:11px;color:#6c879e;margin-top:3px}.portal-demo-options p{font-size:12px;color:#7089a2;margin:10px 12px}.portal-demo-selected{font-size:12px;color:#176b78;margin:0}.portal-sidebar-foot{display:block}.portal-account{display:flex;align-items:center;gap:10px;min-width:0}.portal-account>div:last-child{min-width:0}.portal-sidebar-foot .portal-account strong,.portal-sidebar-foot .portal-account small{max-width:145px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.portal-switch{width:100%;margin-top:15px;border:1px solid #d9e6f1;border-radius:9px;background:#f4f9fd;color:#225680;padding:10px 8px;font-size:12px;font-weight:700;cursor:pointer;text-align:center}.portal-switch:hover{background:#e8f3fb}@media(max-width:980px){.portal-sidebar-foot>.portal-account{display:none}.portal-switch{font-size:0;padding:9px 0}.portal-switch:before{content:"↗";font-size:22px}}@media(max-width:650px){.portal-login-card{padding:25px}.portal-demo-picker{padding:12px}}
+.portal-login-card{width:min(520px,calc(100% - 36px));max-height:calc(100vh - 36px);overflow:auto}.portal-demo-picker{border:1px solid #d9e9f4;background:#f4f9fd;border-radius:13px;padding:15px;display:grid;gap:10px}.portal-demo-heading{display:flex;justify-content:space-between;gap:12px;align-items:center;color:#15345e;font-size:14px}.portal-demo-heading span{font-size:13px;color:#6683a1}.portal-demo-picker label{font-size:13px}.portal-demo-options{max-height:176px;overflow:auto;background:#fff;border:1px solid #e2ebf2;border-radius:9px}.portal-demo-options button{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:0;border-bottom:1px solid #eef2f6;background:#fff;text-align:left;color:#1b416a;cursor:pointer}.portal-demo-options button:hover,.portal-demo-options button.selected{background:#e7f4f9}.portal-demo-options button strong,.portal-demo-options button small{display:block}.portal-demo-options button strong{font-size:13px}.portal-demo-options button small{font-size:12px;color:#6c879e;margin-top:3px}.portal-demo-options p{font-size:13px;color:#7089a2;margin:10px 12px}.portal-demo-selected{font-size:13px;color:#176b78;margin:0}.portal-sidebar-foot{display:block}.portal-account{display:flex;align-items:center;gap:10px;min-width:0}.portal-account>div:last-child{min-width:0}.portal-sidebar-foot .portal-account strong,.portal-sidebar-foot .portal-account small{max-width:145px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.portal-switch{width:100%;margin-top:15px;border:1px solid #d9e6f1;border-radius:9px;background:#f4f9fd;color:#225680;padding:10px 8px;font-size:13px;font-weight:700;cursor:pointer;text-align:center}.portal-switch:hover{background:#e8f3fb}@media(max-width:980px){.portal-sidebar-foot>.portal-account{display:none}.portal-switch{font-size:0;padding:9px 0}.portal-switch:before{content:"↗";font-size:22px}}@media(max-width:650px){.portal-login-card{padding:25px}.portal-demo-picker{padding:12px}}
 
 /* API Documentation modal */
 .sidebarApiDocsButton {
@@ -4533,7 +4586,7 @@ label {
   border-radius: 8px;
   background: transparent;
   color: var(--gsc-muted);
-  font-size: 0.76rem;
+  font-size: 0.8125rem;
   font-weight: 520;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
@@ -4588,7 +4641,7 @@ label {
 }
 
 .apiDocsSubtitle {
-  font-size: 0.8rem;
+  font-size: 0.84rem;
   color: var(--gsc-muted);
   margin: 0;
 }
@@ -4631,7 +4684,7 @@ label {
   border-radius: 8px;
   background: transparent;
   color: var(--gsc-muted);
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 550;
   cursor: pointer;
   transition: background 0.12s, color 0.12s;
@@ -4649,7 +4702,7 @@ label {
 }
 
 .apiDocsSectionDesc {
-  font-size: 0.8rem;
+  font-size: 0.84rem;
   color: var(--gsc-muted);
   padding-bottom: 10px;
   border-bottom: 1px solid var(--gsc-border);
@@ -4691,7 +4744,7 @@ label {
 }
 
 .apiDocsPath {
-  font-size: 0.82rem;
+  font-size: 0.86rem;
   font-family: ui-monospace, monospace;
   color: var(--gsc-text);
   font-weight: 600;
@@ -4718,7 +4771,7 @@ label {
   display: flex;
   gap: 16px;
   flex-wrap: wrap;
-  font-size: 0.76rem;
+  font-size: 0.8125rem;
   color: var(--gsc-muted);
 }
 .apiDocsMeta code {
@@ -4748,7 +4801,7 @@ label {
   flex-shrink: 0;
 }
 .apiDocsBaseLabel {
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   font-weight: 700;
   color: var(--gsc-muted);
   text-transform: uppercase;
@@ -4757,7 +4810,7 @@ label {
 }
 .apiDocsBaseValue {
   font-family: ui-monospace, monospace;
-  font-size: 0.82rem;
+  font-size: 0.86rem;
   font-weight: 600;
   color: var(--gsc-text);
   background: var(--gsc-card-bg, #fff);
@@ -4788,7 +4841,7 @@ label {
 }
 .apiDocsBaseHint code {
   font-family: ui-monospace, monospace;
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   background: var(--gsc-border);
   padding: 1px 4px;
   border-radius: 4px;
