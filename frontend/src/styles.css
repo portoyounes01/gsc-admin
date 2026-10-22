@@ -1197,6 +1197,12 @@ label {
   overflow: hidden;
 }
 
+.agendaItemHeader div span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .agendaItemHeader strong,
 .agendaItemHeader span,
 .agendaItemMeta span,
