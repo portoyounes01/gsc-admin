@@ -8,10 +8,16 @@
   --gsc-amber: #b7791f;
   --gsc-red: #b42318;
   --gsc-ink: #1d1d1f;
-  --gsc-muted: #6e6e73;
-  --gsc-border: #e5e5ea;
+  --gsc-muted: #72767d;
+  --gsc-border: #eaecf1;
   --gsc-panel: #ffffff;
-  --gsc-page: #f7f7f8;
+  --gsc-page: #f4f5f7;
+  --gsc-shadow-sm: 0 2px 8px rgba(29, 29, 31, 0.06);
+  --gsc-shadow-md: 0 8px 24px rgba(29, 29, 31, 0.07);
+  --gsc-shadow-lg: 0 18px 48px rgba(29, 29, 31, 0.09);
+  --gsc-radius-sm: 10px;
+  --gsc-radius-md: 14px;
+  --gsc-radius-lg: 20px;
   color: #1d1d1f;
   background: #f5f6f7;
   font-synthesis: none;
@@ -163,7 +169,7 @@ label {
   border: 1px solid #e2e6ec;
   border-radius: 10px;
   background: #ffffff;
-  box-shadow: 0 18px 42px rgba(40, 50, 65, 0.16);
+  box-shadow: var(--gsc-shadow-lg);
 }
 
 .searchableDropdownOption {
@@ -291,7 +297,7 @@ label {
   border: 1px solid #e2e6ec;
   border-radius: 10px;
   background: #ffffff;
-  box-shadow: 0 18px 42px rgba(40, 50, 65, 0.16);
+  box-shadow: var(--gsc-shadow-lg);
 }
 
 .teamSelectOption {
@@ -365,7 +371,7 @@ label {
   background: #ffffff;
   border: 1px solid #e1e5e9;
   border-radius: 14px;
-  box-shadow: 0 24px 60px rgba(35, 44, 57, 0.08);
+  box-shadow: var(--gsc-shadow-md);
 }
 
 .loginLogo {
@@ -390,6 +396,7 @@ label {
   color: #ffffff;
   border-color: #2d7c69;
   font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .primaryButton:hover {
@@ -428,7 +435,7 @@ label {
   background: rgba(255, 255, 255, 0.94);
   border: 1px solid var(--gsc-border);
   border-radius: 20px;
-  box-shadow: 0 18px 42px rgba(29, 29, 31, 0.07);
+  box-shadow: var(--gsc-shadow-lg);
   backdrop-filter: blur(14px);
 }
 
@@ -480,16 +487,16 @@ label {
 .sidebar nav button {
   width: 100%;
   text-align: left;
-  border: 1px solid rgba(229, 229, 234, 0.9);
+  border: 1px solid rgba(234, 236, 241, 0.9);
   background: rgba(247, 247, 248, 0.82);
   color: var(--gsc-muted);
   border-radius: 13px;
-  min-height: 44px;
+  min-height: 46px;
   margin: 3px 0;
-  padding: 10px 14px;
+  padding: 11px 16px;
   font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 480;
   line-height: 1.15;
   letter-spacing: 0;
   white-space: nowrap;
@@ -499,7 +506,7 @@ label {
 .sidebar nav button.active {
   background: #eff7f4;
   border-color: #bfd8cf;
-  box-shadow: inset 4px 0 0 var(--gsc-green-dark), 0 8px 22px rgba(29, 29, 31, 0.06);
+  box-shadow: inset 4px 0 0 var(--gsc-green-dark), var(--gsc-shadow-sm);
   color: var(--gsc-green-dark);
   font-weight: 620;
 }
@@ -611,7 +618,7 @@ label {
   background: #fff;
   border: 1px solid var(--gsc-border);
   border-radius: 14px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--gsc-shadow-lg);
   padding: 8px 0 10px;
   z-index: 100;
   display: flex;
@@ -729,7 +736,7 @@ label {
   color: var(--gsc-ink);
   font-size: 2.55rem;
   line-height: 1.03;
-  letter-spacing: 0;
+  letter-spacing: -0.02em;
   margin-bottom: 5px;
 }
 
@@ -737,7 +744,7 @@ label {
   border: 1px solid #c8e3d9;
   background: #e8f3ef;
   color: #216656;
-  padding: 7px 11px;
+  padding: 8px 13px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 800;
@@ -755,7 +762,7 @@ label {
   background: #ffffff;
   border: 1px solid #eaecf1;
   border-radius: 14px;
-  box-shadow: 0 12px 34px rgba(40, 50, 65, 0.05);
+  box-shadow: var(--gsc-shadow-md);
 }
 
 .kpi {
@@ -771,13 +778,13 @@ label {
   content: "";
   position: absolute;
   inset: 0 0 auto;
-  height: 3px;
+  height: 2px;
   background: var(--gsc-green);
 }
 
 .kpi span {
   color: var(--gsc-muted);
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 760;
   text-transform: uppercase;
 }
@@ -812,7 +819,8 @@ label {
   border: 1px solid var(--gsc-border);
   border-radius: 14px;
   background: #ffffff;
-  box-shadow: 0 12px 34px rgba(29, 29, 31, 0.05);
+  box-shadow: var(--gsc-shadow-md);
+  transition: box-shadow 0.15s;
 }
 
 .homeCard strong {
@@ -1221,11 +1229,11 @@ label {
 
 .agendaStatusPill {
   flex: 0 0 auto;
-  padding: 4px 8px;
+  padding: 5px 10px;
   border-radius: 999px;
   background: #f0f2f4;
   color: #59616c;
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 850;
   line-height: 1.2;
   white-space: nowrap;
@@ -1558,7 +1566,7 @@ label {
   min-height: 30px;
   padding: 5px 10px;
   border: 1px solid #c9e1d7;
-  border-radius: 8px;
+  border-radius: 10px;
   border-color: #c9e1d7;
   background: #ffffff;
   color: #216656;
@@ -1607,7 +1615,7 @@ label {
   display: inline-flex;
   align-items: center;
   min-height: 26px;
-  padding: 4px 9px;
+  padding: 8px 13px;
   border-radius: 999px;
   background: #eef5f2;
   color: #216656;
