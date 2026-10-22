@@ -24,7 +24,7 @@ class PortalAccountCreate(BaseModel):
 
 class PortalAccountOut(BaseModel):
     id: int
-    email: EmailStr
+    email: str
     wzc_id: int
     wzc_name: str
     role: str

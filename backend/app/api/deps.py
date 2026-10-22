@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import decode_access_token
 from app.db.session import get_db
-from app.models import User
+from app.models import PortalAccount, User
 
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -33,4 +33,20 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
     if current_user.role != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Adminrechten vereist.")
     return current_user
+
+
+def get_current_portal_account(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+) -> PortalAccount:
+    if credentials is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Niet aangemeld.")
+    payload = decode_access_token(credentials.credentials)
+    if not payload or payload.get("account_type") != "portal":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Portaal-sessie ongeldig of verlopen.")
+    email = str(payload.get("sub") or "").strip().lower()
+    account = db.scalar(select(PortalAccount).where(PortalAccount.email == email, PortalAccount.is_active.is_(True)))
+    if not account:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Portaal-account niet actief.")
+    return account
 

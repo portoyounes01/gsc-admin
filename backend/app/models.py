@@ -172,6 +172,21 @@ class TeamProfile(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
 
 
+class PortalAccount(Base):
+    __tablename__ = "portal_accounts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    wzc_id: Mapped[int] = mapped_column(ForeignKey("wzcs.id"), index=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(255))
+    role: Mapped[str] = mapped_column(String(40), default="staff")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+    wzc: Mapped[Wzc] = relationship()
+
+
 class AuditLog(Base):
     __tablename__ = "audit_logs"
 
