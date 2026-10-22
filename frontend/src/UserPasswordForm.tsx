@@ -3,15 +3,37 @@ import type { FormEvent } from "react";
 import { api } from "./api";
 import type { User } from "./types";
 
+type Lang = "nl" | "en";
+
+const enLabels: Record<string, string> = {
+  "Vul een wachtwoord van minstens 4 tekens in.": "Enter a password of at least 4 characters.",
+  "De wachtwoorden komen niet overeen.": "Passwords do not match.",
+  "Wachtwoord wijzigen mislukt. Probeer opnieuw.": "Password change failed. Please try again.",
+  "Wachtwoord wijzigen": "Change password",
+  "Nieuw wachtwoord": "New password",
+  "Herhaal nieuw wachtwoord": "Repeat new password",
+  "Opslaan...": "Saving...",
+  "Wachtwoord opslaan": "Save password",
+  "Annuleren": "Cancel",
+};
+
+function t(lang: Lang, key: string): string {
+  if (lang === "en") return enLabels[key] || key;
+  return key;
+}
+
 export function UserPasswordForm({
   user,
   onChanged,
-  onCancel
+  onCancel,
+  lang = "nl"
 }: {
   user: User;
   onChanged: () => void;
   onCancel: () => void;
+  lang?: Lang;
 }) {
+  const L = (key: string) => t(lang, key);
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [error, setError] = useState("");
@@ -24,11 +46,11 @@ export function UserPasswordForm({
     setError("");
 
     if (password.length < 4 || !password.trim()) {
-      setError("Vul een wachtwoord van minstens 4 tekens in.");
+      setError(L("Vul een wachtwoord van minstens 4 tekens in."));
       return;
     }
     if (password !== confirmation) {
-      setError("De wachtwoorden komen niet overeen.");
+      setError(L("De wachtwoorden komen niet overeen."));
       return;
     }
 
@@ -40,7 +62,7 @@ export function UserPasswordForm({
       setConfirmation("");
       onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Wachtwoord wijzigen mislukt. Probeer opnieuw.");
+      setError(err instanceof Error ? err.message : L("Wachtwoord wijzigen mislukt. Probeer opnieuw."));
     } finally {
       inFlight.current = false;
       setSaving(false);
@@ -51,7 +73,7 @@ export function UserPasswordForm({
     <form
       className="userPasswordForm"
       id={`user-password-form-${user.id}`}
-      aria-label={`Wachtwoord wijzigen voor ${user.email}`}
+      aria-label={`${L("Wachtwoord wijzigen")} ${user.email}`}
       onSubmit={submit}
       onKeyDown={(event) => {
         if (event.key === "Escape" && !inFlight.current) {
@@ -61,10 +83,10 @@ export function UserPasswordForm({
       }}
     >
       <fieldset disabled={saving}>
-        <legend>Wachtwoord wijzigen</legend>
+        <legend>{L("Wachtwoord wijzigen")}</legend>
         <input type="hidden" name="username" autoComplete="username" value={user.email} readOnly />
         <label>
-          Nieuw wachtwoord
+          {L("Nieuw wachtwoord")}
           <input
             name="new-password"
             type="password"
@@ -80,7 +102,7 @@ export function UserPasswordForm({
           />
         </label>
         <label>
-          Herhaal nieuw wachtwoord
+          {L("Herhaal nieuw wachtwoord")}
           <input
             name="confirm-password"
             type="password"
@@ -96,8 +118,8 @@ export function UserPasswordForm({
         </label>
         {error && <div className="error passwordFormMessage" role="alert">{error}</div>}
         <div className="inlineActions passwordFormMessage noMargin">
-          <button className="primaryButton" type="submit">{saving ? "Opslaan..." : "Wachtwoord opslaan"}</button>
-          <button type="button" onClick={onCancel}>Annuleren</button>
+          <button className="primaryButton" type="submit">{saving ? L("Opslaan...") : L("Wachtwoord opslaan")}</button>
+          <button type="button" onClick={onCancel}>{L("Annuleren")}</button>
         </div>
       </fieldset>
     </form>
