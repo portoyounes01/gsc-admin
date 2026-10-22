@@ -890,8 +890,12 @@ function AddressAutocompleteField({
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => pick(suggestion)}
               >
-                <span>{suggestion.address}</span>
-                <small>{[suggestion.postal_code, suggestion.city].filter(Boolean).join(" ")}</small>
+                <span>{suggestion.address || [suggestion.postal_code, suggestion.city].filter(Boolean).join(" ")}</span>
+                <small>
+                  {suggestion.address
+                    ? [suggestion.postal_code, suggestion.city].filter(Boolean).join(" ")
+                    : (lang === "nl" ? "Vult postcode en gemeente in" : "Fills postal code and city")}
+                </small>
               </button>
             ))}
           </div>

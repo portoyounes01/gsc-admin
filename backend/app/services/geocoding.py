@@ -213,6 +213,33 @@ def geopunt_suggestions(query: str, limit: int) -> list[dict[str, Any]]:
     return suggestions
 
 
+_last_nominatim_call = 0.0
+
+
+def postal_code_suggestions(postal_code: str, limit: int) -> list[dict[str, Any]]:
+    """Town(s) for a Belgian postal code; Nominatim allows at most one request per second."""
+    global _last_nominatim_call
+    if time.monotonic() - _last_nominatim_call < 1.1:
+        return []
+    _last_nominatim_call = time.monotonic()
+    params = urllib.parse.urlencode(
+        {"postalcode": postal_code, "countrycodes": "be", "format": "jsonv2", "addressdetails": 1, "limit": limit}
+    )
+    payload = fetch_json_url(f"https://nominatim.openstreetmap.org/search?{params}", timeout=2.5)
+    suggestions: list[dict[str, Any]] = []
+    for row in payload if isinstance(payload, list) else []:
+        address = row.get("address") or {}
+        city = str(address.get("city") or address.get("town") or address.get("village") or address.get("municipality") or "").strip()
+        if not city or str(address.get("postcode") or "").strip() != postal_code:
+            continue
+        latitude = coordinate_float(row.get("lat"))
+        longitude = coordinate_float(row.get("lon"))
+        if not is_belgian_coordinate_pair(latitude, longitude):
+            latitude = longitude = None
+        suggestions.append(suggestion_from_parts("", postal_code, city, latitude, longitude))
+    return suggestions
+
+
 def suggest_addresses(query: str, limit: int = 6) -> list[dict[str, Any]]:
     clean_query = " ".join(query.split())[:120]
     if len(clean_query) < 3 or not settings.geocoding_outbound_enabled:
@@ -222,7 +249,12 @@ def suggest_addresses(query: str, limit: int = 6) -> list[dict[str, Any]]:
     if cached and time.monotonic() - cached[0] < SUGGESTION_CACHE_SECONDS:
         return cached[1]
 
-    suggestions = photon_suggestions(clean_query, limit) or geopunt_suggestions(clean_query, limit)
+    if re.fullmatch(r"\d{4}", clean_query):
+        suggestions = postal_code_suggestions(clean_query, limit)
+        if not suggestions:
+            return []
+    else:
+        suggestions = photon_suggestions(clean_query, limit) or geopunt_suggestions(clean_query, limit)
     unique: dict[str, dict[str, Any]] = {}
     for suggestion in suggestions:
         unique.setdefault(suggestion["label"].lower(), suggestion)
