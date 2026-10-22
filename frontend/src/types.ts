@@ -242,6 +242,16 @@ export type Planning = {
   rows: PlanningRow[];
 };
 
+export type PortalAccount = {
+  id: number;
+  email: string;
+  wzc_id: number;
+  wzc_name: string;
+  role: string;
+  is_active: boolean;
+  created_at: string;
+};
+
 export type AuditLog = {
   id: number;
   actor_email: string;

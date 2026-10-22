@@ -55,6 +55,15 @@ def portal_login(payload: LoginIn, db: Session = Depends(get_db)) -> TokenOut:
     return TokenOut(access_token=create_portal_access_token(account.email, account.role))
 
 
+@router.get("/accounts", response_model=list[PortalAccountOut])
+def list_portal_accounts(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> list[PortalAccount]:
+    accounts = db.scalars(select(PortalAccount).order_by(PortalAccount.id)).all()
+    return [PortalAccountOut.model_validate({**a.__dict__, "wzc_name": a.wzc.name}) for a in accounts]
+
+
 @router.post("/accounts", response_model=PortalAccountOut)
 def create_portal_account(
     payload: PortalAccountCreate,
@@ -70,7 +79,7 @@ def create_portal_account(
     db.add(account)
     db.commit()
     db.refresh(account)
-    return account
+    return PortalAccountOut.model_validate({**account.__dict__, "wzc_name": account.wzc.name})
 
 
 @router.get("/me", response_model=PortalMeOut)

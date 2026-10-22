@@ -1,13 +1,306 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent, ReactNode } from "react";
 import { api, clearToken, getToken } from "./api";
 import { UserPasswordForm } from "./UserPasswordForm";
-import type { AuditLog, DossierPreviewRow, Planning, PlanningRow, Prospect, SavedUrgencyRoutePlan, TeamProfile, TreatmentSelectionReport, Urgency, UrgencyRoutePlan, User, Wzc } from "./types";
+import type { AuditLog, DossierPreviewRow, Planning, PlanningRow, PortalAccount, Prospect, SavedUrgencyRoutePlan, TeamProfile, TreatmentSelectionReport, Urgency, UrgencyRoutePlan, User, Wzc } from "./types";
 import { PortalApp } from "./portal/PortalApp";
+
+type Lang = "nl" | "en";
+const LangContext = createContext<Lang>("nl");
+function useLang() { return useContext(LangContext); }
+
+function getSavedLang(): Lang {
+  try { const v = localStorage.getItem("gsc-lang"); if (v === "en" || v === "nl") return v; } catch {}
+  return "nl";
+}
+
+const enLabels: Record<string, string> = {
+  "Home": "Home",
+  "Planning": "Planning",
+  "Behandelplanning": "Treatment Planning",
+  "Mondzorgdossiers": "Dental Records",
+  "Urgenties": "Urgencies",
+  "WZC opvolging": "Care Home Follow-up",
+  "WZC database": "Care Home Database",
+  "Admin": "Admin",
+  "Teams": "Teams",
+  "Gebruikers": "Users",
+  "Gebruikerslog": "User Log",
+  "Nieuwe planning": "New Planning",
+  "Voorgaande planningen": "Previous Plannings",
+  "Behandeling": "Treatment",
+  "Screening": "Screening",
+  "Maand": "Month",
+  "Lijst": "List",
+  "Concept": "Draft",
+  "Gepland": "Planned",
+  "Bevestigd": "Confirmed",
+  "Uitgevoerd": "Completed",
+  "Geannuleerd": "Cancelled",
+  "Tandpijn": "Toothache",
+  "Prothese past niet goed": "Denture not fitting properly",
+  "Prothese gebroken": "Prosthesis broken",
+  "Ontsteking": "Infection",
+  "Andere": "Other",
+  "Aan te schrijven": "To Contact",
+  "Aangeschreven": "Contacted",
+  "Reactie ontvangen": "Response Received",
+  "Draaiboek verstuurd": "Playbook Sent",
+  "Gesprek gepland": "Meeting Scheduled",
+  "On hold": "On Hold",
+  "Telefoon": "Phone",
+  "E-mail": "Email",
+  "Fysiek": "In-person",
+  "Negatief": "Negative",
+  "Positief": "Positive",
+  "Twijfelend": "Hesitant",
+  "Tandarts": "Dentist",
+  "Mondhygiënist": "Dental Hygienist",
+  "Assistent": "Assistant",
+  "Coördinator": "Coordinator",
+  "Administratie": "Administration",
+  "Controle / Consultatie": "Check-up / Consultation",
+  "Tandreiniging": "Cleaning",
+  "Volledige reiniging": "Full Cleaning",
+  "Vulling": "Filling",
+  "Extractie": "Extraction",
+  "Prothese afdruk": "Prosthesis Impression",
+  "Prothese aanpassing / rebase": "Prosthesis Adjustment / Rebasing",
+  "Prothese reparatie": "Prosthesis Repair",
+  "Prothese tandtoevoeging": "Prosthesis Tooth Addition",
+  "Kroon / Brug": "Crown / Bridge",
+  "Implantaat": "Implant",
+  "Urgentie / Pijnklacht": "Urgency / Pain Complaint",
+  "Mobiele WZC-behandeling": "Mobile Care Home Treatment",
+  "DentAdmin / Administratie": "DentAdmin / Administration",
+  "Mondzorgdossier / Intake": "Dental Record / Intake",
+  "Intern dashboard": "Internal Dashboard",
+  "Beveiligde beta-omgeving voor intern administratief gebruik.": "Secure beta environment for internal administrative use.",
+  "Wachtwoord": "Password",
+  "Aanmelden": "Sign in",
+  "Aanmelden...": "Signing in...",
+  "Instellingen": "Settings",
+  "Actieve module": "Active module",
+  "Rol": "Role",
+  "Intern en vertrouwelijk": "Internal & confidential",
+  "Afmelden": "Sign out",
+  "Taal": "Language",
+  "WZC's": "Care Homes",
+  "Actieve WZC's": "Active Care Homes",
+  "Evaluaties": "Evaluations",
+  "Prospecties": "Prospects",
+  "Gem. score": "Avg. Score",
+  "Hoog risico": "High Risk",
+  "Volgende bezoeken": "Upcoming Visits",
+  "Urgenties bekijken": "View Urgencies",
+  "patiënten": "patients",
+  "Geen toekomstige planningen.": "No upcoming plannings.",
+  "KPI's per thema": "KPIs by Theme",
+  "Nog geen evaluaties om KPI's per thema te tonen.": "No evaluations yet to display KPIs by theme.",
+  "PDF's verwerken naar een behandelplanning en afvinklijst voor Excel.": "Process PDFs into a treatment plan and checklist for Excel.",
+  "Dossiers tijdelijk uitlezen voor controle en invoer in DentAdmin.": "Temporarily read records for verification and entry into DentAdmin.",
+  "WZC-masterdata, prospectie, urgenties en project-KPI's opvolgen.": "Track care home master data, prospecting, urgencies and project KPIs.",
+  "Zoek WZC, adres of gemeente": "Search care home, address or city",
+  "Zoekveld wissen": "Clear search",
+  "Geen WZC gevonden.": "No care homes found.",
+  "Klik op een marker voor details.": "Click on a marker for details.",
+  "Sluiten": "Close",
+  "Open prospectfiche": "Open prospect details",
+  "Open WZC-fiche": "Open care home details",
+  "Planning maken": "Create planning",
+  "Urgentie toevoegen": "Add urgency",
+  "open urgenties": "open urgencies",
+  "open urgentie": "open urgency",
+  "Groep": "Group",
+  "Adres": "Address",
+  "Contact": "Contact",
+  "Website": "Website",
+  "Deadline volgende actie": "Next action deadline",
+  "Volgende bezoek": "Next visit",
+  "Volgende actie": "Next action",
+  "Start": "Start",
+  "Einde": "End",
+  "Gestippelde lijnen tonen volgorde, geen wegpolyline.": "Dashed lines show sequence, not road polylines.",
+  "Routekaart kon niet geladen worden.": "Route map could not be loaded.",
+  "Kaartbibliotheek kon niet geladen worden.": "Map library could not be loaded.",
+  "Leaflet kon niet geladen worden.": "Leaflet could not be loaded.",
+  "MapLibre vectorlaag kon niet geladen worden.": "MapLibre vector layer could not be loaded.",
+  "CARTO vectorstijl kon niet geladen worden.": "CARTO vector style could not be loaded.",
+  "Actief": "Active",
+  "Geen team gekozen": "No team selected",
+  "teamleden geselecteerd": "team members selected",
+  "Teamprofiel": "Team profile",
+  "Geen actieve teamprofielen.": "No active team profiles.",
+  "Aanwezig team aanvinken": "Select attending team members",
+  "Typ of kies groep": "Type or select group",
+  "Typ of kies WZC": "Type or select care home",
+  "Geen resultaten": "No results",
+  "Agenda-overzicht": "Agenda overview",
+  "toekomstige planning(en)": "upcoming planning(s)",
+  "screening(en)": "screening(s)",
+  "waarvan": "of which",
+  "planning(en)": "planning(s)",
+  "meer": "more",
+  "Nog geen planning in de agenda.": "No planning in the agenda yet.",
+  "planning(en) op deze dag.": "planning(s) on this day.",
+  "Geen screening of behandeldag gepland.": "No screening or treatment day planned.",
+  "Plan screeningdagen en behandeldagen in de agenda.": "Schedule screening days and treatment days in the agenda.",
+  "Screeningdag of namenlijst voorbereiden": "Prepare screening day or name list",
+  "Behandeldag": "Treatment Day",
+  "Mobiele behandelingen op locatie": "Mobile treatments on location",
+  "Datum": "Date",
+  "Status": "Status",
+  "Groep/organisatie": "Group/organization",
+  "Alle groepen": "All groups",
+  "WZC": "Care home",
+  "Nog geen WZC gekozen": "No care home selected",
+  "Titel": "Title",
+  "Wordt automatisch ingevuld": "Will be filled automatically",
+  "Notitie": "Note",
+  "Praktische afspraken, materiaal, aandachtspunten...": "Practical arrangements, materials, points of attention...",
+  "Planning bewaren...": "Saving planning...",
+  "In agenda zetten": "Add to agenda",
+  "Planning kon niet aangemaakt worden.": "Planning could not be created.",
+  "Status kon niet aangepast worden.": "Status could not be updated.",
+  "Bent u zeker? U staat op het punt om": "Are you sure? You are about to delete",
+  "te verwijderen.": "",
+  "Planning kon niet verwijderd worden.": "Planning could not be deleted.",
+  "Geen WZC gekozen": "No care home chosen",
+  "bewoner(s)": "resident(s)",
+  "Team:": "Team:",
+  "Aanvullen": "Supplement",
+  "Verwijderen": "Delete",
+  "Tijdelijke urgentielijst": "Temporary urgency list for internal follow-up and entry into DentAdmin. Only note essential data. Open urgencies are kept until completed.",
+  "Urgentie": "Urgency type",
+  "Opmerking": "Remark",
+  "Opslaan": "Save",
+  "Open urgenties": "Open urgencies",
+  "Routes laden...": "Routes loading...",
+  "Nog geen opgeslagen urgentieroute voor": "No saved urgency route for",
+  "urgenties": "urgencies",
+  "urgentie": "urgency",
+  "aangemaakt": "created",
+  "bezoeken": "visits",
+  "eerste": "first",
+  "klaar": "done at",
+  "geen bezoeken": "no visits",
+  "Routeplanning": "Route planning",
+  "Geeft een aanbevolen volgorde voor open urgenties, op basis van de beschikbare rijtijdmatrix.": "Provides a recommended order for open urgencies, based on the available travel time matrix.",
+  "Routeplanning sluiten": "Close route planning",
+  "Route plannen": "Plan route",
+  "geselecteerd": "selected",
+  "met coördinaten": "with coordinates",
+  "Geen WZC": "No care home",
+  "Geen WZC-coördinaten": "No care home coordinates",
+  "Nog geen open urgenties om te plannen.": "No open urgencies to plan yet.",
+  "Bezoektijd per urgentie": "Visit time per urgency",
+  "urgenties ingepland": "urgencies scheduled",
+  "Opslaan...": "Saving...",
+  "Opgeslagen": "Saved",
+  "Opslaan voor": "Save for",
+  "Geen urgenties toegewezen aan deze route.": "No urgencies assigned to this route.",
+  "Geen opmerking": "No remark",
+  "Nog geen open urgenties.": "No open urgencies yet.",
+  "Opgeslagen routes konden niet geladen worden.": "Saved routes could not be loaded.",
+  "Selecteer minstens een open urgentie.": "Select at least one open urgency.",
+  "Routeplanning kon niet berekend worden.": "Route planning could not be calculated.",
+  "Urgentieroute": "Urgency route",
+  "Planning aanvullen": "Supplement planning",
+  "Planningdetails": "Planning details",
+  "Ingeplande dagen koppelen en bewoners toevoegen": "Link scheduled days and add residents",
+  "planning(en) met detail": "planning(s) with detail",
+  "Ingeplande dag aanvullen": "Supplement scheduled day",
+  "Upload een Excel- of CSV-lijst en controleer wie op de screeninglijst staat.": "Upload an Excel or CSV list and check who is on the screening list.",
+  "Upload de behandelplan-PDF's, controleer de uitgelezen namen en duid per bewoner aan of die wordt opgenomen.": "Upload treatment plan PDFs, check names and select residents.",
+  "Loskoppelen en leegmaken": "Unlink and clear",
+  "Alles leegmaken": "Clear all",
+  "Ingeplande dag uit Planning": "Scheduled day from Planning",
+  "Typ datum, WZC of soort planning": "Type date, care home or planning type",
+  "Geen ingeplande dag gevonden": "No scheduled day found",
+  "Gekoppeld aan Planning": "Linked to Planning",
+  "Geen ingeplande dag geselecteerd": "No scheduled day selected",
+  "Kies eerst een screening of behandeldag uit Planning om die hier verder aan te vullen.": "First select a screening or treatment day from Planning to supplement here.",
+  "Losse planning blijft mogelijk, maar de normale flow start in Planning.": "Standalone planning remains possible, but the normal flow starts in Planning.",
+  "Screeningen": "Screenings",
+  "Excel-lijst met bewoners en aantallen": "Excel list with residents and counts",
+  "Behandelingen": "Treatments",
+  "PDF's uitlezen naar behandelplanning": "Read PDFs into treatment planning",
+  "Naam planning": "Planning name",
+  "Planningsdatum": "Planning date",
+  "Screening Excel-lijst": "Screening Excel list",
+  "Behandelplan PDF's": "Treatment plan PDFs",
+  "Nog geen Excel- of CSV-lijst gekozen.": "No Excel or CSV list selected yet.",
+  "Nog geen PDF's gekozen.": "No PDFs selected yet.",
+  "Namenlijst inlezen": "Read name list",
+  "Behandelplannen uitlezen": "Read treatment plans",
+  "Namen lezen...": "Reading names...",
+  "PDF's lezen...": "Reading PDFs...",
+  "Preview screeninglijst": "Preview screening list",
+  "Preview behandelplanning": "Preview treatment planning",
+  "Lijstselectie": "File selection",
+  "Bestanden opnemen": "Include files",
+  "van": "of",
+  "Alle namen uit deze lijst worden meegenomen; controleer vooral aantal en schrijfwijze.": "All names from this list will be included; mainly check the count and spelling.",
+  "Vink enkel bewoners aan die effectief in deze planning mogen meegaan.": "Only check the residents that should actually be in this planning.",
+  "persoon/personen": "person(s)",
+  "geschat": "estimated",
+  "Excelnamen": "Excel names",
+  "Opslaan in ingeplande dag": "Save in scheduled day",
+  "Screening bewaren": "Save screening",
+  "Genereren...": "Generating...",
+  "Excel genereren": "Generate Excel",
+  "Wel in Excel, geen behandelplan gevonden": "In Excel but no treatment plan found",
+  "Status controleren": "Check status",
+  "Nog geen behandelingen ingevuld": "No treatments filled in yet",
+  "Naam bewoner": "Resident name",
+  "Op te volgen behandeling": "Treatment to follow up",
+  "leeg in Excel": "empty in Excel",
+  "Suggestie op achternaam, controleren": "Suggestion based on surname, verify",
+  "Akkoord gevonden · controleer alleen de naamkoppeling": "Approved found · only verify name linking",
+  "Niet teruggevonden in Excel · controleer handmatig": "Not found in Excel · verify manually",
+  "Behandelingen en opmerking": "Treatments and remark",
+  "Opmerkingen": "Remarks",
+  "Alle ingeplande screenings en behandeldagen met hun bewonerslijst. PDF-bestanden zelf worden niet bewaard.": "All scheduled screenings and treatment days with their resident list. PDF files are not stored.",
+  "Geen locatie": "No location",
+  "patiënt(en)": "patient(s)",
+  "behandeling(en)": "treatment(s)",
+  "Nog geen ingeplande dagen.": "No scheduled days yet.",
+  "Excel downloaden": "Download Excel",
+  "Nieuwe datum": "New date",
+  "Datum bewaren": "Save date",
+  "Naamwijziging annuleren": "Cancel name change",
+  "Naam bewaren": "Save name",
+  "Acties voor bewoner": "Actions for resident",
+  "Naam bewerken": "Edit name",
+  "Bewoner verwijderen": "Remove resident",
+  "Bewoners toevoegen via": "Add residents via",
+  "behandelplan-PDF's": "treatment plan PDFs",
+  "Gebruikt volgorde en goedkeuringstekst als voorstel.": "Uses order and approval text as suggestion.",
+  "Inlezen...": "Reading...",
+  "Alles op ja": "All yes",
+  "Alles op nee": "All no",
+  "Toevoegen aan planning": "Add to planning",
+  "bewoner(s) uitgelezen": "resident(s) read",
+  "opnemen.": "to include.",
+  "Geen behandeling herkend": "No treatment recognized",
+  "suggestie op achternaam, controleren": "suggestion based on surname, verify",
+  "Ja": "Yes",
+  "Nee": "No",
+  "Gebruiker toevoegen": "Add user",
+  "Data laden mislukt.": "Data loading failed.",
+  "Prospectie": "Prospecting",
+  "Onbekend": "Unknown",
+  "Annuleren": "Cancel",
+};
+
+function t(lang: Lang, key: string): string {
+  if (lang === "en") return enLabels[key] || key;
+  return key;
+}
 
 type Section = "Home" | "Planning" | "Behandelplanning" | "Mondzorgdossiers" | "Urgenties" | "WZC opvolging" | "WZC database";
 type FollowupMode = "Prospectie" | "Actieve WZC's";
-type DatabaseTab = "WZC database" | "Teams" | "Gebruikers" | "User log";
+type DatabaseTab = "WZC database" | "Teams" | "Gebruikers" | "Gebruikerslog" | "Portaal accounts";
 type PlanningTab = "Nieuwe planning" | "Voorgaande planningen";
 type PlanningKind = "Behandeling" | "Screening";
 type AgendaMode = "Maand" | "Lijst";
@@ -23,7 +316,7 @@ type ExtraContact = {
   email: string;
 };
 const sections: Section[] = ["Home", "Planning", "Behandelplanning", "Mondzorgdossiers", "Urgenties", "WZC opvolging", "WZC database"];
-const urgencyTypes = ["Tandpijn", "Gebit onvoldoende aansluitend / past niet", "Prothese gebroken", "Ontsteking", "Andere"];
+const urgencyTypes = ["Tandpijn", "Prothese past niet goed", "Prothese gebroken", "Ontsteking", "Andere"];
 const planningStatusOptions = ["Concept", "Gepland", "Bevestigd", "Uitgevoerd", "Geannuleerd"];
 const todayIso = new Date().toISOString().slice(0, 10);
 const routeStartLocations = [
@@ -41,28 +334,28 @@ const routeStartLocations = [
   },
 ] as const;
 const prospectStatuses = ["Aan te schrijven", "Aangeschreven", "Reactie ontvangen", "Draaiboek verstuurd", "Gesprek gepland", "On hold"];
-const prospectChannels = ["Telefonisch", "Mail", "In-person"];
-const prospectResponses = ["Negatief", "Positief", "Terughoudend"];
+const prospectChannels = ["Telefoon", "E-mail", "Fysiek"];
+const prospectResponses = ["Negatief", "Positief", "Twijfelend"];
 const defaultProspectStatus = prospectStatuses[0];
 const teamRoles = ["Tandarts", "Mondhygiënist", "Assistent", "Coördinator", "Administratie", "Andere"];
 const teamSkillsets = [
-  "Controle / consultatie",
-  "Reiniging",
+  "Controle / Consultatie",
+  "Tandreiniging",
   "Volledige reiniging",
   "Vulling",
   "Extractie",
   "Prothese afdruk",
-  "Prothese aanpassen / rebasing",
-  "Prothese herstelling",
-  "Prothese tand bijvoegen",
-  "Kroon / brug",
+  "Prothese aanpassing / rebase",
+  "Prothese reparatie",
+  "Prothese tandtoevoeging",
+  "Kroon / Brug",
   "Implantaat",
-  "Urgentie / pijnklacht",
+  "Urgentie / Pijnklacht",
   "Mobiele WZC-behandeling",
-  "DentAdmin / administratie",
-  "Mondzorgdossier / intake"
+  "DentAdmin / Administratie",
+  "Mondzorgdossier / Intake"
 ];
-const databaseTabs: DatabaseTab[] = ["WZC database", "Teams", "Gebruikers", "User log"];
+const databaseTabs: DatabaseTab[] = ["WZC database", "Teams", "Gebruikers", "Gebruikerslog", "Portaal accounts"];
 const leafletCssUrl = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
 const leafletScriptUrl = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
 const maplibreCssUrl = "https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css";
@@ -113,14 +406,14 @@ function addMonthsIso(value: string, offset: number) {
   return isoFromLocalDate(new Date(date.getFullYear(), date.getMonth() + offset, 1));
 }
 
-function monthLabel(value: string) {
+function monthLabel(value: string, lang: Lang = "nl") {
   const date = localDateFromIso(value);
-  return new Intl.DateTimeFormat("nl-BE", { month: "long", year: "numeric" }).format(date);
+  return new Intl.DateTimeFormat(lang === "nl" ? "nl-BE" : "en-US", { month: "long", year: "numeric" }).format(date);
 }
 
-function weekdayShortLabel(value: string) {
+function weekdayShortLabel(value: string, lang: Lang = "nl") {
   const date = localDateFromIso(value);
-  return new Intl.DateTimeFormat("nl-BE", { weekday: "short" }).format(date);
+  return new Intl.DateTimeFormat(lang === "nl" ? "nl-BE" : "en-US", { weekday: "short" }).format(date);
 }
 
 function formatDateTime(value?: string | null) {
@@ -140,7 +433,7 @@ function formatDuration(minutes: number) {
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
   if (!hours) return `${remainingMinutes} min`;
-  return remainingMinutes ? `${hours}u ${remainingMinutes}min` : `${hours}u`;
+  return remainingMinutes ? `${hours}h ${remainingMinutes}min` : `${hours}h`;
 }
 
 function arrivalWindowLabel(value: string) {
@@ -205,34 +498,37 @@ function googleMapsWaypointCount(plan: UrgencyRoutePlan, route: UrgencyRoutePlan
   return Math.max(0, route.stops.length - 1);
 }
 
-function routePlanSourceLabel(plan: UrgencyRoutePlan) {
-  if (plan.uses_live_traffic) return "Live verkeer";
-  if (plan.uses_real_road_network) return "Wegennet";
-  return "Schatting";
+function routePlanSourceLabel(plan: UrgencyRoutePlan, lang: Lang = "nl") {
+  if (plan.uses_live_traffic) return lang === "nl" ? "Live verkeer" : "Live Traffic";
+  if (plan.uses_real_road_network) return lang === "nl" ? "Wegennetwerk" : "Road Network";
+  return lang === "nl" ? "Schatting" : "Estimate";
 }
 
-function routePlanSourceText(plan: UrgencyRoutePlan) {
-  if (plan.uses_live_traffic) return "Volgorde berekend met verkeersduur";
-  if (plan.uses_real_road_network) return "Volgorde berekend met wegennetrijtijden, zonder actuele files";
-  return "Volgorde lokaal geschat; Google Maps toont actuele rijtijd bij openen";
+function routePlanSourceText(plan: UrgencyRoutePlan, lang: Lang = "nl") {
+  if (plan.uses_live_traffic) return lang === "nl" ? "Volgorde berekend met live verkeersgegevens" : "Order calculated using live traffic data";
+  if (plan.uses_real_road_network) return lang === "nl" ? "Volgorde berekend met rijtijden op het wegennetwerk, zonder live verkeer" : "Order calculated using road network travel times, without live traffic";
+  return lang === "nl" ? "Volgorde lokaal geschat; Google Maps toont de effectieve rijtijd na openen" : "Order estimated locally; Google Maps shows actual travel time when opened";
 }
 
-function routeShareText(plan: UrgencyRoutePlan, route: UrgencyRoutePlan["routes"][number]) {
+function routeShareText(plan: UrgencyRoutePlan, route: UrgencyRoutePlan["routes"][number], lang: Lang = "nl") {
   const stops = route.stops
     .map((stop) => `${stop.sequence}. ${stop.wzc_name} (${arrivalWindowLabel(stop.arrival_time)})`)
     .join("\n");
   return [
-    `${route.label} urgenties`,
-    `Start: ${plan.start_location.label} om ${route.estimated_start_time}`,
+    `${route.label} ${lang === "nl" ? "urgenties" : "urgencies"}`,
+    `Start: ${plan.start_location.label} ${lang === "nl" ? "om" : "at"} ${route.estimated_start_time}`,
     stops,
-    `Einde: ${route.end_location_label} om ${route.estimated_end_time}`,
-    `Totaal: ${formatDuration(route.total_duration_minutes)} · ${formatDistance(route.total_distance_km)}`,
-    "Patientgegevens staan bewust niet in deze link. Raadpleeg de app of DentAdmin voor details.",
+    `${lang === "nl" ? "Einde" : "End"}: ${route.end_location_label} ${lang === "nl" ? "om" : "at"} ${route.estimated_end_time}`,
+    `${lang === "nl" ? "Totaal" : "Total"}: ${formatDuration(route.total_duration_minutes)} · ${formatDistance(route.total_distance_km)}`,
+    lang === "nl"
+      ? "Patiëntgegevens zijn bewust niet opgenomen in deze link. Raadpleeg de app of DentAdmin voor details."
+      : "Patient details are intentionally not included in this link. Check the app or DentAdmin for details.",
   ].filter(Boolean).join("\n");
 }
 
-function planningKindLabel(value: string) {
-  return value === "Screening" ? "Screening" : "Behandeldag";
+function planningKindLabel(value: string, lang: Lang = "nl") {
+  if (value === "Screening") return "Screening";
+  return lang === "nl" ? "Behandeldag" : "Treatment Day";
 }
 
 function planningTypeForKind(kind: PlanningKind) {
@@ -241,19 +537,21 @@ function planningTypeForKind(kind: PlanningKind) {
 
 function planningStatusClass(status: string) {
   const normalized = status.toLowerCase();
-  if (normalized.includes("bevestigd")) return "confirmed";
-  if (normalized.includes("uitgevoerd")) return "done";
-  if (normalized.includes("geannuleerd")) return "cancelled";
-  if (normalized.includes("gepland")) return "planned";
+  if (normalized.includes("bevestigd") || normalized.includes("confirmed")) return "confirmed";
+  if (normalized.includes("uitgevoerd") || normalized.includes("completed")) return "done";
+  if (normalized.includes("geannuleerd") || normalized.includes("cancelled")) return "cancelled";
+  if (normalized.includes("gepland") || normalized.includes("planned")) return "planned";
   return "draft";
 }
 
-function planningWorkflowLabel(planning: Planning) {
-  return `${formatDate(planning.planning_date)} · ${planning.start_time || "09:00"} · ${planning.location || "Geen WZC"} · ${planningKindLabel(planning.planning_type)}`;
+function planningWorkflowLabel(planning: Planning, lang: Lang = "nl") {
+  const noWzc = lang === "nl" ? "Geen WZC" : "No Care Home";
+  return `${formatDate(planning.planning_date)} · ${planning.start_time || "09:00"} · ${planning.location || noWzc} · ${planningKindLabel(planning.planning_type, lang)}`;
 }
 
-function planningWorkflowMeta(planning: Planning) {
-  const rowLabel = `${planning.rows.length} bewoner${planning.rows.length === 1 ? "" : "s"}`;
+function planningWorkflowMeta(planning: Planning, lang: Lang = "nl") {
+  const unit = lang === "nl" ? "bewoner" : "resident";
+  const rowLabel = `${planning.rows.length} ${unit}${planning.rows.length === 1 ? "" : lang === "nl" ? "s" : "s"}`;
   return `${planning.planning_status || "Concept"} · ${rowLabel}${planning.team_label ? ` · ${planning.team_label}` : ""}`;
 }
 
@@ -597,6 +895,8 @@ function TeamProfileSelect({
   onChange: (value: string) => void;
   className?: string;
 }) {
+  const lang = useLang();
+  const L = (key: string) => t(lang, key);
   const fieldRef = useRef<HTMLDetailsElement | null>(null);
   const activeTeams = useMemo(
     () => teams.filter((team) => team.is_active).sort((a, b) => a.name.localeCompare(b.name)),
@@ -636,7 +936,7 @@ function TeamProfileSelect({
       <details className="teamSelectDisclosure" ref={fieldRef}>
         <summary>
           <span>{selectedSummary}</span>
-          <small>{selectedNames.length ? selectedNames.join(", ") : "Aanwezig team aanvinken"}</small>
+          <small>{selectedNames.length ? selectedNames.join(", ") : L("Aanwezig team aanvinken")}</small>
         </summary>
         <div className="teamSelectMenu">
           {activeTeams.map((team) => (
@@ -648,11 +948,11 @@ function TeamProfileSelect({
               />
               <span>
                 <strong>{team.name}</strong>
-                <small>{[team.role, team.skillsets].filter(Boolean).join(" · ") || "Teamprofiel"}</small>
+                <small>{[team.role, team.skillsets].filter(Boolean).join(" · ") || L("Teamprofiel")}</small>
               </span>
             </label>
           ))}
-          {activeTeams.length === 0 && <div className="searchableDropdownEmpty">Geen actieve teamprofielen.</div>}
+          {activeTeams.length === 0 && <div className="searchableDropdownEmpty">{L("Geen actieve teamprofielen.")}</div>}
         </div>
       </details>
     </div>
@@ -908,6 +1208,8 @@ function markerPoint(lat: number | null, lon: number | null) {
 }
 
 function LoginView({ onLogin }: { onLogin: (user: User) => void }) {
+  const lang = useLang();
+  const L = (key: string) => t(lang, key);
   const [email, setEmail] = useState("andres@globalsmilecare.be");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -931,18 +1233,18 @@ function LoginView({ onLogin }: { onLogin: (user: User) => void }) {
     <main className="loginPage">
       <form className="loginCard" onSubmit={submit}>
         <img src="/logo.svg" alt="Global Smile Care" className="loginLogo" />
-        <h1>Intern dashboard</h1>
-        <p>Beveiligde beta-omgeving voor intern administratief gebruik.</p>
+        <h1>{L("Intern dashboard")}</h1>
+        <p>{L("Beveiligde beta-omgeving voor intern administratief gebruik.")}</p>
         <label>
-          E-mail
+          {L("E-mail")}
           <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" autoComplete="email" />
         </label>
         <label>
-          Wachtwoord
+          {L("Wachtwoord")}
           <input value={password} onChange={(event) => setPassword(event.target.value)} type="password" autoComplete="current-password" />
         </label>
         {error && <div className="error">{error}</div>}
-        <button className="primaryButton" disabled={loading}>{loading ? "Aanmelden..." : "Aanmelden"}</button>
+        <button className="primaryButton" disabled={loading}>{loading ? L("Aanmelden...") : L("Aanmelden")}</button>
       </form>
     </main>
   );
@@ -953,14 +1255,19 @@ function Shell({
   section,
   setSection,
   onLogout,
+  lang,
+  onChangeLang,
   children
 }: {
   user: User;
   section: Section;
   setSection: (section: Section) => void;
   onLogout: () => void;
+  lang: Lang;
+  onChangeLang: (lang: Lang) => void;
   children: ReactNode;
 }) {
+  const L = (key: string) => t(lang, key);
   const visibleSections = sections.filter((item) => !["Admin", "WZC database"].includes(item) || user.role === "admin");
   function navigate(nextSection: Section) {
     setSection(nextSection);
@@ -977,17 +1284,44 @@ function Shell({
           {visibleSections.map((item) => (
             <div key={item} className={item === "WZC database" ? "navSeparated" : ""}>
               <button className={item === section ? "active" : ""} onClick={() => navigate(item)}>
-                {item}
+                {L(item)}
               </button>
             </div>
           ))}
         </nav>
         <div className="sidebarFooter">
-          <span>Actieve module<br /><strong>{section}</strong></span>
-          <span>Aangemeld als<br /><strong>{user.email}</strong></span>
-          <span>Rol<br /><strong>{user.role}</strong></span>
-          <span>Intern en vertrouwelijk</span>
-          <button onClick={onLogout}>Afmelden</button>
+          <div className="sidebarUserBlock">
+            <div className="sidebarAvatar">{user.email.slice(0, 1).toUpperCase()}</div>
+            <div className="sidebarUserInfo">
+              <strong>{user.email}</strong>
+              <small>{user.role}</small>
+            </div>
+            <details className="sidebarSettingsMenu">
+              <summary className="sidebarGearButton" aria-label={L("Instellingen")} title={L("Instellingen")}>
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path d="M16.2 12.5a1.4 1.4 0 0 0 .28 1.54l.05.05a1.7 1.7 0 1 1-2.4 2.4l-.06-.05a1.4 1.4 0 0 0-1.54-.28 1.4 1.4 0 0 0-.85 1.28v.14a1.7 1.7 0 1 1-3.4 0v-.07a1.4 1.4 0 0 0-.91-1.28 1.4 1.4 0 0 0-1.54.28l-.05.05a1.7 1.7 0 1 1-2.4-2.4l.05-.06a1.4 1.4 0 0 0 .28-1.54 1.4 1.4 0 0 0-1.28-.85h-.14a1.7 1.7 0 1 1 0-3.4h.07a1.4 1.4 0 0 0 1.28-.91 1.4 1.4 0 0 0-.28-1.54l-.05-.05a1.7 1.7 0 1 1 2.4-2.4l.06.05a1.4 1.4 0 0 0 1.54.28h.07a1.4 1.4 0 0 0 .85-1.28v-.14a1.7 1.7 0 1 1 3.4 0v.07a1.4 1.4 0 0 0 .85 1.28 1.4 1.4 0 0 0 1.54-.28l.05-.05a1.7 1.7 0 1 1 2.4 2.4l-.05.06a1.4 1.4 0 0 0-.28 1.54v.07a1.4 1.4 0 0 0 1.28.85h.14a1.7 1.7 0 1 1 0 3.4h-.07a1.4 1.4 0 0 0-1.28.85Z"/></svg>
+              </summary>
+              <div className="sidebarSettingsDropdown">
+                <div className="sidebarSettingsSection">
+                  <span className="sidebarSettingsLabel">{L("Actieve module")}</span>
+                  <span className="sidebarSettingsValue">{L(section)}</span>
+                </div>
+                <div className="sidebarSettingsSection">
+                  <span className="sidebarSettingsLabel">{L("Rol")}</span>
+                  <span className="sidebarSettingsValue">{user.role}</span>
+                </div>
+                <div className="sidebarSettingsSection">
+                  <span className="sidebarSettingsLabel">{L("Taal")}</span>
+                  <div className="sidebarLangSwitch">
+                    <button className={lang === "nl" ? "active" : ""} onClick={() => onChangeLang("nl")}>NL</button>
+                    <button className={lang === "en" ? "active" : ""} onClick={() => onChangeLang("en")}>EN</button>
+                  </div>
+                </div>
+                <div className="sidebarSettingsDivider" />
+                <span className="sidebarConfidential">{L("Intern en vertrouwelijk")}</span>
+                <button className="sidebarLogoutButton" onClick={onLogout}>{L("Afmelden")}</button>
+              </div>
+            </details>
+          </div>
         </div>
       </aside>
       <main className="content">{children}</main>
@@ -996,11 +1330,13 @@ function Shell({
 }
 
 function Header({ section }: { section: Section }) {
+  const lang = useLang();
+  const L = (key: string) => t(lang, key);
   return (
     <header className="pageHeader">
       <div>
-        <h1>Intern dashboard</h1>
-        <p>{section}</p>
+        <h1>{L("Intern dashboard")}</h1>
+        <p>{L(section)}</p>
       </div>
       <span className="trustBadge">Vertrouwelijk</span>
     </header>
@@ -1056,6 +1392,8 @@ function WzcMap({
   onUrgency?: (wzc: Wzc) => void;
   compact?: boolean;
 }) {
+  const lang = useLang();
+  const L = (key: string) => t(lang, key);
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
   const [query, setQuery] = useState("");
@@ -1269,12 +1607,12 @@ function WzcMap({
             <span className="gscSearchIcon" aria-hidden="true" />
             <input
               className="gscSearchInput"
-              placeholder="Zoek WZC, adres of gemeente"
+              placeholder={L("Zoek WZC, adres of gemeente")}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               onFocus={() => setPanelVisible(Boolean(selectedRecord))}
             />
-            <button className={`gscSearchClear ${query ? "isVisible" : ""}`} type="button" onClick={() => setQuery("")} aria-label="Zoekveld wissen">x</button>
+            <button className={`gscSearchClear ${query ? "isVisible" : ""}`} type="button" onClick={() => setQuery("")} aria-label={L("Zoekveld wissen")}>x</button>
           </div>
           {query && (
             <div className="gscSearchResults">
@@ -1284,7 +1622,7 @@ function WzcMap({
                   <span>{formatAddress([record.address, record.postalCode, record.city]) || record.group || "-"}</span>
                 </button>
               ))}
-              {filteredRecords.length === 0 && <div className="gscSearchEmpty">Geen WZC gevonden.</div>}
+              {filteredRecords.length === 0 && <div className="gscSearchEmpty">{L("Geen WZC gevonden.")}</div>}
             </div>
           )}
         </div>
@@ -1293,11 +1631,11 @@ function WzcMap({
           <aside className="gscMapPanel isVisible" onClick={(event) => event.stopPropagation()} onMouseDown={(event) => event.stopPropagation()} onWheel={(event) => event.stopPropagation()}>
             <div className="gscPanelHeader">
               <div>
-                <div className="gscPanelKicker">{selectedRecord.status}</div>
+                <div className="gscPanelKicker">{L(selectedRecord.status)}</div>
                 <div className="gscPanelTitle">{selectedRecord.name}</div>
                 <div className="gscPanelPlace">{[selectedRecord.postalCode, selectedRecord.city].filter(Boolean).join(" ") || "-"}</div>
               </div>
-              <button className="gscPanelClose" type="button" aria-label="Sluiten" onClick={() => setPanelVisible(false)}>x</button>
+              <button className="gscPanelClose" type="button" aria-label={L("Sluiten")} onClick={() => setPanelVisible(false)}>x</button>
             </div>
             <div className="gscPanelActions">
               {selectedRecord.kind === "prospect" ? (
@@ -1313,7 +1651,7 @@ function WzcMap({
                     scrollToDetail("prospectfiche");
                   }}
                 >
-                  Open prospectfiche
+                  {L("Open prospectfiche")}
                 </button>
               ) : (
                 <>
@@ -1329,31 +1667,33 @@ function WzcMap({
                       scrollToDetail("actieve-wzc-fiche");
                     }}
                   >
-                    Open WZC-fiche
+                    {L("Open WZC-fiche")}
                   </button>
-                  {onPlan && <button className="gscPanelPlanningLink" type="button" onClick={() => onPlan(selectedRecord.source as Wzc)}>Planning maken</button>}
-                  {onUrgency && <button className="gscPanelUrgencyAddLink" type="button" onClick={() => onUrgency(selectedRecord.source as Wzc)}>Urgentie toevoegen</button>}
+                  {onPlan && <button className="gscPanelPlanningLink" type="button" onClick={() => onPlan(selectedRecord.source as Wzc)}>{L("Planning maken")}</button>}
+                  {onUrgency && <button className="gscPanelUrgencyAddLink" type="button" onClick={() => onUrgency(selectedRecord.source as Wzc)}>{L("Urgentie toevoegen")}</button>}
                 </>
               )}
             </div>
-            {selectedRecord.openUrgencies > 0 && <div className="gscPanelAlert">{selectedRecord.openUrgencies} open urgentie{selectedRecord.openUrgencies === 1 ? "" : "s"}</div>}
-            <div className="gscPanelLine"><span>Groep</span><strong>{selectedRecord.group || "-"}</strong></div>
-            <div className="gscPanelLine"><span>Adres</span><strong>{selectedRecord.address || "-"}</strong></div>
-            <div className="gscPanelLine"><span>Contact</span><strong>{selectedRecord.contact || "-"}</strong></div>
-            <div className="gscPanelLine"><span>Telefoon</span><strong>{selectedRecord.phone ? <a href={phoneHref(selectedRecord.phone)}>{selectedRecord.phone}</a> : "-"}</strong></div>
-            <div className="gscPanelLine"><span>E-mail</span><strong>{selectedRecord.email ? <a href={emailHref(selectedRecord.email)}>{selectedRecord.email}</a> : "-"}</strong></div>
-            <div className="gscPanelLine"><span>Website</span><strong>{selectedRecord.website ? <a href={websiteHref(selectedRecord.website)} target="_blank" rel="noreferrer">{selectedRecord.website}</a> : "-"}</strong></div>
-            <div className="gscPanelLine"><span>{selectedRecord.kind === "prospect" ? "Deadline volgende actie" : "Volgende bezoek"}</span><strong>{selectedRecord.nextVisit || "-"}</strong></div>
-            {selectedRecord.kind === "prospect" && <div className="gscPanelLine"><span>Volgende actie</span><strong>{selectedRecord.nextAction || "-"}</strong></div>}
+            {selectedRecord.openUrgencies > 0 && <div className="gscPanelAlert">{selectedRecord.openUrgencies} {selectedRecord.openUrgencies === 1 ? L("open urgentie") : L("open urgenties")}</div>}
+            <div className="gscPanelLine"><span>{L("Groep")}</span><strong>{selectedRecord.group || "-"}</strong></div>
+            <div className="gscPanelLine"><span>{L("Adres")}</span><strong>{selectedRecord.address || "-"}</strong></div>
+            <div className="gscPanelLine"><span>{L("Contact")}</span><strong>{selectedRecord.contact || "-"}</strong></div>
+            <div className="gscPanelLine"><span>{L("Telefoon")}</span><strong>{selectedRecord.phone ? <a href={phoneHref(selectedRecord.phone)}>{selectedRecord.phone}</a> : "-"}</strong></div>
+            <div className="gscPanelLine"><span>{L("E-mail")}</span><strong>{selectedRecord.email ? <a href={emailHref(selectedRecord.email)}>{selectedRecord.email}</a> : "-"}</strong></div>
+            <div className="gscPanelLine"><span>{L("Website")}</span><strong>{selectedRecord.website ? <a href={websiteHref(selectedRecord.website)} target="_blank" rel="noreferrer">{selectedRecord.website}</a> : "-"}</strong></div>
+            <div className="gscPanelLine"><span>{selectedRecord.kind === "prospect" ? L("Deadline volgende actie") : L("Volgende bezoek")}</span><strong>{selectedRecord.nextVisit || "-"}</strong></div>
+            {selectedRecord.kind === "prospect" && <div className="gscPanelLine"><span>{L("Volgende actie")}</span><strong>{selectedRecord.nextAction || "-"}</strong></div>}
           </aside>
         )}
-        {!selectedRecord && !loadError && <aside className="gscMapPanel isVisible" onClick={(event) => event.stopPropagation()} onMouseDown={(event) => event.stopPropagation()} onWheel={(event) => event.stopPropagation()}><span>Klik op een marker voor details.</span></aside>}
+        {!selectedRecord && !loadError && <aside className="gscMapPanel isVisible" onClick={(event) => event.stopPropagation()} onMouseDown={(event) => event.stopPropagation()} onWheel={(event) => event.stopPropagation()}><span>{L("Klik op een marker voor details.")}</span></aside>}
       </div>
     </section>
   );
 }
 
 function RoutePlanMap({ plan }: { plan: UrgencyRoutePlan }) {
+  const lang = useLang();
+  const L = (key: string) => t(lang, key);
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
   const [loadError, setLoadError] = useState("");
@@ -1474,9 +1814,9 @@ function RoutePlanMap({ plan }: { plan: UrgencyRoutePlan }) {
         <div ref={mapElementRef} className="gscLeafletMap routeLeafletMap" />
         {loadError && <div className="gscMapPanel isVisible"><span>{loadError}</span></div>}
         <div className="routeMapLegend">
-          <span><strong>S</strong> Start</span>
-          {plan.end_location && <span><strong>E</strong> Einde</span>}
-          {!plan.has_route_geometry && <span>Gestippelde lijnen tonen volgorde, geen wegpolyline.</span>}
+          <span><strong>S</strong> {L("Start")}</span>
+          {plan.end_location && <span><strong>E</strong> {L("Einde")}</span>}
+          {!plan.has_route_geometry && <span>{L("Gestippelde lijnen tonen volgorde, geen wegpolyline.")}</span>}
         </div>
       </div>
     </section>
@@ -1518,6 +1858,8 @@ function Home({
     [realWzcs]
   );
   const [selected, setSelected] = useState<Wzc | null>(null);
+  const lang = useLang();
+  const L = (key: string) => t(lang, key);
   const openUrgencyCount = urgencies.filter((urgency) => urgency.status !== "Afgerond").length;
 
   useEffect(() => {
@@ -1541,46 +1883,46 @@ function Home({
         compact
       />
       <div className="kpiGrid">
-        <div className="kpi"><span>WZC's</span><strong>{realWzcs.length}</strong></div>
-        <div className="kpi"><span>Actieve WZC's</span><strong>{activeWzcs.length}</strong></div>
-        <div className="kpi"><span>Evaluaties</span><strong>0</strong></div>
-        <div className="kpi"><span>Prospecties</span><strong>{prospects.length}</strong></div>
-        <div className="kpi"><span>Urgenties</span><strong>{openUrgencyCount}</strong></div>
-        <div className="kpi"><span>Gem. score</span><strong>-</strong></div>
-        <div className="kpi"><span>Hoog risico</span><strong>0</strong></div>
-        <div className="kpi"><span>Gepland</span><strong>{upcoming.length}</strong></div>
+        <div className="kpi"><span>{L("WZC's")}</span><strong>{realWzcs.length}</strong></div>
+        <div className="kpi"><span>{L("Actieve WZC's")}</span><strong>{activeWzcs.length}</strong></div>
+        <div className="kpi"><span>{L("Evaluaties")}</span><strong>0</strong></div>
+        <div className="kpi"><span>{L("Prospecties")}</span><strong>{prospects.length}</strong></div>
+        <div className="kpi"><span>{L("Urgenties")}</span><strong>{openUrgencyCount}</strong></div>
+        <div className="kpi"><span>{L("Gem. score")}</span><strong>-</strong></div>
+        <div className="kpi"><span>{L("Hoog risico")}</span><strong>0</strong></div>
+        <div className="kpi"><span>{L("Gepland")}</span><strong>{upcoming.length}</strong></div>
       </div>
       <section className="panel">
         <div className="sectionTitle">
-          <h2>Volgende bezoeken</h2>
-          <button onClick={onOpenUrgencies}>Urgenties bekijken</button>
+          <h2>{L("Volgende bezoeken")}</h2>
+          <button onClick={onOpenUrgencies}>{L("Urgenties bekijken")}</button>
         </div>
         <div className="list">
           {upcoming.slice(0, 6).map((planning) => (
             <div className="listRow" key={planning.id}>
               <strong>{planning.location || planning.name}</strong>
-              <span>{formatDate(planning.planning_date)} · {planning.rows.length} patienten</span>
+              <span>{formatDate(planning.planning_date)} · {planning.rows.length} {L("patiënten")}</span>
             </div>
           ))}
-          {upcoming.length === 0 && <div className="empty">Geen toekomstige planningen.</div>}
+          {upcoming.length === 0 && <div className="empty">{L("Geen toekomstige planningen.")}</div>}
         </div>
       </section>
       <section className="panel">
-        <h2>KPI's per thema</h2>
-        <div className="empty">Nog geen evaluaties om KPI's per thema te tonen.</div>
+        <h2>{L("KPI's per thema")}</h2>
+        <div className="empty">{L("Nog geen evaluaties om KPI's per thema te tonen.")}</div>
       </section>
       <div className="homeGrid">
         <article className="homeCard">
-          <strong>Behandelplanning</strong>
-          <span>PDF's verwerken naar een behandelplanning en afvinklijst voor Excel.</span>
+          <strong>{L("Behandelplanning")}</strong>
+          <span>{L("PDF's verwerken naar een behandelplanning en afvinklijst voor Excel.")}</span>
         </article>
         <article className="homeCard">
-          <strong>Mondzorgdossiers</strong>
-          <span>Dossiers tijdelijk uitlezen voor controle en invoer in DentAdmin.</span>
+          <strong>{L("Mondzorgdossiers")}</strong>
+          <span>{L("Dossiers tijdelijk uitlezen voor controle en invoer in DentAdmin.")}</span>
         </article>
         <article className="homeCard">
-          <strong>WZC opvolging</strong>
-          <span>WZC-masterdata, prospectie, urgenties en project-KPI's opvolgen.</span>
+          <strong>{L("WZC opvolging")}</strong>
+          <span>{L("WZC-masterdata, prospectie, urgenties en project-KPI's opvolgen.")}</span>
         </article>
       </div>
     </>
@@ -1600,6 +1942,8 @@ function AgendaPlanningView({
   onSaved: () => Promise<void>;
   onOpenTreatmentPlanning: (planning: Planning) => void;
 }) {
+  const lang = useLang();
+  const L = (key: string) => t(lang, key);
   const [agendaMode, setAgendaMode] = useState<AgendaMode>("Maand");
   const [calendarMonth, setCalendarMonth] = useState(todayIso.slice(0, 7) + "-01");
   const [selectedDate, setSelectedDate] = useState(todayIso);
@@ -1743,28 +2087,28 @@ function AgendaPlanningView({
         <div className="agendaItemHeader">
           <div>
             <strong>{planning.name}</strong>
-            <span>{planningKindLabel(planning.planning_type)} · {planning.location || "Geen WZC gekozen"}</span>
+            <span>{planningKindLabel(planning.planning_type, lang)} · {planning.location || L("Geen WZC gekozen")}</span>
           </div>
           <span className={`agendaStatusPill ${planningStatusClass(planning.planning_status || "Concept")}`}>{planning.planning_status || "Concept"}</span>
         </div>
         <div className="agendaItemMeta">
           <span>{formatDate(planning.planning_date)}</span>
           <span>{planning.start_time || "09:00"}-{planning.end_time || "16:00"}</span>
-          <span>{planning.rows.length} bewoner(s)</span>
+          <span>{planning.rows.length} {L("bewoner(s)")}</span>
         </div>
         {(planning.team_label || planning.note) && !compact && (
           <div className="agendaItemNote">
-            {planning.team_label && <span>Team: {planning.team_label}</span>}
+            {planning.team_label && <span>{L("Team:")} {planning.team_label}</span>}
             {planning.note && <span>{planning.note}</span>}
           </div>
         )}
         {!compact && (
           <div className="agendaItemActions">
-            <label>Status<select value={planning.planning_status || "Concept"} onChange={(event) => updateAgendaStatus(planning, event.target.value)}>
-              {planningStatusOptions.map((status) => <option key={status}>{status}</option>)}
+            <label>{L("Status")}<select value={planning.planning_status || "Concept"} onChange={(event) => updateAgendaStatus(planning, event.target.value)}>
+              {planningStatusOptions.map((status) => <option key={status} value={status}>{L(status)}</option>)}
             </select></label>
-            <button className="compactActionButton" type="button" onClick={() => onOpenTreatmentPlanning(planning)}>Aanvullen</button>
-            <button className="compactActionButton dangerActionButton" type="button" onClick={() => deleteAgendaPlanning(planning)}>Verwijderen</button>
+            <button className="compactActionButton" type="button" onClick={() => onOpenTreatmentPlanning(planning)}>{L("Aanvullen")}</button>
+            <button className="compactActionButton dangerActionButton" type="button" onClick={() => deleteAgendaPlanning(planning)}>{L("Verwijderen")}</button>
           </div>
         )}
       </article>
@@ -1776,20 +2120,20 @@ function AgendaPlanningView({
       <section className="panel agendaOverviewPanel">
         <div className="sectionTitle">
           <div>
-            <h2>Agenda-overzicht</h2>
-            <p className="sectionHint">{upcomingAgenda.length} toekomstige planning(en), waarvan {upcomingAgenda.filter((planning) => planning.planning_type === "Screening").length} screening(en).</p>
+            <h2>{L("Agenda-overzicht")}</h2>
+            <p className="sectionHint">{upcomingAgenda.length} {L("toekomstige planning(en)")}, {L("waarvan")} {upcomingAgenda.filter((planning) => planning.planning_type === "Screening").length} {L("screening(en)")}.</p>
           </div>
           <div className="agendaToolbar">
-            <button type="button" onClick={() => setCalendarMonth(addMonthsIso(calendarMonth, -1))}>Vorige</button>
-            <button type="button" onClick={() => setAgendaDate(todayIso)}>Vandaag</button>
-            <button type="button" onClick={() => setCalendarMonth(addMonthsIso(calendarMonth, 1))}>Volgende</button>
+            <button type="button" onClick={() => setCalendarMonth(addMonthsIso(calendarMonth, -1))}>{lang === "nl" ? "Vorige" : "Previous"}</button>
+            <button type="button" onClick={() => setAgendaDate(todayIso)}>{lang === "nl" ? "Vandaag" : "Today"}</button>
+            <button type="button" onClick={() => setCalendarMonth(addMonthsIso(calendarMonth, 1))}>{lang === "nl" ? "Volgende" : "Next"}</button>
           </div>
         </div>
-        <div className="followupSwitch agendaModeSwitch" aria-label="Agendaweergave">
+        <div className="followupSwitch agendaModeSwitch" aria-label={lang === "nl" ? "Agendaweergave" : "Agenda view"}>
           {(["Maand", "Lijst"] as AgendaMode[]).map((mode) => (
             <button key={mode} className={agendaMode === mode ? "selected" : ""} onClick={() => setAgendaMode(mode)}>
-              <strong>{mode}</strong>
-              <span>{mode === "Maand" ? monthLabel(calendarMonth) : `${agendaPlannings.length} planning(en)`}</span>
+              <strong>{L(mode)}</strong>
+              <span>{mode === "Maand" ? monthLabel(calendarMonth, lang) : `${agendaPlannings.length} ${L("planning(en)")}`}</span>
             </button>
           ))}
         </div>
@@ -1797,7 +2141,7 @@ function AgendaPlanningView({
           <div className="agendaMain">
             {agendaMode === "Maand" ? (
               <div className="agendaCalendar">
-                {["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"].map((day) => <div className="agendaWeekday" key={day}>{day}</div>)}
+                {(lang === "nl" ? ["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"] : ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]).map((day) => <div className="agendaWeekday" key={day}>{day}</div>)}
                 {calendarCells.map((cell) => {
                   const dayPlannings = cell.date ? monthPlannings.filter((planning) => planning.planning_date === cell.date) : [];
                   return cell.date ? (
@@ -1808,14 +2152,14 @@ function AgendaPlanningView({
                       onClick={() => setAgendaDate(cell.date)}
                     >
                       <span className="agendaDayNumber">{cell.day}</span>
-                      <span className="agendaDayName">{weekdayShortLabel(cell.date)}</span>
+                      <span className="agendaDayName">{weekdayShortLabel(cell.date, lang)}</span>
                       <span className="agendaDayItems">
                         {dayPlannings.slice(0, 2).map((planning) => (
                           <em className={planning.planning_type === "Screening" ? "screening" : "treatment"} key={planning.id}>
                             {planning.start_time || "09:00"} {planning.location || planningKindLabel(planning.planning_type)}
                           </em>
                         ))}
-                        {dayPlannings.length > 2 && <em>+{dayPlannings.length - 2} meer</em>}
+                        {dayPlannings.length > 2 && <em>+{dayPlannings.length - 2} {L("meer")}</em>}
                       </span>
                     </button>
                   ) : <div className="agendaDay emptyDay" key={cell.key} />;
@@ -1824,7 +2168,7 @@ function AgendaPlanningView({
             ) : (
               <div className="agendaListView">
                 {agendaPlannings.map((planning) => renderAgendaItem(planning))}
-                {agendaPlannings.length === 0 && <div className="empty">Nog geen planning in de agenda.</div>}
+                {agendaPlannings.length === 0 && <div className="empty">{L("Nog geen planning in de agenda.")}</div>}
               </div>
             )}
           </div>
@@ -1832,13 +2176,13 @@ function AgendaPlanningView({
             <div className="sectionTitle compactSectionTitle">
               <div>
                 <h2>{formatDate(selectedDate)}</h2>
-                <p className="sectionHint">{selectedDatePlannings.length} planning(en) op deze dag.</p>
+                <p className="sectionHint">{selectedDatePlannings.length} {L("planning(en) op deze dag.")}</p>
               </div>
-              <button className="compactActionButton" type="button" onClick={() => jumpToCreatePlanning(selectedDate)}>Planning maken</button>
+              <button className="compactActionButton" type="button" onClick={() => jumpToCreatePlanning(selectedDate)}>{L("Planning maken")}</button>
             </div>
             <div className="agendaDayList">
               {selectedDatePlannings.map((planning) => renderAgendaItem(planning))}
-              {selectedDatePlannings.length === 0 && <div className="empty compactEmpty">Geen screening of behandeldag gepland.</div>}
+              {selectedDatePlannings.length === 0 && <div className="empty compactEmpty">{L("Geen screening of behandeldag gepland.")}</div>}
             </div>
           </aside>
         </div>
@@ -1852,38 +2196,38 @@ function AgendaPlanningView({
       >
         <summary className="agendaCreateSummary">
           <div>
-            <h2>Planning</h2>
-            <p className="sectionHint">Plan screeningdagen en behandeldagen in de agenda.</p>
+            <h2>{L("Planning")}</h2>
+            <p className="sectionHint">{L("Plan screeningdagen en behandeldagen in de agenda.")}</p>
           </div>
           <span className="agendaCreateSummaryMeta">{formatDate(planningDate)} · {planningKindLabel(planningTypeForKind(planningKind))}</span>
-          <span className="agendaCreateSummaryToggle">{createPanelOpen ? "Sluiten" : "Openen"}</span>
+          <span className="agendaCreateSummaryToggle">{createPanelOpen ? L("Sluiten") : lang === "nl" ? "Openen" : "Open"}</span>
         </summary>
         <form className="agendaCreateForm" onSubmit={createAgendaPlanning}>
           <div className="planningKindSelector agendaKindSelector" aria-label="Type agenda-item">
             <button type="button" className={planningKind === "Screening" ? "selected" : ""} onClick={() => setPlanningKind("Screening")}>
-              <strong>Screening</strong>
-              <span>Screeningdag of namenlijst voorbereiden</span>
+              <strong>{L("Screening")}</strong>
+              <span>{L("Screeningdag of namenlijst voorbereiden")}</span>
             </button>
             <button type="button" className={planningKind === "Behandeling" ? "selected" : ""} onClick={() => setPlanningKind("Behandeling")}>
-              <strong>Behandeldag</strong>
-              <span>Mobiele behandelingen op locatie</span>
+              <strong>{L("Behandeldag")}</strong>
+              <span>{L("Mobiele behandelingen op locatie")}</span>
             </button>
           </div>
           <div className="formGrid agendaFormGrid">
-            <label>Datum<input type="date" value={planningDate} onChange={(event) => setAgendaDate(event.target.value)} required /></label>
-            <label>Start<input type="time" value={planningStartTime} onChange={(event) => setPlanningStartTime(event.target.value)} required /></label>
-            <label>Einde<input type="time" value={planningEndTime} onChange={(event) => setPlanningEndTime(event.target.value)} required /></label>
-            <label>Status<select value={planningStatus} onChange={(event) => setPlanningStatus(event.target.value)}>
-              {planningStatusOptions.map((status) => <option key={status}>{status}</option>)}
+            <label>{L("Datum")}<input type="date" value={planningDate} onChange={(event) => setAgendaDate(event.target.value)} required /></label>
+            <label>{L("Start")}<input type="time" value={planningStartTime} onChange={(event) => setPlanningStartTime(event.target.value)} required /></label>
+            <label>{L("Einde")}<input type="time" value={planningEndTime} onChange={(event) => setPlanningEndTime(event.target.value)} required /></label>
+            <label>{L("Status")}<select value={planningStatus} onChange={(event) => setPlanningStatus(event.target.value)}>
+              {planningStatusOptions.map((status) => <option key={status} value={status}>{L(status)}</option>)}
             </select></label>
-            <SearchableGroupSelect label="Groep/organisatie" value={planningGroupFilter} groups={planningGroupOptions} onChange={setPlanningGroupFilter} placeholder="Alle groepen" />
-            <SearchableWzcSelect label="WZC" value={wzcId} wzcs={selectableWzcs} onChange={setWzcId} placeholder="Nog geen WZC gekozen" />
-            <label>Titel<input value={planningName} onChange={(event) => setPlanningName(event.target.value)} placeholder={selectedWzc ? `${planningKindLabel(planningTypeForKind(planningKind))} ${selectedWzc.name}` : "Wordt automatisch ingevuld"} /></label>
-            <TeamProfileSelect label="Team" teams={teams} value={teamLabel} onChange={setTeamLabel} />
-            <label className="wide">Notitie<textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="Praktische afspraken, materiaal, aandachtspunten..." /></label>
+            <SearchableGroupSelect label={L("Groep/organisatie")} value={planningGroupFilter} groups={planningGroupOptions} onChange={setPlanningGroupFilter} placeholder={L("Alle groepen")} />
+            <SearchableWzcSelect label={L("WZC")} value={wzcId} wzcs={selectableWzcs} onChange={setWzcId} placeholder={L("Nog geen WZC gekozen")} />
+            <label>{L("Titel")}<input value={planningName} onChange={(event) => setPlanningName(event.target.value)} placeholder={selectedWzc ? `${planningKindLabel(planningTypeForKind(planningKind), lang)} ${selectedWzc.name}` : L("Wordt automatisch ingevuld")} /></label>
+            <TeamProfileSelect label={L("Team:")} teams={teams} value={teamLabel} onChange={setTeamLabel} />
+            <label className="wide">{L("Notitie")}<textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder={L("Praktische afspraken, materiaal, aandachtspunten...")} /></label>
           </div>
           <div className="formSubmitRow">
-            <button className="primaryButton" disabled={saving}>{saving ? "Planning bewaren..." : "In agenda zetten"}</button>
+            <button className="primaryButton" disabled={saving}>{saving ? L("Planning bewaren...") : L("In agenda zetten")}</button>
           </div>
           {agendaError && <div className="error">{agendaError}</div>}
         </form>
@@ -1903,6 +2247,8 @@ function UrgenciesView({
   preselectedWzc: Wzc | null;
   onSaved: () => Promise<void>;
 }) {
+  const lang = useLang();
+  const L = (key: string) => t(lang, key);
   const [wzcId, setWzcId] = useState<number | "">(preselectedWzc?.id || "");
   const [patientName, setPatientName] = useState("");
   const [urgencyType, setUrgencyType] = useState(urgencyTypes[0]);
@@ -2193,45 +2539,45 @@ function UrgenciesView({
   return (
     <div className="stack">
       <div className="privacyStrip">
-        Tijdelijke urgentielijst voor interne opvolging en invoer in DentAdmin. Noteer enkel noodzakelijke gegevens. Open urgenties blijven bewaard tot ze afgerond zijn.
+        {L("Tijdelijke urgentielijst")}
       </div>
       <section className="panel urgencyPanel">
         <div className="sectionTitle">
           <div>
-            <h2>Urgentie toevoegen</h2>
-            <p className="sectionHint">Registreer een melding kort en koppel ze meteen aan de juiste WZC.</p>
+            <h2>{L("Urgentie toevoegen")}</h2>
+            <p className="sectionHint">{lang === "nl" ? "Registreer een melding kort en koppel ze meteen aan de juiste WZC." : "Briefly register a report and link it to the correct care home."}</p>
           </div>
         </div>
         <form className="formGrid urgencyForm" onSubmit={submit}>
-          <label className="urgencyField">Meldingsdatum<input type="date" value={reportedOn} onChange={(event) => setReportedOn(event.target.value)} /></label>
-          <SearchableWzcSelect className="urgencyField" label="WZC" value={wzcId} wzcs={selectableWzcs} onChange={setWzcId} placeholder="Niet gekoppeld" />
-          <label className="urgencyField">Naam patient<input value={patientName} onChange={(event) => setPatientName(event.target.value)} required /></label>
-          <label className="urgencyField">Urgentie<select value={urgencyType} onChange={(event) => setUrgencyType(event.target.value)}>
-            {urgencyTypes.map((type) => <option key={type}>{type}</option>)}
+          <label className="urgencyField">{lang === "nl" ? "Meldingsdatum" : "Report date"}<input type="date" value={reportedOn} onChange={(event) => setReportedOn(event.target.value)} /></label>
+          <SearchableWzcSelect className="urgencyField" label={L("WZC")} value={wzcId} wzcs={selectableWzcs} onChange={setWzcId} placeholder={lang === "nl" ? "Niet gekoppeld" : "Not linked"} />
+          <label className="urgencyField">{lang === "nl" ? "Naam patient" : "Patient name"}<input value={patientName} onChange={(event) => setPatientName(event.target.value)} required /></label>
+          <label className="urgencyField">{L("Urgentie")}<select value={urgencyType} onChange={(event) => setUrgencyType(event.target.value)}>
+            {urgencyTypes.map((type) => <option key={type} value={type}>{L(type)}</option>)}
           </select></label>
-          <label className="wide">Opmerking<textarea value={remark} onChange={(event) => setRemark(event.target.value)} /></label>
+          <label className="wide">{L("Opmerking")}<textarea value={remark} onChange={(event) => setRemark(event.target.value)} /></label>
           <div className="formSubmitRow">
-            <button className="primaryButton">Opslaan</button>
+            <button className="primaryButton">{L("Opslaan")}</button>
           </div>
         </form>
       </section>
       <div className="kpiGrid compactKpis">
-        <div className="kpi"><span>Open urgenties</span><strong>{openUrgencies.length}</strong></div>
-        <div className="kpi"><span>Vandaag</span><strong>{todayUrgencies.length}</strong></div>
-        <div className="kpi"><span>WZC's</span><strong>{urgentWzcCount}</strong></div>
-        <div className="kpi"><span>Afgerond</span><strong>{urgencies.filter((urgency) => urgency.status === "Afgerond").length}</strong></div>
+        <div className="kpi"><span>{L("Open urgenties")}</span><strong>{openUrgencies.length}</strong></div>
+        <div className="kpi"><span>{lang === "nl" ? "Vandaag" : "Today"}</span><strong>{todayUrgencies.length}</strong></div>
+        <div className="kpi"><span>{L("WZC's")}</span><strong>{urgentWzcCount}</strong></div>
+        <div className="kpi"><span>{lang === "nl" ? "Afgerond" : "Completed"}</span><strong>{urgencies.filter((urgency) => urgency.status === "Afgerond").length}</strong></div>
       </div>
       <section className="panel savedRoutesPanel">
         <div className="sectionTitle">
           <div>
-            <h2>Aangemaakte routes</h2>
-            <p className="sectionHint">Routeplannen die voor de gekozen uitvoeringsdatum bewaard zijn.</p>
+            <h2>{lang === "nl" ? "Aangemaakte routes" : "Created routes"}</h2>
+            <p className="sectionHint">{lang === "nl" ? "Routeplannen die voor de gekozen uitvoeringsdatum bewaard zijn." : "Route plans saved for the chosen execution date."}</p>
           </div>
-          <label className="savedRouteDateField">Uitvoeringsdatum<input type="date" value={routeExecutionDate} onChange={(event) => setRouteExecutionDate(event.target.value || todayIso)} /></label>
+          <label className="savedRouteDateField">{lang === "nl" ? "Uitvoeringsdatum" : "Execution date"}<input type="date" value={routeExecutionDate} onChange={(event) => setRouteExecutionDate(event.target.value || todayIso)} /></label>
         </div>
-        {savedRouteLoading && <div className="empty compactEmpty">Routes laden...</div>}
+        {savedRouteLoading && <div className="empty compactEmpty">{L("Routes laden...")}</div>}
         {!savedRouteLoading && savedRoutePlans.length === 0 && (
-          <div className="empty compactEmpty">Nog geen opgeslagen urgentieroute voor {formatDate(routeExecutionDate)}.</div>
+          <div className="empty compactEmpty">{L("Nog geen opgeslagen urgentieroute voor")} {formatDate(routeExecutionDate)}.</div>
         )}
         {!savedRouteLoading && savedRoutePlans.length > 0 && (
           <div className="savedRouteList">
@@ -2242,7 +2588,7 @@ function UrgenciesView({
                   <div className="savedRouteHeader">
                     <div>
                       <strong>{savedRoutePlan.title}</strong>
-                      <span>{assignedCount} urgentie{assignedCount === 1 ? "" : "s"} · aangemaakt {formatDateTime(savedRoutePlan.created_at)}</span>
+                      <span>{assignedCount} {assignedCount === 1 ? L("urgentie") : L("urgenties")} · {L("aangemaakt")} {formatDateTime(savedRoutePlan.created_at)}</span>
                     </div>
                     <span className={`softBadge ${savedRoutePlan.plan.uses_real_road_network ? "" : "warningBadge"}`}>
                       {routePlanSourceLabel(savedRoutePlan.plan)}
@@ -2253,14 +2599,14 @@ function UrgenciesView({
                       <span key={route.route_id}>
                         <strong>{route.label}</strong>
                         {route.stops.length
-                          ? `${route.stops.length} bezoeken · eerste ${arrivalWindowLabel(route.stops[0].arrival_time)} · klaar ${route.estimated_end_time}`
-                          : "geen bezoeken"}
+                          ? `${route.stops.length} ${L("bezoeken")} · ${L("eerste")} ${arrivalWindowLabel(route.stops[0].arrival_time)} · ${L("klaar")} ${route.estimated_end_time}`
+                          : L("geen bezoeken")}
                       </span>
                     ))}
                   </div>
                   <div className="routeActionRow">
-                    <button className="compactActionButton" type="button" onClick={() => openSavedRoutePlan(savedRoutePlan)}>Openen</button>
-                    <button className="compactActionButton dangerActionButton" type="button" onClick={() => deleteSavedRoutePlan(savedRoutePlan)}>Verwijderen</button>
+                    <button className="compactActionButton" type="button" onClick={() => openSavedRoutePlan(savedRoutePlan)}>{lang === "nl" ? "Openen" : "Open"}</button>
+                    <button className="compactActionButton dangerActionButton" type="button" onClick={() => deleteSavedRoutePlan(savedRoutePlan)}>{L("Verwijderen")}</button>
                   </div>
                 </article>
               );
@@ -2271,21 +2617,21 @@ function UrgenciesView({
       <section className="panel routePlannerPanel">
         <div className="sectionTitle">
           <div>
-            <h2>Routeplanning</h2>
-            <p className="sectionHint">Geeft een aanbevolen volgorde voor open urgenties, op basis van de beschikbare rijtijdmatrix.</p>
+            <h2>{L("Routeplanning")}</h2>
+            <p className="sectionHint">{L("Geeft een aanbevolen volgorde voor open urgenties, op basis van de beschikbare rijtijdmatrix.")}</p>
           </div>
           <button className="primaryButton" onClick={() => setRoutePlannerOpen((current) => !current)}>
-            {routePlannerOpen ? "Routeplanning sluiten" : "Route plannen"}
+            {routePlannerOpen ? L("Routeplanning sluiten") : L("Route plannen")}
           </button>
         </div>
         {routePlannerOpen && (
           <div className="routePlannerGrid">
             <div className="routeConfigBlock">
-              <div className="routeSubTitle">Selectie</div>
+              <div className="routeSubTitle">{lang === "nl" ? "Selectie" : "Selection"}</div>
               <div className="routeSelectionActions">
-                <button type="button" onClick={() => setSelectedUrgencyIds(Object.fromEntries(openUrgencies.map((urgency) => [urgency.id, true])))}>Alles selecteren</button>
-                <button type="button" onClick={() => setSelectedUrgencyIds(Object.fromEntries(openUrgencies.map((urgency) => [urgency.id, false])))}>Alles wissen</button>
-                <span>{selectedRouteUrgencies.length} geselecteerd · {routableSelectedCount} met coordinaten</span>
+                <button type="button" onClick={() => setSelectedUrgencyIds(Object.fromEntries(openUrgencies.map((urgency) => [urgency.id, true])))}>{lang === "nl" ? "Alles selecteren" : "Select all"}</button>
+                <button type="button" onClick={() => setSelectedUrgencyIds(Object.fromEntries(openUrgencies.map((urgency) => [urgency.id, false])))}>{lang === "nl" ? "Alles wissen" : "Clear all"}</button>
+                <span>{selectedRouteUrgencies.length} {L("geselecteerd")} · {routableSelectedCount} {lang === "nl" ? "met coördinaten" : "with coordinates"}</span>
               </div>
               <div className="routeUrgencySelection">
                 {openUrgencies.map((urgency) => {
@@ -2298,53 +2644,53 @@ function UrgenciesView({
                         onChange={(event) => setSelectedUrgencyIds((current) => ({ ...current, [urgency.id]: event.target.checked }))}
                       />
                       <span>
-                        <strong>{urgency.wzc_name || "Geen WZC"}</strong>
-                        <small>{urgency.patient_name} · {urgency.urgency_type}</small>
-                        {!hasCoordinates && <em>Geen WZC-coordinaten</em>}
+                        <strong>{urgency.wzc_name || L("Geen WZC")}</strong>
+                        <small>{urgency.patient_name} · {L(urgency.urgency_type)}</small>
+                        {!hasCoordinates && <em>{L("Geen WZC-coördinaten")}</em>}
                       </span>
                     </label>
                   );
                 })}
-                {openUrgencies.length === 0 && <div className="empty compactEmpty">Nog geen open urgenties om te plannen.</div>}
+                {openUrgencies.length === 0 && <div className="empty compactEmpty">{L("Nog geen open urgenties om te plannen.")}</div>}
               </div>
             </div>
             <div className="routeConfigBlock">
-	              <div className="routeSubTitle">Instellingen</div>
+	              <div className="routeSubTitle">{L("Instellingen")}</div>
 	              <div className="routeConfigFields">
-	                <label>Uitvoeringsdatum<input type="date" value={routeExecutionDate} onChange={(event) => setRouteExecutionDate(event.target.value || todayIso)} /></label>
-	                <label>Startpunt<select value={startPresetKey} onChange={(event) => setStartPresetKey(event.target.value as typeof routeStartLocations[number]["key"])}>
+	                <label>{lang === "nl" ? "Uitvoeringsdatum" : "Execution date"}<input type="date" value={routeExecutionDate} onChange={(event) => setRouteExecutionDate(event.target.value || todayIso)} /></label>
+	                <label>{lang === "nl" ? "Startpunt" : "Start point"}<select value={startPresetKey} onChange={(event) => setStartPresetKey(event.target.value as typeof routeStartLocations[number]["key"])}>
 	                  {routeStartLocations.map((location) => <option key={location.key} value={location.key}>{location.label}</option>)}
 	                </select></label>
                 <div className="routePresetInfo">
                   <strong>{selectedStartLocation.label}</strong>
                   <span>{selectedStartLocation.latitude}, {selectedStartLocation.longitude}</span>
                 </div>
-                <label>Aantal routes<input type="number" min={1} max={12} value={routeCount} onChange={(event) => setRouteCount(Math.max(1, Math.min(12, Number(event.target.value) || 1)))} /></label>
-                <label>Bezoektijd per urgentie<input type="number" min={0} max={480} value={serviceDuration} onChange={(event) => setServiceDuration(Math.max(0, Math.min(480, Number(event.target.value) || 0)))} /></label>
-                <label>Max. route in minuten<input type="number" min={1} max={1440} value={maxRouteDuration} onChange={(event) => setMaxRouteDuration(event.target.value)} placeholder="Optioneel" /></label>
-                <label>Vertrekuur<input type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} /></label>
+                <label>{lang === "nl" ? "Aantal routes" : "Number of routes"}<input type="number" min={1} max={12} value={routeCount} onChange={(event) => setRouteCount(Math.max(1, Math.min(12, Number(event.target.value) || 1)))} /></label>
+                <label>{L("Bezoektijd per urgentie")}<input type="number" min={0} max={480} value={serviceDuration} onChange={(event) => setServiceDuration(Math.max(0, Math.min(480, Number(event.target.value) || 0)))} /></label>
+                <label>{lang === "nl" ? "Max. route in minuten" : "Max. route in minutes"}<input type="number" min={1} max={1440} value={maxRouteDuration} onChange={(event) => setMaxRouteDuration(event.target.value)} placeholder={lang === "nl" ? "Optioneel" : "Optional"} /></label>
+                <label>{lang === "nl" ? "Vertrekuur" : "Departure time"}<input type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} /></label>
               </div>
               <div className="routeToggleGrid">
                 <label className="routeToggleRow">
                   <input type="checkbox" checked={returnToStart} disabled={useEndLocation} onChange={(event) => setReturnToStart(event.target.checked)} />
-                  <span>Terugkeren naar startpunt</span>
+                  <span>{lang === "nl" ? "Terugkeren naar startpunt" : "Return to start point"}</span>
                 </label>
                 <label className="routeToggleRow">
                   <input type="checkbox" checked={useEndLocation} onChange={(event) => setUseEndLocation(event.target.checked)} />
-                  <span>Apart eindpunt gebruiken</span>
+                  <span>{lang === "nl" ? "Apart eindpunt gebruiken" : "Use separate end point"}</span>
                 </label>
               </div>
               {useEndLocation && (
                 <div className="routeConfigFields">
-                  <SearchableWzcSelect label="Eindpunt overnemen van WZC" value={endLocationWzcId} wzcs={wzcsWithCoordinates} onChange={fillEndLocationFromWzc} placeholder="Handmatig invullen" />
-                  <label>Eindlabel<input value={endLabel} onChange={(event) => setEndLabel(event.target.value)} /></label>
-                  <label>Eind latitude<input value={endLatitude} onChange={(event) => setEndLatitude(event.target.value)} inputMode="decimal" /></label>
-                  <label>Eind longitude<input value={endLongitude} onChange={(event) => setEndLongitude(event.target.value)} inputMode="decimal" /></label>
+                  <SearchableWzcSelect label={lang === "nl" ? "Eindpunt overnemen van WZC" : "Copy end point from care home"} value={endLocationWzcId} wzcs={wzcsWithCoordinates} onChange={fillEndLocationFromWzc} placeholder={lang === "nl" ? "Handmatig invullen" : "Fill in manually"} />
+                  <label>{lang === "nl" ? "Eindlabel" : "End label"}<input value={endLabel} onChange={(event) => setEndLabel(event.target.value)} /></label>
+                  <label>{lang === "nl" ? "Eind latitude" : "End latitude"}<input value={endLatitude} onChange={(event) => setEndLatitude(event.target.value)} inputMode="decimal" /></label>
+                  <label>{lang === "nl" ? "Eind longitude" : "End longitude"}<input value={endLongitude} onChange={(event) => setEndLongitude(event.target.value)} inputMode="decimal" /></label>
                 </div>
               )}
               <div className="formSubmitRow routeSubmitRow">
                 <button className="primaryButton" type="button" disabled={routeLoading || openUrgencies.length === 0} onClick={generateRoutePlan}>
-                  {routeLoading ? "Volgorde berekenen..." : "Volgorde berekenen"}
+                  {routeLoading ? (lang === "nl" ? "Volgorde berekenen..." : "Calculating order...") : (lang === "nl" ? "Volgorde berekenen" : "Calculate order")}
                 </button>
               </div>
               {routeError && <div className="error">{routeError}</div>}
@@ -2358,22 +2704,22 @@ function UrgenciesView({
             <div className="routePlanResult">
               <div className="routeResultBar">
                 <div>
-                  <strong>{assignedCount} urgentie{assignedCount === 1 ? "" : "s"} ingepland</strong>
-                  <span>{routePlan.routes.length} route(s) · {routePlanSourceText(routePlan)}</span>
+                  <strong>{assignedCount} {L("urgenties ingepland")}</strong>
+                  <span>{routePlan.routes.length} route(s) · {routePlanSourceText(routePlan, lang)}</span>
                 </div>
                 <div className="routeResultActions">
                   <button className="compactActionButton" type="button" disabled={saveRouteLoading || routeAlreadySaved} onClick={saveCurrentRoutePlan}>
-                    {saveRouteLoading ? "Opslaan..." : routeAlreadySaved ? "Opgeslagen" : `Opslaan voor ${formatDate(routePlan.execution_date)}`}
+                    {saveRouteLoading ? L("Opslaan...") : routeAlreadySaved ? L("Opgeslagen") : `${L("Opslaan voor")} ${formatDate(routePlan.execution_date)}`}
                   </button>
                   <span className={`softBadge routeSourceBadge ${routePlan.uses_real_road_network ? "" : "warningBadge"}`}>
-                    {routePlanSourceLabel(routePlan)}
+                    {routePlanSourceLabel(routePlan, lang)}
                   </span>
                 </div>
               </div>
               {routeSaveMessage && <div className="successNotice">{routeSaveMessage}</div>}
               {routePlan.warnings.length > 0 && (
                 <details className="routeWarningsDisclosure">
-                  <summary>{routePlan.warnings.length} aandachtspunt{routePlan.warnings.length === 1 ? "" : "en"}</summary>
+                  <summary>{routePlan.warnings.length} {lang === "nl" ? (routePlan.warnings.length === 1 ? "aandachtspunt" : "aandachtspunten") : (routePlan.warnings.length === 1 ? "warning" : "warnings")}</summary>
                   <div className="routeWarnings">
                     {routePlan.warnings.map((warning) => <span key={warning}>{warning}</span>)}
                   </div>
@@ -2390,27 +2736,27 @@ function UrgenciesView({
                         <div className="routeDispatchHeader">
                           <div>
                             <strong>{route.label}</strong>
-                            <span>{route.stops.length} bezoeken · klaar {route.estimated_end_time}</span>
+                            <span>{route.stops.length} {L("bezoeken")} · {L("klaar")} {route.estimated_end_time}</span>
                           </div>
                           <span className="routeColorDot" style={{ background: route.color }} />
                         </div>
                         <div className="routeDispatchSummary">
-                          <span><strong>{formatDuration(route.total_duration_minutes)}</strong> totaal</span>
-                          <span><strong>{formatDuration(route.total_driving_minutes)}</strong> rijden</span>
-                          <span><strong>{formatDistance(route.total_distance_km)}</strong> afstand</span>
+                          <span><strong>{formatDuration(route.total_duration_minutes)}</strong> {lang === "nl" ? "totaal" : "total"}</span>
+                          <span><strong>{formatDuration(route.total_driving_minutes)}</strong> {lang === "nl" ? "rijden" : "driving"}</span>
+                          <span><strong>{formatDistance(route.total_distance_km)}</strong> {lang === "nl" ? "afstand" : "distance"}</span>
                         </div>
                         <div className="routeActionRow">
                           {googleUrl
-                            ? <a className="primaryRouteLink" href={googleUrl} target="_blank" rel="noreferrer">Open in Google Maps</a>
-                            : <span className="routeLinkLimit">Te veel tussenstops voor een Google Maps-link</span>}
+                            ? <a className="primaryRouteLink" href={googleUrl} target="_blank" rel="noreferrer">{lang === "nl" ? "Open in Google Maps" : "Open in Google Maps"}</a>
+                            : <span className="routeLinkLimit">{lang === "nl" ? "Te veel tussenstops voor een Google Maps-link" : "Too many waypoints for a Google Maps link"}</span>}
                           {googleUrl && (
                             <button className="compactActionButton" type="button" onClick={() => shareRoute(route, googleUrl)}>
-                              {sharedRouteId === route.route_id ? "Link klaar" : "Deel/kopieer"}
+                              {sharedRouteId === route.route_id ? (lang === "nl" ? "Link klaar" : "Link ready") : (lang === "nl" ? "Deel/kopieer" : "Share/copy")}
                             </button>
                           )}
                         </div>
                         {googleUrl && waypointCount > 3 && (
-                          <small className="routeMobileNote">Bij veel tussenstops werkt openen in de Google Maps-app het betrouwbaarst.</small>
+                          <small className="routeMobileNote">{lang === "nl" ? "Bij veel tussenstops werkt openen in de Google Maps-app het betrouwbaarst." : "With many waypoints, opening in the Google Maps app works most reliably."}</small>
                         )}
                         <ol className="routeStopList">
                           {route.stops.map((stop) => (
@@ -2420,27 +2766,27 @@ function UrgenciesView({
                             </li>
                           ))}
                         </ol>
-                        {route.stops.length === 0 && <div className="empty compactEmpty">Geen urgenties toegewezen aan deze route.</div>}
+                        {route.stops.length === 0 && <div className="empty compactEmpty">{L("Geen urgenties toegewezen aan deze route.")}</div>}
                         <details className="routeDetails">
-                          <summary>Timing en rijtijden</summary>
+                          <summary>{lang === "nl" ? "Timing en rijtijden" : "Timing and travel times"}</summary>
                           <div className="routeTimeline">
                             <div className="routeTimelineRow">
                               <time>{route.estimated_start_time}</time>
-                              <span>Vertrek {routePlan.start_location.label}</span>
+                              <span>{lang === "nl" ? "Vertrek" : "Departure"} {routePlan.start_location.label}</span>
                             </div>
                             {route.stops.map((stop) => (
                               <div className="routeTimelineRow" key={stop.urgency_id}>
                                 <time>{stop.arrival_time}</time>
                                 <span>
                                   <strong>{stop.sequence}. {stop.wzc_name}</strong>
-                                  <small>{stop.patient_name} · {stop.urgency_type} · +{formatDuration(stop.driving_minutes_from_previous)} rijden</small>
+                                  <small>{stop.patient_name} · {L(stop.urgency_type)} · +{formatDuration(stop.driving_minutes_from_previous)} {lang === "nl" ? "rijden" : "driving"}</small>
                                 </span>
                               </div>
                             ))}
                             {(route.final_driving_minutes > 0 || routePlan.return_to_start || routePlan.end_location) && (
                               <div className="routeTimelineRow">
                                 <time>{route.estimated_end_time}</time>
-                                <span>{route.end_location_label}{route.final_driving_minutes > 0 ? ` · +${formatDuration(route.final_driving_minutes)} rijden` : ""}</span>
+                                <span>{route.end_location_label}{route.final_driving_minutes > 0 ? ` · +${formatDuration(route.final_driving_minutes)} ${lang === "nl" ? "rijden" : "driving"}` : ""}</span>
                               </div>
                             )}
                           </div>
@@ -2457,10 +2803,10 @@ function UrgenciesView({
               </div>
               {routePlan.unassigned_urgencies.length > 0 && (
                 <div className="unassignedPanel">
-                  <strong>Niet ingepland</strong>
+                  <strong>{lang === "nl" ? "Niet ingepland" : "Not scheduled"}</strong>
                   {routePlan.unassigned_urgencies.map((item) => (
                     <div key={item.urgency_id}>
-                      <span>{item.wzc_name || "Geen WZC"} · {item.patient_name}</span>
+                      <span>{item.wzc_name || L("Geen WZC")} · {item.patient_name}</span>
                       <small>{item.reason}</small>
                     </div>
                   ))}
@@ -2473,8 +2819,8 @@ function UrgenciesView({
       <section className="panel urgencyListPanel">
         <div className="sectionTitle">
           <div>
-            <h2>Open urgenties</h2>
-            <p className="sectionHint">Werk meldingen afzonderlijk af zodra ze behandeld of administratief verwerkt zijn.</p>
+            <h2>{L("Open urgenties")}</h2>
+            <p className="sectionHint">{lang === "nl" ? "Werk meldingen afzonderlijk af zodra ze behandeld of administratief verwerkt zijn." : "Complete reports individually once they have been treated or administratively processed."}</p>
           </div>
           <span className="softBadge">{openUrgencies.length} open</span>
         </div>
@@ -2482,48 +2828,48 @@ function UrgenciesView({
           {openUrgencies.map((urgency) => (
             <article className="urgencyRow" key={urgency.id}>
               <div className="urgencyMain">
-                <strong>{urgency.wzc_name || "Geen WZC"}</strong>
+                <strong>{urgency.wzc_name || L("Geen WZC")}</strong>
                 <span>{urgency.patient_name}</span>
               </div>
               <div className="urgencyTypeBlock">
                 <span className="softBadge">{urgency.urgency_type}</span>
                 <small>{formatDate(urgency.reported_on)}</small>
               </div>
-              <small className="urgencyRemark">{urgency.remark || "Geen opmerking"}</small>
-              <button onClick={async () => { await api.completeUrgency(urgency.id); await onSaved(); }}>Afronden</button>
+              <small className="urgencyRemark">{urgency.remark || L("Geen opmerking")}</small>
+              <button onClick={async () => { await api.completeUrgency(urgency.id); await onSaved(); }}>{lang === "nl" ? "Afronden" : "Complete"}</button>
             </article>
           ))}
-          {openUrgencies.length === 0 && <div className="empty">Nog geen open urgenties.</div>}
+          {openUrgencies.length === 0 && <div className="empty">{L("Nog geen open urgenties.")}</div>}
         </div>
       </section>
       <section className="urgencyMonthlyPanel">
         <details className="urgencyMonthlyDisclosure">
           <summary>
-            <span className="urgencyMonthlySummaryMain">Maandoverzicht urgenties</span>
+            <span className="urgencyMonthlySummaryMain">{lang === "nl" ? "Maandoverzicht urgenties" : "Monthly urgency overview"}</span>
             <span className="urgencyMonthlySummaryMeta">
-              Deze maand {urgencyMonthStats[0]?.total ?? 0} · {urgencies.length} totaal
+              {lang === "nl" ? "Deze maand" : "This month"} {urgencyMonthStats[0]?.total ?? 0} · {urgencies.length} {lang === "nl" ? "totaal" : "total"}
             </span>
           </summary>
           <div className="urgencyMonthlyContent">
-            <p className="sectionHint">Telt alle meldingen per meldingsdatum, ook wanneer ze intussen afgerond zijn.</p>
+            <p className="sectionHint">{lang === "nl" ? "Telt alle meldingen per meldingsdatum, ook wanneer ze intussen afgerond zijn." : "Counts all reports by report date, even when they have since been completed."}</p>
             <div className="urgencyMonthGrid">
               {urgencyMonthStats.map((stat) => {
                 const barWidth = stat.total ? Math.max((stat.total / maxMonthlyUrgencies) * 100, 8) : 0;
                 return (
                   <article className={`urgencyMonthCard ${stat.total ? "" : "emptyMonth"}`} key={stat.month}>
                     <div className="urgencyMonthHeader">
-                      <strong>{monthLabel(stat.month)}</strong>
+                      <strong>{monthLabel(stat.month, lang)}</strong>
                       <span>{stat.total}</span>
                     </div>
                     <div className="urgencyMonthBar" aria-hidden="true">
                       <span style={{ width: `${barWidth}%` }} />
                     </div>
                     <div className="urgencyMonthMeta">
-                      <span>Open {stat.open}</span>
-                      <span>Afgerond {stat.completed}</span>
-                      <span>{stat.wzcCount} WZC{stat.wzcCount === 1 ? "" : "'s"}</span>
+                      <span>{lang === "nl" ? "Open" : "Open"} {stat.open}</span>
+                      <span>{lang === "nl" ? "Afgerond" : "Completed"} {stat.completed}</span>
+                      <span>{stat.wzcCount} {lang === "nl" ? `WZC${stat.wzcCount === 1 ? "" : "'s"}` : `care home${stat.wzcCount === 1 ? "" : "s"}`}</span>
                     </div>
-                    {stat.topTypeLabel && <small>Meest: {stat.topTypeLabel}</small>}
+                    {stat.topTypeLabel && <small>{lang === "nl" ? "Meest" : "Most"}: {L(stat.topTypeLabel)}</small>}
                   </article>
                 );
               })}
@@ -2548,6 +2894,8 @@ function WzcOverviewView({
   onPlan: (wzc: Wzc) => void;
   onUrgency: (wzc: Wzc) => void;
 }) {
+  const lang = useLang();
+  const L = (key: string) => t(lang, key);
   const [query, setQuery] = useState("");
   const [groupFilter, setGroupFilter] = useState("");
   const portfolioWzcs = useMemo(() => applyGroupFilter(wzcs, groupFilter), [wzcs, groupFilter]);
@@ -2563,12 +2911,12 @@ function WzcOverviewView({
       <WzcMap wzcs={filtered} selected={selected} onSelectWzc={onSelect} onPlan={onPlan} onUrgency={onUrgency} />
       <section className="panel sidePanel">
         <div className="sectionTitle">
-          <h2>Portfolio</h2>
+          <h2>{lang === "nl" ? "Portfolio" : "Portfolio"}</h2>
           <span className="softBadge">{filtered.length}/{actualWzcs(wzcs).length}</span>
         </div>
-        <input placeholder="Filter op naam, gemeente of eigenaar" value={query} onChange={(event) => setQuery(event.target.value)} />
+        <input placeholder={lang === "nl" ? "Filter op naam, gemeente of eigenaar" : "Filter by name, city or owner"} value={query} onChange={(event) => setQuery(event.target.value)} />
         {groupOptions.length > 0 && (
-          <SearchableGroupSelect value={groupFilter} groups={groupOptions} onChange={setGroupFilter} placeholder="Alle groepen" ariaLabel="Filter op groep" />
+          <SearchableGroupSelect value={groupFilter} groups={groupOptions} onChange={setGroupFilter} placeholder={L("Alle groepen")} ariaLabel={lang === "nl" ? "Filter op groep" : "Filter by group"} />
         )}
         <div className="cardList scrollList">
           {filtered.map((wzc) => (
@@ -2578,8 +2926,8 @@ function WzcOverviewView({
               onClick={() => onSelect(wzc)}
             >
               <strong>{wzc.name}</strong>
-              <span>{wzc.city || "Geen gemeente"} · {wzc.owner || "Geen eigenaar"}</span>
-              <small>{wzc.next_visit ? `Volgende bezoek: ${formatDate(wzc.next_visit)}` : "Nog geen volgend bezoek"}</small>
+              <span>{wzc.city || (lang === "nl" ? "Geen gemeente" : "No city")} · {wzc.owner || (lang === "nl" ? "Geen eigenaar" : "No owner")}</span>
+              <small>{wzc.next_visit ? `${L("Volgende bezoek")}: ${formatDate(wzc.next_visit)}` : (lang === "nl" ? "Nog geen volgend bezoek" : "No upcoming visit")}</small>
             </button>
           ))}
         </div>
@@ -2597,6 +2945,8 @@ function ExtraContactsEditor({
   onChange: (contacts: ExtraContact[]) => void;
   summary?: string;
 }) {
+  const lang = useLang();
+  const L = (key: string) => t(lang, key);
   function updateContact(index: number, patch: Partial<ExtraContact>) {
     onChange(contacts.map((contact, contactIndex) => contactIndex === index ? { ...contact, ...patch } : contact));
   }
@@ -2609,20 +2959,20 @@ function ExtraContactsEditor({
     <details className="extraContactsBox">
       <summary>
         <span>{summary}</span>
-        <small>{contacts.length ? `${contacts.length} extra` : "Geen extra contacten"}</small>
+        <small>{contacts.length ? `${contacts.length} extra` : (lang === "nl" ? "Geen extra contacten" : "No extra contacts")}</small>
       </summary>
       <div className="extraContactsList">
         {contacts.map((contact, index) => (
           <div className="extraContactRow" key={index}>
-            <label>Naam<input value={contact.name} onChange={(event) => updateContact(index, { name: event.target.value })} /></label>
-            <label>Functie<input value={contact.role} onChange={(event) => updateContact(index, { role: event.target.value })} /></label>
-            <label>Telefoon<input value={contact.phone} onChange={(event) => updateContact(index, { phone: event.target.value })} /></label>
-            <label>E-mail<input value={contact.email} onChange={(event) => updateContact(index, { email: event.target.value })} /></label>
-            <button type="button" onClick={() => removeContact(index)}>Verwijderen</button>
+            <label>{lang === "nl" ? "Naam" : "Name"}<input value={contact.name} onChange={(event) => updateContact(index, { name: event.target.value })} /></label>
+            <label>{lang === "nl" ? "Functie" : "Function"}<input value={contact.role} onChange={(event) => updateContact(index, { role: event.target.value })} /></label>
+            <label>{L("Telefoon")}<input value={contact.phone} onChange={(event) => updateContact(index, { phone: event.target.value })} /></label>
+            <label>{L("E-mail")}<input value={contact.email} onChange={(event) => updateContact(index, { email: event.target.value })} /></label>
+            <button type="button" onClick={() => removeContact(index)}>{L("Verwijderen")}</button>
           </div>
         ))}
-        {contacts.length === 0 && <div className="empty compactEmpty">Nog geen extra contactpersonen.</div>}
-        <button type="button" onClick={() => onChange([...contacts, blankExtraContact()])}>Contact toevoegen</button>
+        {contacts.length === 0 && <div className="empty compactEmpty">{lang === "nl" ? "Nog geen extra contactpersonen." : "No extra contacts yet."}</div>}
+        <button type="button" onClick={() => onChange([...contacts, blankExtraContact()])}>{ lang === "nl" ? "Contact toevoegen" : "Add contact"}</button>
       </div>
     </details>
   );
@@ -2712,6 +3062,8 @@ function ProspectView({
   onConverted?: (wzc: Wzc) => void;
   onSaved: () => Promise<void>;
 }) {
+  const lang = useLang();
+  const L = (key: string) => t(lang, key);
   const [showForm, setShowForm] = useState(false);
   const [selected, setSelected] = useState<Prospect | null>(prospects[0] || null);
   const [query, setQuery] = useState("");
@@ -2883,40 +3235,40 @@ function ProspectView({
       <section className="panel">
         <div className="sectionTitle">
           <div>
-            <h2>Prospectie pipeline</h2>
-            <p className="sectionHint">{prospects.length} prospecties · {attentionCount} vragen aandacht · {plannedCount} gesprekken gepland</p>
+            <h2>{lang === "nl" ? "Prospectie pipeline" : "Prospect pipeline"}</h2>
+            <p className="sectionHint">{prospects.length} {lang === "nl" ? "prospecties" : "prospects"} · {attentionCount} {lang === "nl" ? "vragen aandacht" : "need attention"} · {plannedCount} {lang === "nl" ? "gesprekken gepland" : "meetings planned"}</p>
           </div>
-          <button className="primaryButton" onClick={() => setShowForm((value) => !value)}>Nieuwe WZC prospect</button>
+          <button className="primaryButton" onClick={() => setShowForm((value) => !value)}>{lang === "nl" ? "Nieuwe WZC prospect" : "New care home prospect"}</button>
         </div>
         {showForm && (
           <form className="formGrid compact" onSubmit={submit}>
-            <label>Naam<input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required /></label>
-            <GroupNameField label="Groep" groups={groupOptions} value={form.group_name} onChange={(group_name) => setForm({ ...form, group_name })} />
-            <label>Adres<input value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} /></label>
-            <label>Postcode<input value={form.postal_code} onChange={(event) => setForm({ ...form, postal_code: event.target.value })} /></label>
-            <label>Gemeente<input value={form.city} onChange={(event) => setForm({ ...form, city: event.target.value })} /></label>
-            <label>Contact<input value={form.contact_name} onChange={(event) => setForm({ ...form, contact_name: event.target.value })} /></label>
-            <label>Telefoon<input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></label>
-            <label>E-mail<input value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
-            <label>Status<select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value })}>
-              {prospectStatuses.map((status) => <option key={status}>{status}</option>)}
+            <label>{lang === "nl" ? "Naam" : "Name"}<input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required /></label>
+            <GroupNameField label={L("Groep")} groups={groupOptions} value={form.group_name} onChange={(group_name) => setForm({ ...form, group_name })} />
+            <label>{L("Adres")}<input value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} /></label>
+            <label>{lang === "nl" ? "Postcode" : "Postal code"}<input value={form.postal_code} onChange={(event) => setForm({ ...form, postal_code: event.target.value })} /></label>
+            <label>{lang === "nl" ? "Gemeente" : "City"}<input value={form.city} onChange={(event) => setForm({ ...form, city: event.target.value })} /></label>
+            <label>{L("Contact")}<input value={form.contact_name} onChange={(event) => setForm({ ...form, contact_name: event.target.value })} /></label>
+            <label>{L("Telefoon")}<input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></label>
+            <label>{L("E-mail")}<input value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
+            <label>{L("Status")}<select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value })}>
+              {prospectStatuses.map((status) => <option key={status} value={status}>{L(status)}</option>)}
             </select></label>
-            <label>Kanaal<select value={form.channel} onChange={(event) => setForm({ ...form, channel: event.target.value })}>
-              <option value="">Niet gekozen</option>
-              {prospectChannels.map((channel) => <option key={channel}>{channel}</option>)}
+            <label>{lang === "nl" ? "Kanaal" : "Channel"}<select value={form.channel} onChange={(event) => setForm({ ...form, channel: event.target.value })}>
+              <option value="">{lang === "nl" ? "Niet gekozen" : "Not selected"}</option>
+              {prospectChannels.map((channel) => <option key={channel} value={channel}>{L(channel)}</option>)}
             </select></label>
-            <label>Response<select value={form.response} onChange={(event) => setForm({ ...form, response: event.target.value })}>
-              <option value="">Niet gekozen</option>
-              {prospectResponses.map((response) => <option key={response}>{response}</option>)}
+            <label>{lang === "nl" ? "Response" : "Response"}<select value={form.response} onChange={(event) => setForm({ ...form, response: event.target.value })}>
+              <option value="">{lang === "nl" ? "Niet gekozen" : "Not selected"}</option>
+              {prospectResponses.map((response) => <option key={response} value={response}>{L(response)}</option>)}
             </select></label>
-            <label>Eigenaar<input value={form.owner} onChange={(event) => setForm({ ...form, owner: event.target.value })} /></label>
-            <label>Deadline<input type="date" value={form.next_action_deadline} onChange={(event) => setForm({ ...form, next_action_deadline: event.target.value })} /></label>
-            <label className="wide">Volgende actie<input value={form.next_action} onChange={(event) => setForm({ ...form, next_action: event.target.value })} /></label>
-            <button className="primaryButton">Prospectie opslaan</button>
+            <label>{lang === "nl" ? "Eigenaar" : "Owner"}<input value={form.owner} onChange={(event) => setForm({ ...form, owner: event.target.value })} /></label>
+            <label>{lang === "nl" ? "Deadline" : "Deadline"}<input type="date" value={form.next_action_deadline} onChange={(event) => setForm({ ...form, next_action_deadline: event.target.value })} /></label>
+            <label className="wide">{L("Volgende actie")}<input value={form.next_action} onChange={(event) => setForm({ ...form, next_action: event.target.value })} /></label>
+            <button className="primaryButton">{lang === "nl" ? "Prospectie opslaan" : "Save prospect"}</button>
           </form>
         )}
         <div className="filterBar">
-          <input placeholder="Zoek prospectie, status, eigenaar of actie" value={query} onChange={(event) => setQuery(event.target.value)} />
+          <input placeholder={lang === "nl" ? "Zoek prospectie, status, eigenaar of actie" : "Search prospect, status, owner or action"} value={query} onChange={(event) => setQuery(event.target.value)} />
           <div className="segmented">
             {filterOptions.map((option) => (
               <button key={option} className={workFilter === option ? "selected" : ""} onClick={() => setWorkFilter(option)}>{option}</button>
@@ -2928,59 +3280,59 @@ function ProspectView({
             <button key={prospect.id} className={`pipelineRow ${selected?.id === prospect.id ? "selected" : ""}`} onClick={() => setSelected(prospect)}>
               <div>
                 <strong>{prospect.name}</strong>
-                <span>{formatAddress([prospect.address, prospect.postal_code, prospect.city]) || "Geen adres"}</span>
-                <small>{prospect.next_action || "Geen volgende actie"} · {prospect.owner || "Geen eigenaar"}</small>
+                <span>{formatAddress([prospect.address, prospect.postal_code, prospect.city]) || (lang === "nl" ? "Geen adres" : "No address")}</span>
+                <small>{prospect.next_action || (lang === "nl" ? "Geen volgende actie" : "No next action")} · {prospect.owner || (lang === "nl" ? "Geen eigenaar" : "No owner")}</small>
               </div>
               <div className="pipelineMeta">
                 <span className="softBadge">{prospect.status || defaultProspectStatus}</span>
-                {prospectNeedsAttention(prospect) && <span className="attentionBadge">Aandacht</span>}
-                <small>{prospect.next_action_deadline ? formatDate(prospect.next_action_deadline) : "Geen deadline"}</small>
+                {prospectNeedsAttention(prospect) && <span className="attentionBadge">{lang === "nl" ? "Aandacht" : "Attention"}</span>}
+                <small>{prospect.next_action_deadline ? formatDate(prospect.next_action_deadline) : (lang === "nl" ? "Geen deadline" : "No deadline")}</small>
               </div>
             </button>
           ))}
-          {filtered.length === 0 && <div className="empty">Geen prospecties voor deze filter.</div>}
+          {filtered.length === 0 && <div className="empty">{lang === "nl" ? "Geen prospecties voor deze filter." : "No prospects for this filter."}</div>}
         </div>
       </section>
       {selected && (
         <section className="panel" id="prospectfiche">
           <div className="sectionTitle">
             <div>
-              <h2>Prospectfiche</h2>
-              <p className="sectionHint">{selected.external_id} · laatste status: {selected.status || defaultProspectStatus}</p>
+              <h2>{lang === "nl" ? "Prospectfiche" : "Prospect details"}</h2>
+              <p className="sectionHint">{selected.external_id} · {lang === "nl" ? "laatste status" : "last status"}: {L(selected.status || defaultProspectStatus)}</p>
             </div>
             <div className="inlineActions noMargin">
-              <button className="primaryButton" disabled={converting} onClick={convertSelectedToWzc}>{converting ? "Omzetten..." : "Zet om naar actieve WZC"}</button>
-              <button onClick={removeSelected}>Verwijderen</button>
-              <button className="primaryButton" onClick={saveSelected}>Bewaren</button>
+              <button className="primaryButton" disabled={converting} onClick={convertSelectedToWzc}>{converting ? (lang === "nl" ? "Omzetten..." : "Converting...") : (lang === "nl" ? "Zet om naar actieve WZC" : "Convert to active care home")}</button>
+              <button onClick={removeSelected}>{L("Verwijderen")}</button>
+              <button className="primaryButton" onClick={saveSelected}>{lang === "nl" ? "Bewaren" : "Save"}</button>
             </div>
           </div>
           <div className="formGrid compact">
-            <label>WZC naam<input value={editForm.name} onChange={(event) => setEditForm({ ...editForm, name: event.target.value })} /></label>
-            <SearchableGroupSelect label="Groep" value={editForm.group_name} groups={groupOptions} onChange={(group_name) => setEditForm({ ...editForm, group_name })} placeholder="Typ of kies groep" />
-            <label>Adres<input value={editForm.address} onChange={(event) => setEditForm({ ...editForm, address: event.target.value })} /></label>
-            <label>Postcode<input value={editForm.postal_code} onChange={(event) => setEditForm({ ...editForm, postal_code: event.target.value })} /></label>
-            <label>Gemeente<input value={editForm.city} onChange={(event) => setEditForm({ ...editForm, city: event.target.value })} /></label>
-            <label>Hoofdcontact<input value={editForm.contact_name} onChange={(event) => setEditForm({ ...editForm, contact_name: event.target.value })} /></label>
-            <label>Telefoon<input value={editForm.phone} onChange={(event) => setEditForm({ ...editForm, phone: event.target.value })} /></label>
-            <label>E-mail<input value={editForm.email} onChange={(event) => setEditForm({ ...editForm, email: event.target.value })} /></label>
-            <label>Status<select value={editForm.status} onChange={(event) => setEditForm({ ...editForm, status: event.target.value })}>
-              {prospectStatuses.map((status) => <option key={status}>{status}</option>)}
+            <label>{lang === "nl" ? "WZC naam" : "Care home name"}<input value={editForm.name} onChange={(event) => setEditForm({ ...editForm, name: event.target.value })} /></label>
+            <SearchableGroupSelect label={L("Groep")} value={editForm.group_name} groups={groupOptions} onChange={(group_name) => setEditForm({ ...editForm, group_name })} placeholder={L("Typ of kies groep")} />
+            <label>{L("Adres")}<input value={editForm.address} onChange={(event) => setEditForm({ ...editForm, address: event.target.value })} /></label>
+            <label>{lang === "nl" ? "Postcode" : "Postal code"}<input value={editForm.postal_code} onChange={(event) => setEditForm({ ...editForm, postal_code: event.target.value })} /></label>
+            <label>{lang === "nl" ? "Gemeente" : "City"}<input value={editForm.city} onChange={(event) => setEditForm({ ...editForm, city: event.target.value })} /></label>
+            <label>{lang === "nl" ? "Hoofdcontact" : "Main contact"}<input value={editForm.contact_name} onChange={(event) => setEditForm({ ...editForm, contact_name: event.target.value })} /></label>
+            <label>{L("Telefoon")}<input value={editForm.phone} onChange={(event) => setEditForm({ ...editForm, phone: event.target.value })} /></label>
+            <label>{L("E-mail")}<input value={editForm.email} onChange={(event) => setEditForm({ ...editForm, email: event.target.value })} /></label>
+            <label>{L("Status")}<select value={editForm.status} onChange={(event) => setEditForm({ ...editForm, status: event.target.value })}>
+              {prospectStatuses.map((status) => <option key={status} value={status}>{L(status)}</option>)}
             </select></label>
-            <label>Kanaal<select value={editForm.channel} onChange={(event) => setEditForm({ ...editForm, channel: event.target.value })}>
-              <option value="">Niet gekozen</option>
-              {prospectChannels.map((channel) => <option key={channel}>{channel}</option>)}
+            <label>{lang === "nl" ? "Kanaal" : "Channel"}<select value={editForm.channel} onChange={(event) => setEditForm({ ...editForm, channel: event.target.value })}>
+              <option value="">{lang === "nl" ? "Niet gekozen" : "Not selected"}</option>
+              {prospectChannels.map((channel) => <option key={channel} value={channel}>{L(channel)}</option>)}
             </select></label>
-            <label>Response<select value={editForm.response} onChange={(event) => setEditForm({ ...editForm, response: event.target.value })}>
-              <option value="">Niet gekozen</option>
-              {prospectResponses.map((response) => <option key={response}>{response}</option>)}
+            <label>{lang === "nl" ? "Response" : "Response"}<select value={editForm.response} onChange={(event) => setEditForm({ ...editForm, response: event.target.value })}>
+              <option value="">{lang === "nl" ? "Niet gekozen" : "Not selected"}</option>
+              {prospectResponses.map((response) => <option key={response} value={response}>{L(response)}</option>)}
             </select></label>
-            <label>Eigenaar<input value={editForm.owner} onChange={(event) => setEditForm({ ...editForm, owner: event.target.value })} /></label>
-            <label>Aangeschreven op<input type="date" value={editForm.contacted_on} onChange={(event) => setEditForm({ ...editForm, contacted_on: event.target.value })} /></label>
-            <label>Gesprekstype<input value={editForm.meeting_type} onChange={(event) => setEditForm({ ...editForm, meeting_type: event.target.value })} /></label>
-            <label>Gespreksdatum<input type="date" value={editForm.meeting_date} onChange={(event) => setEditForm({ ...editForm, meeting_date: event.target.value })} /></label>
-            <label>Deadline volgende actie<input type="date" value={editForm.next_action_deadline} onChange={(event) => setEditForm({ ...editForm, next_action_deadline: event.target.value })} /></label>
-            <label className="wide">Volgende actie<input value={editForm.next_action} onChange={(event) => setEditForm({ ...editForm, next_action: event.target.value })} /></label>
-            <label className="wide">Opmerking<textarea value={editForm.remark} onChange={(event) => setEditForm({ ...editForm, remark: event.target.value })} /></label>
+            <label>{lang === "nl" ? "Eigenaar" : "Owner"}<input value={editForm.owner} onChange={(event) => setEditForm({ ...editForm, owner: event.target.value })} /></label>
+            <label>{lang === "nl" ? "Aangeschreven op" : "Contacted on"}<input type="date" value={editForm.contacted_on} onChange={(event) => setEditForm({ ...editForm, contacted_on: event.target.value })} /></label>
+            <label>{lang === "nl" ? "Gesprekstype" : "Meeting type"}<input value={editForm.meeting_type} onChange={(event) => setEditForm({ ...editForm, meeting_type: event.target.value })} /></label>
+            <label>{lang === "nl" ? "Gespreksdatum" : "Meeting date"}<input type="date" value={editForm.meeting_date} onChange={(event) => setEditForm({ ...editForm, meeting_date: event.target.value })} /></label>
+            <label>{L("Deadline volgende actie")}<input type="date" value={editForm.next_action_deadline} onChange={(event) => setEditForm({ ...editForm, next_action_deadline: event.target.value })} /></label>
+            <label className="wide">{L("Volgende actie")}<input value={editForm.next_action} onChange={(event) => setEditForm({ ...editForm, next_action: event.target.value })} /></label>
+            <label className="wide">{L("Opmerking")}<textarea value={editForm.remark} onChange={(event) => setEditForm({ ...editForm, remark: event.target.value })} /></label>
           </div>
         </section>
       )}
@@ -3005,6 +3357,8 @@ function ActiveWzcFollowupView({
   onPlan: (wzc: Wzc) => void;
   onUrgency: (wzc: Wzc) => void;
 }) {
+  const lang = useLang();
+  const L = (key: string) => t(lang, key);
   const [selected, setSelected] = useState<Wzc | null>(wzcs[0] || null);
   const [query, setQuery] = useState("");
   const [workFilter, setWorkFilter] = useState("Alles");
@@ -3117,15 +3471,15 @@ function ActiveWzcFollowupView({
       <section className="panel">
         <div className="sectionTitle">
           <div>
-            <h2>Actieve WZC's opvolgen</h2>
-            <p className="sectionHint">{groupedWzcs.length} actief · {openUrgencyCount} open urgenties · {missingVisitCount} zonder volgend bezoek</p>
+            <h2>{lang === "nl" ? "Actieve WZC's opvolgen" : "Follow up active care homes"}</h2>
+            <p className="sectionHint">{groupedWzcs.length} {lang === "nl" ? "actief" : "active"} · {openUrgencyCount} {lang === "nl" ? "open urgenties" : "open urgencies"} · {missingVisitCount} {lang === "nl" ? "zonder volgend bezoek" : "without next visit"}</p>
           </div>
         </div>
         <div className="filterBar">
-          <input placeholder="Zoek op WZC, gemeente, eigenaar, contact of opmerking" value={query} onChange={(event) => setQuery(event.target.value)} />
+          <input placeholder={lang === "nl" ? "Zoek op WZC, gemeente, eigenaar, contact of opmerking" : "Search by care home, city, owner, contact or remark"} value={query} onChange={(event) => setQuery(event.target.value)} />
           <div className="filterControls">
             {groupOptions.length > 0 && (
-              <SearchableGroupSelect className="groupFilterInput" value={groupFilter} groups={groupOptions} onChange={setGroupFilter} placeholder="Alle groepen" ariaLabel="Filter op groep" />
+              <SearchableGroupSelect className="groupFilterInput" value={groupFilter} groups={groupOptions} onChange={setGroupFilter} placeholder={L("Alle groepen")} ariaLabel={lang === "nl" ? "Filter op groep" : "Filter by group"} />
             )}
             <div className="segmented">
               {filterOptions.map((option) => (
@@ -3139,47 +3493,47 @@ function ActiveWzcFollowupView({
             <article key={wzc.id} className={`pipelineRow ${selected?.id === wzc.id ? "selected" : ""}`}>
               <button className="pipelineMainButton" onClick={() => setSelected(wzc)}>
                 <strong>{wzc.name}</strong>
-                <span>{formatAddress([wzc.address, wzc.postal_code, wzc.city]) || "Geen adres"}</span>
-                <small>{wzc.contact_name || "Geen contactpersoon"} · {wzc.owner || "Geen eigenaar"} · {wzc.group_name || "Geen groep"}</small>
+                <span>{formatAddress([wzc.address, wzc.postal_code, wzc.city]) || (lang === "nl" ? "Geen adres" : "No address")}</span>
+                <small>{wzc.contact_name || (lang === "nl" ? "Geen contactpersoon" : "No contact")} · {wzc.owner || (lang === "nl" ? "Geen eigenaar" : "No owner")} · {wzc.group_name || (lang === "nl" ? "Geen groep" : "No group")}</small>
               </button>
               <div className="pipelineMeta">
-                <span className="softBadge">{wzc.next_visit ? `Volgend bezoek ${formatDate(wzc.next_visit)}` : "Geen volgend bezoek"}</span>
-                {openUrgenciesFor(wzc) > 0 && <span className="attentionBadge">{openUrgenciesFor(wzc)} urgentie(s)</span>}
-                <button className="compactActionButton" onClick={() => openWzcFiche(wzc)}>Fiche</button>
+                <span className="softBadge">{wzc.next_visit ? `${L("Volgende bezoek")} ${formatDate(wzc.next_visit)}` : (lang === "nl" ? "Geen volgend bezoek" : "No next visit")}</span>
+                {openUrgenciesFor(wzc) > 0 && <span className="attentionBadge">{openUrgenciesFor(wzc)} {lang === "nl" ? "urgentie(s)" : "urgency(ies)"}</span>}
+                <button className="compactActionButton" onClick={() => openWzcFiche(wzc)}>{lang === "nl" ? "Fiche" : "Details"}</button>
               </div>
             </article>
           ))}
-          {filtered.length === 0 && <div className="empty">Geen actieve WZC's voor deze filter.</div>}
+          {filtered.length === 0 && <div className="empty">{lang === "nl" ? "Geen actieve WZC's voor deze filter." : "No active care homes for this filter."}</div>}
         </div>
       </section>
       {selected && (
         <section className="panel" id="actieve-wzc-fiche">
           <div className="sectionTitle">
             <div>
-              <h2>WZC fiche</h2>
+              <h2>{lang === "nl" ? "WZC fiche" : "Care home details"}</h2>
               <p className="sectionHint">{selected.external_id} · {selected.collaboration_status}</p>
             </div>
             <div className="inlineActions noMargin">
-              <button onClick={() => onUrgency(selected)}>Urgentie toevoegen</button>
-              <button onClick={() => onPlan(selected)}>Planning maken</button>
-              <button className="primaryButton" onClick={saveSelected}>Bewaren</button>
+              <button onClick={() => onUrgency(selected)}>{L("Urgentie toevoegen")}</button>
+              <button onClick={() => onPlan(selected)}>{L("Planning maken")}</button>
+              <button className="primaryButton" onClick={saveSelected}>{lang === "nl" ? "Bewaren" : "Save"}</button>
             </div>
           </div>
           <div className="formGrid compact">
-            <label>WZC naam<input value={editForm.name} onChange={(event) => setEditForm({ ...editForm, name: event.target.value })} /></label>
-            <SearchableGroupSelect label="Groep" value={editForm.group_name} groups={groupOptions} onChange={(group_name) => setEditForm({ ...editForm, group_name })} placeholder="Typ of kies groep" />
-            <label>Adres<input value={editForm.address} onChange={(event) => setEditForm({ ...editForm, address: event.target.value })} /></label>
-            <label>Postcode<input value={editForm.postal_code} onChange={(event) => setEditForm({ ...editForm, postal_code: event.target.value })} /></label>
-            <label>Gemeente<input value={editForm.city} onChange={(event) => setEditForm({ ...editForm, city: event.target.value })} /></label>
-            <label>Hoofdcontact<input value={editForm.contact_name} onChange={(event) => setEditForm({ ...editForm, contact_name: event.target.value })} /></label>
-            <label>Functie hoofdcontact<input value={editForm.contact_role} onChange={(event) => setEditForm({ ...editForm, contact_role: event.target.value })} /></label>
-            <label>Telefoon<input value={editForm.phone} onChange={(event) => setEditForm({ ...editForm, phone: event.target.value })} /></label>
-            <label>E-mail<input value={editForm.email} onChange={(event) => setEditForm({ ...editForm, email: event.target.value })} /></label>
-            <label>Eigenaar<input value={editForm.owner} onChange={(event) => setEditForm({ ...editForm, owner: event.target.value })} /></label>
-            <label>Laatste bezoek<input type="date" value={editForm.last_visit} onChange={(event) => setEditForm({ ...editForm, last_visit: event.target.value })} /></label>
-            <label>Volgend bezoek<input type="date" value={editForm.next_visit} onChange={(event) => setEditForm({ ...editForm, next_visit: event.target.value })} /></label>
-            <label>Aantal bewoners<input type="number" min="0" value={editForm.resident_count} onChange={(event) => setEditForm({ ...editForm, resident_count: event.target.value })} /></label>
-            <label className="wide">Opmerking<textarea value={editForm.remark} onChange={(event) => setEditForm({ ...editForm, remark: event.target.value })} /></label>
+            <label>{lang === "nl" ? "WZC naam" : "Care home name"}<input value={editForm.name} onChange={(event) => setEditForm({ ...editForm, name: event.target.value })} /></label>
+            <SearchableGroupSelect label={L("Groep")} value={editForm.group_name} groups={groupOptions} onChange={(group_name) => setEditForm({ ...editForm, group_name })} placeholder={L("Typ of kies groep")} />
+            <label>{L("Adres")}<input value={editForm.address} onChange={(event) => setEditForm({ ...editForm, address: event.target.value })} /></label>
+            <label>{lang === "nl" ? "Postcode" : "Postal code"}<input value={editForm.postal_code} onChange={(event) => setEditForm({ ...editForm, postal_code: event.target.value })} /></label>
+            <label>{lang === "nl" ? "Gemeente" : "City"}<input value={editForm.city} onChange={(event) => setEditForm({ ...editForm, city: event.target.value })} /></label>
+            <label>{lang === "nl" ? "Hoofdcontact" : "Main contact"}<input value={editForm.contact_name} onChange={(event) => setEditForm({ ...editForm, contact_name: event.target.value })} /></label>
+            <label>{lang === "nl" ? "Functie hoofdcontact" : "Contact role"}<input value={editForm.contact_role} onChange={(event) => setEditForm({ ...editForm, contact_role: event.target.value })} /></label>
+            <label>{L("Telefoon")}<input value={editForm.phone} onChange={(event) => setEditForm({ ...editForm, phone: event.target.value })} /></label>
+            <label>{L("E-mail")}<input value={editForm.email} onChange={(event) => setEditForm({ ...editForm, email: event.target.value })} /></label>
+            <label>{lang === "nl" ? "Eigenaar" : "Owner"}<input value={editForm.owner} onChange={(event) => setEditForm({ ...editForm, owner: event.target.value })} /></label>
+            <label>{lang === "nl" ? "Laatste bezoek" : "Last visit"}<input type="date" value={editForm.last_visit} onChange={(event) => setEditForm({ ...editForm, last_visit: event.target.value })} /></label>
+            <label>{lang === "nl" ? "Volgend bezoek" : "Next visit"}<input type="date" value={editForm.next_visit} onChange={(event) => setEditForm({ ...editForm, next_visit: event.target.value })} /></label>
+            <label>{lang === "nl" ? "Aantal bewoners" : "Number of residents"}<input type="number" min="0" value={editForm.resident_count} onChange={(event) => setEditForm({ ...editForm, resident_count: event.target.value })} /></label>
+            <label className="wide">{L("Opmerking")}<textarea value={editForm.remark} onChange={(event) => setEditForm({ ...editForm, remark: event.target.value })} /></label>
           </div>
           <ExtraContactsEditor contacts={extraContacts} onChange={setExtraContacts} />
         </section>
@@ -3209,6 +3563,8 @@ function WzcFollowupView({
   onPlan: (wzc: Wzc) => void;
   onUrgency: (wzc: Wzc) => void;
 }) {
+  const lang = useLang();
+  const L = (key: string) => t(lang, key);
   const [mode, setMode] = useState<FollowupMode>("Prospectie");
   const [convertedFocusWzc, setConvertedFocusWzc] = useState<Wzc | null>(null);
   const activeWzcs = actualWzcs(wzcs).filter((wzc) => wzc.collaboration_status === "Actief");
@@ -3283,6 +3639,8 @@ function WzcDatabaseView({
   auditLogs: AuditLog[];
   onSaved: () => Promise<void>;
 }) {
+  const lang = useLang();
+  const L = (key: string) => t(lang, key);
   const [unlocked, setUnlocked] = useState(false);
   const [accessCode, setAccessCode] = useState("");
   const [activeTab, setActiveTab] = useState<DatabaseTab>("WZC database");
@@ -3328,6 +3686,10 @@ function WzcDatabaseView({
   });
   const [passwordUserId, setPasswordUserId] = useState<number | null>(null);
   const [passwordNotice, setPasswordNotice] = useState("");
+  const [portalAccounts, setPortalAccounts] = useState<PortalAccount[]>([]);
+  const [portalAccountsLoaded, setPortalAccountsLoaded] = useState(false);
+  const [portalForm, setPortalForm] = useState({ email: "", password: "", wzc_id: "", role: "staff" });
+  const [portalError, setPortalError] = useState("");
   const [logFilters, setLogFilters] = useState({
     actor: "",
     module: "",
@@ -3463,13 +3825,13 @@ function WzcDatabaseView({
     return (
       <section className="accessPanel">
         <img src="/logo-icon.svg" alt="" />
-        <h2>WZC database</h2>
-        <p>Extra beveiligde adminzone voor WZC-masterdata, teams, gebruikers en user log.</p>
+        <h2>{L("WZC database")}</h2>
+        <p>{lang === "nl" ? "Extra beveiligde adminzone voor WZC-masterdata, teams, gebruikers en user log." : "Extra secured admin zone for care home master data, teams, users and user log."}</p>
         <form onSubmit={(event) => { event.preventDefault(); setUnlocked(accessCode === "0000"); }}>
-          <label>Toegangscode<input value={accessCode} onChange={(event) => setAccessCode(event.target.value)} type="password" autoComplete="off" /></label>
-          <button className="primaryButton">Openen</button>
+          <label>{lang === "nl" ? "Toegangscode" : "Access code"}<input value={accessCode} onChange={(event) => setAccessCode(event.target.value)} type="password" autoComplete="off" /></label>
+          <button className="primaryButton">{lang === "nl" ? "Openen" : "Open"}</button>
         </form>
-        {accessCode && accessCode !== "0000" && <div className="error">Toegangscode klopt niet.</div>}
+        {accessCode && accessCode !== "0000" && <div className="error">{lang === "nl" ? "Toegangscode klopt niet." : "Access code is incorrect."}</div>}
       </section>
     );
   }
@@ -3482,7 +3844,10 @@ function WzcDatabaseView({
             setActiveTab(tab);
             setPasswordUserId(null);
             setPasswordNotice("");
-          }}>{tab}</button>
+            if (tab === "Portaal accounts" && !portalAccountsLoaded) {
+              api.portalAccounts().then((accounts) => { setPortalAccounts(accounts); setPortalAccountsLoaded(true); }).catch(() => {});
+            }
+          }}>{L(tab)}</button>
         ))}
       </section>
       {activeTab === "WZC database" && (
@@ -3490,11 +3855,11 @@ function WzcDatabaseView({
       <section className="panel">
         <div className="sectionTitle">
           <div>
-            <h2>Master database WZC's</h2>
-            <p className="sectionHint">Deze gegevens voeden kaart, urgenties, prospectie-opvolging en planning. Groep/organisatie is een filter, geen aparte WZC.</p>
+            <h2>{lang === "nl" ? "Master database WZC's" : "Master database care homes"}</h2>
+            <p className="sectionHint">{lang === "nl" ? "Deze gegevens voeden kaart, urgenties, prospectie-opvolging en planning. Groep/organisatie is een filter, geen aparte WZC." : "This data feeds the map, urgencies, prospect follow-up and planning. Group/organization is a filter, not a separate care home."}</p>
           </div>
-          <span className="softBadge">{realWzcs.length} WZC's · {groupOptions.length} groepen</span>
-          <button className="primaryButton" onClick={() => setShowForm((value) => !value)}>Nieuwe WZC toevoegen</button>
+          <span className="softBadge">{realWzcs.length} {L("WZC's")} · {groupOptions.length} {lang === "nl" ? "groepen" : "groups"}</span>
+          <button className="primaryButton" onClick={() => setShowForm((value) => !value)}>{lang === "nl" ? "Nieuwe WZC toevoegen" : "Add new care home"}</button>
         </div>
         {groupRows.length > 0 && (
           <div className="privacyStrip">
@@ -3503,38 +3868,38 @@ function WzcDatabaseView({
         )}
         {showForm && (
           <form className="formGrid compact" onSubmit={submit}>
-            <label>WZC naam<input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required /></label>
-            <GroupNameField label="Groep/organisatie" groups={formGroupOptions} value={form.group_name} onChange={(group_name) => setForm({ ...form, group_name })} />
-            <label>Adres<input value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} /></label>
-            <label>Postcode<input value={form.postal_code} onChange={(event) => setForm({ ...form, postal_code: event.target.value })} /></label>
-            <label>Gemeente<input value={form.city} onChange={(event) => setForm({ ...form, city: event.target.value })} /></label>
-            <label>Hoofdcontact<input value={form.contact_name} onChange={(event) => setForm({ ...form, contact_name: event.target.value })} /></label>
-            <label>Functie hoofdcontact<input value={form.contact_role} onChange={(event) => setForm({ ...form, contact_role: event.target.value })} /></label>
-            <label>E-mail<input value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
-            <label>Telefoon<input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></label>
-            <label>Website<input value={form.website} onChange={(event) => setForm({ ...form, website: event.target.value })} /></label>
-            <label>Status<select value={form.collaboration_status} onChange={(event) => setForm({ ...form, collaboration_status: event.target.value })}>
-              <option>Actief</option>
-              <option>Inactief</option>
-              <option>On hold</option>
+            <label>{lang === "nl" ? "WZC naam" : "Care home name"}<input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required /></label>
+            <GroupNameField label={L("Groep/organisatie")} groups={formGroupOptions} value={form.group_name} onChange={(group_name) => setForm({ ...form, group_name })} />
+            <label>{L("Adres")}<input value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} /></label>
+            <label>{lang === "nl" ? "Postcode" : "Postal code"}<input value={form.postal_code} onChange={(event) => setForm({ ...form, postal_code: event.target.value })} /></label>
+            <label>{lang === "nl" ? "Gemeente" : "City"}<input value={form.city} onChange={(event) => setForm({ ...form, city: event.target.value })} /></label>
+            <label>{lang === "nl" ? "Hoofdcontact" : "Main contact"}<input value={form.contact_name} onChange={(event) => setForm({ ...form, contact_name: event.target.value })} /></label>
+            <label>{lang === "nl" ? "Functie hoofdcontact" : "Contact role"}<input value={form.contact_role} onChange={(event) => setForm({ ...form, contact_role: event.target.value })} /></label>
+            <label>{L("E-mail")}<input value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
+            <label>{L("Telefoon")}<input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></label>
+            <label>{L("Website")}<input value={form.website} onChange={(event) => setForm({ ...form, website: event.target.value })} /></label>
+            <label>{L("Status")}<select value={form.collaboration_status} onChange={(event) => setForm({ ...form, collaboration_status: event.target.value })}>
+              <option value="Actief">{L("Actief")}</option>
+              <option value="Inactief">{lang === "nl" ? "Inactief" : "Inactive"}</option>
+              <option value="On hold">{L("On hold")}</option>
             </select></label>
             <div className="wide">
               <ExtraContactsEditor contacts={newWzcExtraContacts} onChange={setNewWzcExtraContacts} />
             </div>
-            <button className="primaryButton">Opslaan</button>
+            <button className="primaryButton">{L("Opslaan")}</button>
           </form>
         )}
       </section>
       <section className="panel">
         <div className="sectionTitle">
           <div>
-            <h2>WZC lijst</h2>
-            <p className="sectionHint">{filtered.length}/{realWzcs.length} WZC's zichtbaar</p>
+            <h2>{lang === "nl" ? "WZC lijst" : "Care home list"}</h2>
+            <p className="sectionHint">{filtered.length}/{realWzcs.length} {lang === "nl" ? "WZC's zichtbaar" : "care homes visible"}</p>
           </div>
           <div className="listHeaderFilters">
-            <input className="inlineSearch" placeholder="Zoek in database" value={query} onChange={(event) => setQuery(event.target.value)} />
+            <input className="inlineSearch" placeholder={lang === "nl" ? "Zoek in database" : "Search database"} value={query} onChange={(event) => setQuery(event.target.value)} />
             {groupOptions.length > 0 && (
-              <SearchableGroupSelect className="groupFilterInput" value={groupFilter} groups={groupOptions} onChange={setGroupFilter} placeholder="Alle groepen" ariaLabel="Filter op groep" />
+              <SearchableGroupSelect className="groupFilterInput" value={groupFilter} groups={groupOptions} onChange={setGroupFilter} placeholder={L("Alle groepen")} ariaLabel={lang === "nl" ? "Filter op groep" : "Filter by group"} />
             )}
           </div>
         </div>
@@ -3543,17 +3908,17 @@ function WzcDatabaseView({
             <article className="databaseRow" key={wzc.id}>
               <div>
                 <strong>{wzc.name}</strong>
-                <span>{formatAddress([wzc.address, wzc.postal_code, wzc.city]) || "Geen adres"}</span>
-                <small>{wzc.contact_name || "Geen contactpersoon"} · {formatPhone(wzc.phone) || "geen telefoon"} · {wzc.email || "geen e-mail"}</small>
+                <span>{formatAddress([wzc.address, wzc.postal_code, wzc.city]) || (lang === "nl" ? "Geen adres" : "No address")}</span>
+                <small>{wzc.contact_name || (lang === "nl" ? "Geen contactpersoon" : "No contact")} · {formatPhone(wzc.phone) || (lang === "nl" ? "geen telefoon" : "no phone")} · {wzc.email || (lang === "nl" ? "geen e-mail" : "no email")}</small>
               </div>
               <div className="rowMeta">
                 {wzc.group_name && <span className="softBadge">{wzc.group_name}</span>}
                 <span className="softBadge">{wzc.collaboration_status}</span>
-                <button onClick={() => removeWzc(wzc)}>Verwijderen</button>
+                <button onClick={() => removeWzc(wzc)}>{L("Verwijderen")}</button>
               </div>
             </article>
           ))}
-          {filtered.length === 0 && <div className="empty">Geen WZC's gevonden.</div>}
+          {filtered.length === 0 && <div className="empty">{L("Geen WZC gevonden.")}</div>}
         </div>
       </section>
         </>
@@ -3562,76 +3927,76 @@ function WzcDatabaseView({
         <section className="panel">
           <div className="sectionTitle">
             <div>
-              <h2>Teams</h2>
-              <p className="sectionHint">Profielen en skillsets voor latere planning en route-optimalisatie.</p>
+              <h2>{L("Teams")}</h2>
+              <p className="sectionHint">{lang === "nl" ? "Profielen en skillsets voor latere planning en route-optimalisatie." : "Profiles and skill sets for planning and route optimization."}</p>
             </div>
-            <span className="softBadge">{teams.filter((team) => team.is_active).length} actief</span>
+            <span className="softBadge">{teams.filter((team) => team.is_active).length} {lang === "nl" ? "actief" : "active"}</span>
           </div>
           <form className="formGrid compact" onSubmit={submitTeam}>
-            <label>Naam<input value={teamForm.name} onChange={(event) => setTeamForm({ ...teamForm, name: event.target.value })} required /></label>
-            <label>Functie<select value={teamForm.role} onChange={(event) => setTeamForm({ ...teamForm, role: event.target.value })}>
-              {teamRoles.map((role) => <option key={role}>{role}</option>)}
+            <label>{lang === "nl" ? "Naam" : "Name"}<input value={teamForm.name} onChange={(event) => setTeamForm({ ...teamForm, name: event.target.value })} required /></label>
+            <label>{lang === "nl" ? "Functie" : "Role"}<select value={teamForm.role} onChange={(event) => setTeamForm({ ...teamForm, role: event.target.value })}>
+              {teamRoles.map((role) => <option key={role} value={role}>{L(role)}</option>)}
             </select></label>
-            <label>Max behandelingen/dag<input type="number" min="0" value={teamForm.max_treatments_per_day} onChange={(event) => setTeamForm({ ...teamForm, max_treatments_per_day: event.target.value })} /></label>
-            <label>Status<select value={teamForm.is_active ? "Actief" : "Inactief"} onChange={(event) => setTeamForm({ ...teamForm, is_active: event.target.value === "Actief" })}>
-              <option>Actief</option>
-              <option>Inactief</option>
+            <label>{lang === "nl" ? "Max behandelingen/dag" : "Max treatments/day"}<input type="number" min="0" value={teamForm.max_treatments_per_day} onChange={(event) => setTeamForm({ ...teamForm, max_treatments_per_day: event.target.value })} /></label>
+            <label>{L("Status")}<select value={teamForm.is_active ? "Actief" : "Inactief"} onChange={(event) => setTeamForm({ ...teamForm, is_active: event.target.value === "Actief" })}>
+              <option value="Actief">{L("Actief")}</option>
+              <option value="Inactief">{lang === "nl" ? "Inactief" : "Inactive"}</option>
             </select></label>
             <label className="wide">Skillsets<select value="" onChange={(event) => {
               const next = Array.from(new Set([...teamForm.skillsets.split(",").map((item) => item.trim()).filter(Boolean), event.target.value])).join(", ");
               setTeamForm({ ...teamForm, skillsets: next });
             }}>
-              <option value="">Skillset toevoegen</option>
-              {teamSkillsets.map((skillset) => <option key={skillset}>{skillset}</option>)}
+              <option value="">{lang === "nl" ? "Skillset toevoegen" : "Add skill set"}</option>
+              {teamSkillsets.map((skillset) => <option key={skillset} value={skillset}>{L(skillset)}</option>)}
             </select></label>
-            <label className="wide">Geselecteerde skillsets<input value={teamForm.skillsets} onChange={(event) => setTeamForm({ ...teamForm, skillsets: event.target.value })} /></label>
-            <label className="wide">Opmerking<textarea value={teamForm.remark} onChange={(event) => setTeamForm({ ...teamForm, remark: event.target.value })} /></label>
-            <button className="primaryButton">Teamprofiel toevoegen</button>
+            <label className="wide">{lang === "nl" ? "Geselecteerde skillsets" : "Selected skill sets"}<input value={teamForm.skillsets} onChange={(event) => setTeamForm({ ...teamForm, skillsets: event.target.value })} /></label>
+            <label className="wide">{L("Opmerking")}<textarea value={teamForm.remark} onChange={(event) => setTeamForm({ ...teamForm, remark: event.target.value })} /></label>
+            <button className="primaryButton">{lang === "nl" ? "Teamprofiel toevoegen" : "Add team profile"}</button>
           </form>
           <div className="databaseList">
             {teams.map((profile) => (
               <article className={`databaseRow ${editingTeamId === profile.id ? "editableDatabaseRow" : ""}`} key={profile.id}>
                 {editingTeamId === profile.id ? (
                   <form className="formGrid compact teamEditForm" onSubmit={saveTeamEdit}>
-                    <label>Naam<input value={teamEditForm.name} onChange={(event) => setTeamEditForm({ ...teamEditForm, name: event.target.value })} required /></label>
-                    <label>Functie<select value={teamEditForm.role} onChange={(event) => setTeamEditForm({ ...teamEditForm, role: event.target.value })}>
+                    <label>{lang === "nl" ? "Naam" : "Name"}<input value={teamEditForm.name} onChange={(event) => setTeamEditForm({ ...teamEditForm, name: event.target.value })} required /></label>
+                    <label>{lang === "nl" ? "Functie" : "Role"}<select value={teamEditForm.role} onChange={(event) => setTeamEditForm({ ...teamEditForm, role: event.target.value })}>
                       {teamEditForm.role && !teamRoles.includes(teamEditForm.role) && <option>{teamEditForm.role}</option>}
-                      {teamRoles.map((role) => <option key={role}>{role}</option>)}
+                      {teamRoles.map((role) => <option key={role} value={role}>{L(role)}</option>)}
                     </select></label>
-                    <label>Max behandelingen/dag<input type="number" min="0" value={teamEditForm.max_treatments_per_day} onChange={(event) => setTeamEditForm({ ...teamEditForm, max_treatments_per_day: event.target.value })} /></label>
-                    <label>Status<select value={teamEditForm.is_active ? "Actief" : "Inactief"} onChange={(event) => setTeamEditForm({ ...teamEditForm, is_active: event.target.value === "Actief" })}>
-                      <option>Actief</option>
-                      <option>Inactief</option>
+                    <label>{lang === "nl" ? "Max behandelingen/dag" : "Max treatments/day"}<input type="number" min="0" value={teamEditForm.max_treatments_per_day} onChange={(event) => setTeamEditForm({ ...teamEditForm, max_treatments_per_day: event.target.value })} /></label>
+                    <label>{L("Status")}<select value={teamEditForm.is_active ? "Actief" : "Inactief"} onChange={(event) => setTeamEditForm({ ...teamEditForm, is_active: event.target.value === "Actief" })}>
+                      <option value="Actief">{L("Actief")}</option>
+                      <option value="Inactief">{lang === "nl" ? "Inactief" : "Inactive"}</option>
                     </select></label>
                     <label className="wide">Skillsets<select value="" onChange={(event) => addSkillsetToEdit(event.target.value)}>
-                      <option value="">Skillset toevoegen</option>
-                      {teamSkillsets.map((skillset) => <option key={skillset}>{skillset}</option>)}
+                      <option value="">{lang === "nl" ? "Skillset toevoegen" : "Add skill set"}</option>
+                      {teamSkillsets.map((skillset) => <option key={skillset} value={skillset}>{L(skillset)}</option>)}
                     </select></label>
-                    <label className="wide">Geselecteerde skillsets<input value={teamEditForm.skillsets} onChange={(event) => setTeamEditForm({ ...teamEditForm, skillsets: event.target.value })} /></label>
-                    <label className="wide">Opmerking<textarea value={teamEditForm.remark} onChange={(event) => setTeamEditForm({ ...teamEditForm, remark: event.target.value })} /></label>
+                    <label className="wide">{lang === "nl" ? "Geselecteerde skillsets" : "Selected skill sets"}<input value={teamEditForm.skillsets} onChange={(event) => setTeamEditForm({ ...teamEditForm, skillsets: event.target.value })} /></label>
+                    <label className="wide">{L("Opmerking")}<textarea value={teamEditForm.remark} onChange={(event) => setTeamEditForm({ ...teamEditForm, remark: event.target.value })} /></label>
                     <div className="inlineActions wide noMargin">
-                      <button className="primaryButton">Bewaren</button>
-                      <button type="button" onClick={() => setEditingTeamId(null)}>Annuleren</button>
+                      <button className="primaryButton">{lang === "nl" ? "Bewaren" : "Save"}</button>
+                      <button type="button" onClick={() => setEditingTeamId(null)}>{L("Annuleren")}</button>
                     </div>
                   </form>
                 ) : (
                   <>
                     <div>
                       <strong>{profile.name}</strong>
-                      <span>{profile.role || "Geen functie"} · {profile.skillsets || "Geen skillsets"}</span>
-                      <small>{profile.max_treatments_per_day ? `${profile.max_treatments_per_day} behandelingen/dag` : "Geen daglimiet"} · bijgewerkt {formatDateTime(profile.updated_at)}</small>
+                      <span>{L(profile.role) || (lang === "nl" ? "Geen functie" : "No role")} · {profile.skillsets || (lang === "nl" ? "Geen skillsets" : "No skill sets")}</span>
+                      <small>{profile.max_treatments_per_day ? `${profile.max_treatments_per_day} ${lang === "nl" ? "behandelingen/dag" : "treatments/day"}` : (lang === "nl" ? "Geen daglimiet" : "No daily limit")} · {lang === "nl" ? "bijgewerkt" : "updated"} {formatDateTime(profile.updated_at)}</small>
                     </div>
                     <div className="rowMeta">
-                      <span className="softBadge">{profile.is_active ? "Actief" : "Inactief"}</span>
-                      <button onClick={() => startEditTeam(profile)}>Aanpassen</button>
-                      <button onClick={() => toggleTeam(profile)}>{profile.is_active ? "Deactiveren" : "Activeren"}</button>
-                      <button onClick={() => removeTeam(profile)}>Verwijderen</button>
+                      <span className="softBadge">{profile.is_active ? L("Actief") : (lang === "nl" ? "Inactief" : "Inactive")}</span>
+                      <button onClick={() => startEditTeam(profile)}>{lang === "nl" ? "Aanpassen" : "Edit"}</button>
+                      <button onClick={() => toggleTeam(profile)}>{profile.is_active ? (lang === "nl" ? "Deactiveren" : "Deactivate") : (lang === "nl" ? "Activeren" : "Activate")}</button>
+                      <button onClick={() => removeTeam(profile)}>{L("Verwijderen")}</button>
                     </div>
                   </>
                 )}
               </article>
             ))}
-            {teams.length === 0 && <div className="empty">Nog geen teamprofielen.</div>}
+            {teams.length === 0 && <div className="empty">{lang === "nl" ? "Nog geen teamprofielen." : "No team profiles yet."}</div>}
           </div>
         </section>
       )}
@@ -3639,22 +4004,22 @@ function WzcDatabaseView({
         <section className="panel">
           <div className="sectionTitle">
             <div>
-              <h2>Gebruikers</h2>
-              <p className="sectionHint">Admin ziet WZC database, teams, gebruikers en user log. Gebruiker niet.</p>
+              <h2>{L("Gebruikers")}</h2>
+              <p className="sectionHint">{lang === "nl" ? "Admin ziet WZC database, teams, gebruikers en user log. Gebruiker niet." : "Admin sees care home database, teams, users and user log. User does not."}</p>
             </div>
           </div>
           <form className="formGrid compact" onSubmit={submitUser}>
-            <label>E-mail<input value={userForm.email} onChange={(event) => setUserForm({ ...userForm, email: event.target.value })} type="email" required /></label>
-            <label>Wachtwoord<input value={userForm.password} onChange={(event) => setUserForm({ ...userForm, password: event.target.value })} type="password" required /></label>
-            <label>Rol<select value={userForm.role} onChange={(event) => setUserForm({ ...userForm, role: event.target.value })}>
-              <option value="user">Gebruiker</option>
+            <label>{L("E-mail")}<input value={userForm.email} onChange={(event) => setUserForm({ ...userForm, email: event.target.value })} type="email" required /></label>
+            <label>{L("Wachtwoord")}<input value={userForm.password} onChange={(event) => setUserForm({ ...userForm, password: event.target.value })} type="password" required /></label>
+            <label>{L("Rol")}<select value={userForm.role} onChange={(event) => setUserForm({ ...userForm, role: event.target.value })}>
+              <option value="user">{lang === "nl" ? "Gebruiker" : "User"}</option>
               <option value="admin">Admin</option>
             </select></label>
-            <label>Status<select value={userForm.is_active ? "Actief" : "Inactief"} onChange={(event) => setUserForm({ ...userForm, is_active: event.target.value === "Actief" })}>
-              <option>Actief</option>
-              <option>Inactief</option>
+            <label>{L("Status")}<select value={userForm.is_active ? "Actief" : "Inactief"} onChange={(event) => setUserForm({ ...userForm, is_active: event.target.value === "Actief" })}>
+              <option value="Actief">{L("Actief")}</option>
+              <option value="Inactief">{lang === "nl" ? "Inactief" : "Inactive"}</option>
             </select></label>
-            <button className="primaryButton">Gebruiker toevoegen</button>
+            <button className="primaryButton">{L("Gebruiker toevoegen")}</button>
           </form>
           {passwordNotice && <p className="successNotice" role="status">{passwordNotice}</p>}
           <div className="databaseList">
@@ -3662,15 +4027,15 @@ function WzcDatabaseView({
               <article className="databaseRow userDatabaseRow" key={selectedUser.id}>
                 <div>
                   <strong>{selectedUser.email}</strong>
-                  <span>{selectedUser.role === "admin" ? "Admin" : "Gebruiker"} · {selectedUser.is_active ? "Actief" : "Inactief"}</span>
-                  <small>{selectedUser.role === "admin" ? "Volledige adminrechten" : "Dashboard zonder WZC database"}</small>
+                  <span>{selectedUser.role === "admin" ? "Admin" : (lang === "nl" ? "Gebruiker" : "User")} · {selectedUser.is_active ? L("Actief") : (lang === "nl" ? "Inactief" : "Inactive")}</span>
+                  <small>{selectedUser.role === "admin" ? (lang === "nl" ? "Volledige adminrechten" : "Full admin rights") : (lang === "nl" ? "Dashboard zonder WZC database" : "Dashboard without care home database")}</small>
                 </div>
                 <div className="rowMeta">
                   <select value={selectedUser.role} onChange={(event) => updateUserRole(selectedUser, event.target.value)}>
-                    <option value="user">Gebruiker</option>
+                    <option value="user">{lang === "nl" ? "Gebruiker" : "User"}</option>
                     <option value="admin">Admin</option>
                   </select>
-                  <button onClick={() => updateUserStatus(selectedUser, !selectedUser.is_active)}>{selectedUser.is_active ? "Deactiveren" : "Activeren"}</button>
+                  <button onClick={() => updateUserStatus(selectedUser, !selectedUser.is_active)}>{selectedUser.is_active ? (lang === "nl" ? "Deactiveren" : "Deactivate") : (lang === "nl" ? "Activeren" : "Activate")}</button>
                   <button
                     type="button"
                     id={`user-password-button-${selectedUser.id}`}
@@ -3680,16 +4045,17 @@ function WzcDatabaseView({
                       setPasswordNotice("");
                       setPasswordUserId((current) => current === selectedUser.id ? null : selectedUser.id);
                     }}
-                  >Wachtwoord wijzigen</button>
-                  <button onClick={() => removeUser(selectedUser)}>Verwijderen</button>
+                  >{lang === "nl" ? "Wachtwoord wijzigen" : "Change password"}</button>
+                  <button onClick={() => removeUser(selectedUser)}>{L("Verwijderen")}</button>
                 </div>
                 {passwordUserId === selectedUser.id && (
                   <UserPasswordForm
                     user={selectedUser}
+                    lang={lang}
                     onCancel={() => closePasswordForm(selectedUser.id)}
                     onChanged={() => {
                       closePasswordForm(selectedUser.id);
-                      setPasswordNotice(`Wachtwoord gewijzigd voor ${selectedUser.email}.`);
+                      setPasswordNotice(lang === "nl" ? `Wachtwoord gewijzigd voor ${selectedUser.email}.` : `Password changed for ${selectedUser.email}.`);
                       void onSaved();
                     }}
                   />
@@ -3699,20 +4065,20 @@ function WzcDatabaseView({
           </div>
         </section>
       )}
-      {activeTab === "User log" && (
+      {activeTab === "Gebruikerslog" && (
         <section className="panel">
           <div className="sectionTitle">
             <div>
-              <h2>User log</h2>
-              <p className="sectionHint">Acties worden 14 dagen bijgehouden. Patiëntgegevens worden niet in logs opgeslagen.</p>
+              <h2>{L("Gebruikerslog")}</h2>
+              <p className="sectionHint">{lang === "nl" ? "Acties worden 14 dagen bijgehouden. Patiëntgegevens worden niet in logs opgeslagen." : "Actions are kept for 14 days. Patient data is not stored in logs."}</p>
             </div>
-            <button onClick={async () => { if (window.confirm("User log volledig leegmaken?")) { await api.clearAuditLogs(); await onSaved(); } }}>Log clearen</button>
+            <button onClick={async () => { if (window.confirm(lang === "nl" ? "User log volledig leegmaken?" : "Clear the entire user log?")) { await api.clearAuditLogs(); await onSaved(); } }}>{lang === "nl" ? "Log clearen" : "Clear log"}</button>
           </div>
           <div className="filterBar">
-            <input placeholder="Filter persoon" value={logFilters.actor} onChange={(event) => setLogFilters({ ...logFilters, actor: event.target.value })} />
+            <input placeholder={lang === "nl" ? "Filter persoon" : "Filter person"} value={logFilters.actor} onChange={(event) => setLogFilters({ ...logFilters, actor: event.target.value })} />
             <div className="inlineForm">
               <select value={logFilters.module} onChange={(event) => setLogFilters({ ...logFilters, module: event.target.value })}>
-                <option value="">Alle modules</option>
+                <option value="">{lang === "nl" ? "Alle modules" : "All modules"}</option>
                 {Array.from(new Set(auditLogs.map((log) => log.module).filter(Boolean))).map((module) => <option key={module}>{module}</option>)}
               </select>
               <input type="date" value={logFilters.date} onChange={(event) => setLogFilters({ ...logFilters, date: event.target.value })} />
@@ -3731,7 +4097,64 @@ function WzcDatabaseView({
                 </div>
               </article>
             ))}
-            {filteredLogs.length === 0 && <div className="empty">Geen logregels voor deze filter.</div>}
+            {filteredLogs.length === 0 && <div className="empty">{lang === "nl" ? "Geen logregels voor deze filter." : "No log entries for this filter."}</div>}
+          </div>
+        </section>
+      )}
+      {activeTab === "Portaal accounts" && (
+        <section className="panel">
+          <div className="sectionTitle">
+            <div>
+              <h2>{lang === "nl" ? "Portaal accounts" : "Portal accounts"}</h2>
+              <p className="sectionHint">{lang === "nl" ? "Geef een zorgcentrum toegang tot het portaal door een account aan te maken. Het centrum logt in op het portaal met dit e-mailadres en wachtwoord." : "Give a care centre access to the portal by creating an account. The centre logs in with this email and password."}</p>
+            </div>
+          </div>
+          <form className="formGrid compact" onSubmit={async (event) => {
+            event.preventDefault();
+            setPortalError("");
+            try {
+              const created = await api.createPortalAccount({ email: portalForm.email, password: portalForm.password, wzc_id: Number(portalForm.wzc_id), role: portalForm.role });
+              setPortalAccounts((prev) => [...prev, created]);
+              setPortalForm({ email: "", password: "", wzc_id: "", role: "staff" });
+            } catch (error) {
+              setPortalError(error instanceof Error ? error.message : "Aanmaken mislukt.");
+            }
+          }}>
+            <label>{lang === "nl" ? "Zorgcentrum" : "Care centre"}
+              <select value={portalForm.wzc_id} onChange={(event) => setPortalForm({ ...portalForm, wzc_id: event.target.value })} required>
+                <option value="">{lang === "nl" ? "Kies een WZC" : "Choose a care home"}</option>
+                {realWzcs.filter((w) => w.collaboration_status === "Actief").map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+              </select>
+            </label>
+            <label>{lang === "nl" ? "E-mailadres portaal" : "Portal email"}
+              <input type="email" value={portalForm.email} onChange={(event) => setPortalForm({ ...portalForm, email: event.target.value })} required />
+            </label>
+            <label>{lang === "nl" ? "Wachtwoord (min. 8 tekens)" : "Password (min. 8 chars)"}
+              <input type="password" value={portalForm.password} onChange={(event) => setPortalForm({ ...portalForm, password: event.target.value })} minLength={8} required />
+            </label>
+            <label>{lang === "nl" ? "Rol" : "Role"}
+              <select value={portalForm.role} onChange={(event) => setPortalForm({ ...portalForm, role: event.target.value })}>
+                <option value="staff">{lang === "nl" ? "Medewerker" : "Staff"}</option>
+                <option value="admin">{lang === "nl" ? "Beheerder" : "Admin"}</option>
+              </select>
+            </label>
+            {portalError && <p className="errorNotice" role="alert">{portalError}</p>}
+            <button className="primaryButton">{lang === "nl" ? "Account aanmaken" : "Create account"}</button>
+          </form>
+          <div className="databaseList">
+            {portalAccounts.map((account) => (
+              <article className="databaseRow userDatabaseRow" key={account.id}>
+                <div>
+                  <strong>{account.wzc_name}</strong>
+                  <span>{account.email}</span>
+                  <small>{account.role === "admin" ? (lang === "nl" ? "Beheerder" : "Admin") : (lang === "nl" ? "Medewerker" : "Staff")} · {account.is_active ? (lang === "nl" ? "Actief" : "Active") : (lang === "nl" ? "Inactief" : "Inactive")}</small>
+                </div>
+                <div className="rowMeta">
+                  <span className="softBadge">{account.is_active ? (lang === "nl" ? "Actief" : "Active") : (lang === "nl" ? "Inactief" : "Inactive")}</span>
+                </div>
+              </article>
+            ))}
+            {portalAccountsLoaded && portalAccounts.length === 0 && <div className="empty">{lang === "nl" ? "Nog geen portaal accounts." : "No portal accounts yet."}</div>}
           </div>
         </section>
       )}
@@ -3740,6 +4163,8 @@ function WzcDatabaseView({
 }
 
 function DossierView() {
+  const lang = useLang();
+  const L = (key: string) => t(lang, key);
   const [files, setFiles] = useState<File[]>([]);
   const [rows, setRows] = useState<DossierPreviewRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -3769,42 +4194,42 @@ function DossierView() {
       <section className="panel">
         <div className="sectionTitle">
           <div>
-            <h2>Mondzorgdossiers</h2>
-            <p className="sectionHint">Tijdelijke extractie voor invoer in DentAdmin. Er wordt geen dossierdatabank opgebouwd.</p>
+            <h2>{L("Mondzorgdossiers")}</h2>
+            <p className="sectionHint">{lang === "nl" ? "Tijdelijke extractie voor invoer in DentAdmin. Er wordt geen dossierdatabank opgebouwd." : "Temporary extraction for entry into DentAdmin. No records database is built."}</p>
           </div>
-          <span className="softBadge">Tijdelijke verwerking</span>
+          <span className="softBadge">{lang === "nl" ? "Tijdelijke verwerking" : "Temporary processing"}</span>
         </div>
         <div className="privacyStrip">
-          INSZ wordt enkel gebruikt voor patiëntidentificatie en geboortedatum. Controleer alle velden manueel voor invoer in DentAdmin.
+          {lang === "nl" ? "INSZ wordt enkel gebruikt voor patiëntidentificatie en geboortedatum. Controleer alle velden manueel voor invoer in DentAdmin." : "INSZ is only used for patient identification and date of birth. Check all fields manually before entry into DentAdmin."}
         </div>
         <div className="formGrid">
-          <label className="wide">Mondzorgdossier PDF's<input key={fileInputKey} type="file" accept="application/pdf" multiple onChange={(event) => setFiles(Array.from(event.target.files || []))} /></label>
+          <label className="wide">{lang === "nl" ? "Mondzorgdossier PDF's" : "Dental record PDFs"}<input key={fileInputKey} type="file" accept="application/pdf" multiple onChange={(event) => setFiles(Array.from(event.target.files || []))} /></label>
         </div>
         {files.length > 0 && (
           <div className="fileSelection">
-            <strong>Geselecteerde dossiers</strong>
-            <span>{files.length} bestand(en)</span>
+            <strong>{lang === "nl" ? "Geselecteerde dossiers" : "Selected records"}</strong>
+            <span>{files.length} {lang === "nl" ? "bestand(en)" : "file(s)"}</span>
             {files.map((file, index) => <div className="checkRow" key={`${file.name}-${index}`}><span>{index + 1}. {file.name}</span></div>)}
           </div>
         )}
         <div className="inlineActions">
-          <button className="primaryButton" disabled={files.length === 0 || loading} onClick={preview}>{loading ? "Uitlezen..." : "Dossiers uitlezen"}</button>
-          <button disabled={rows.length === 0 && files.length === 0} onClick={finishProcessing}>Verwerking afronden en gegevens wissen</button>
+          <button className="primaryButton" disabled={files.length === 0 || loading} onClick={preview}>{loading ? (lang === "nl" ? "Uitlezen..." : "Reading...") : (lang === "nl" ? "Dossiers uitlezen" : "Read records")}</button>
+          <button disabled={rows.length === 0 && files.length === 0} onClick={finishProcessing}>{lang === "nl" ? "Verwerking afronden en gegevens wissen" : "Finish processing and clear data"}</button>
         </div>
       </section>
       {rows.length > 0 && (
         <>
           <div className="kpiGrid compactKpis">
-            <div className="kpi"><span>Dossiers</span><strong>{rows.length}</strong></div>
-            <div className="kpi"><span>Velden</span><strong>8</strong></div>
-            <div className="kpi"><span>Controle</span><strong>{rows.filter((row) => row.remarks).length}</strong></div>
-            <div className="kpi"><span>Opslag</span><strong>0</strong></div>
+            <div className="kpi"><span>{lang === "nl" ? "Dossiers" : "Records"}</span><strong>{rows.length}</strong></div>
+            <div className="kpi"><span>{lang === "nl" ? "Velden" : "Fields"}</span><strong>8</strong></div>
+            <div className="kpi"><span>{lang === "nl" ? "Controle" : "Review"}</span><strong>{rows.filter((row) => row.remarks).length}</strong></div>
+            <div className="kpi"><span>{lang === "nl" ? "Opslag" : "Storage"}</span><strong>0</strong></div>
           </div>
           <section className="panel">
             <div className="sectionTitle">
               <div>
-                <h2>Preview gegevens</h2>
-                <p className="sectionHint">Bewerk onzekere velden rechtstreeks in deze tijdelijke preview.</p>
+                <h2>{lang === "nl" ? "Preview gegevens" : "Data preview"}</h2>
+                <p className="sectionHint">{lang === "nl" ? "Bewerk onzekere velden rechtstreeks in deze tijdelijke preview." : "Edit uncertain fields directly in this temporary preview."}</p>
               </div>
               <span className="softBadge">{rows.length} dossier(s)</span>
             </div>
@@ -3813,18 +4238,18 @@ function DossierView() {
                 <article className="dossierCard" key={`${row.file_name}-${index}`}>
                   <div className="sectionTitle">
                     <strong>{row.file_name}</strong>
-                    {row.remarks && <span className="attentionBadge">Controle</span>}
+                    {row.remarks && <span className="attentionBadge">{lang === "nl" ? "Controle" : "Review"}</span>}
                   </div>
                   <div className="formGrid compact">
                     <label>INSZ<input value={row.insz} onChange={(event) => updateRow(index, { insz: event.target.value })} /></label>
-                    <label>Naam<input value={row.last_name} onChange={(event) => updateRow(index, { last_name: event.target.value })} /></label>
-                    <label>Voornaam<input value={row.first_name} onChange={(event) => updateRow(index, { first_name: event.target.value })} /></label>
-                    <label>Geboortedatum<input value={row.birthdate} onChange={(event) => updateRow(index, { birthdate: event.target.value })} /></label>
-                    <label>Geslacht<input value={row.gender} onChange={(event) => updateRow(index, { gender: event.target.value })} /></label>
-                    <label>E-mail<input value={row.email} onChange={(event) => updateRow(index, { email: event.target.value })} /></label>
-                    <label>Telefoon<input value={row.phone} onChange={(event) => updateRow(index, { phone: event.target.value })} /></label>
-                    <label className="wide">Medicatie<textarea value={row.medication} onChange={(event) => updateRow(index, { medication: event.target.value })} /></label>
-                    <label className="wide">Opmerking extractie<textarea value={row.remarks} onChange={(event) => updateRow(index, { remarks: event.target.value })} /></label>
+                    <label>{lang === "nl" ? "Naam" : "Last name"}<input value={row.last_name} onChange={(event) => updateRow(index, { last_name: event.target.value })} /></label>
+                    <label>{lang === "nl" ? "Voornaam" : "First name"}<input value={row.first_name} onChange={(event) => updateRow(index, { first_name: event.target.value })} /></label>
+                    <label>{lang === "nl" ? "Geboortedatum" : "Date of birth"}<input value={row.birthdate} onChange={(event) => updateRow(index, { birthdate: event.target.value })} /></label>
+                    <label>{lang === "nl" ? "Geslacht" : "Gender"}<input value={row.gender} onChange={(event) => updateRow(index, { gender: event.target.value })} /></label>
+                    <label>{L("E-mail")}<input value={row.email} onChange={(event) => updateRow(index, { email: event.target.value })} /></label>
+                    <label>{L("Telefoon")}<input value={row.phone} onChange={(event) => updateRow(index, { phone: event.target.value })} /></label>
+                    <label className="wide">{lang === "nl" ? "Medicatie" : "Medication"}<textarea value={row.medication} onChange={(event) => updateRow(index, { medication: event.target.value })} /></label>
+                    <label className="wide">{lang === "nl" ? "Opmerking extractie" : "Extraction remark"}<textarea value={row.remarks} onChange={(event) => updateRow(index, { remarks: event.target.value })} /></label>
                   </div>
                 </article>
               ))}
@@ -3851,6 +4276,8 @@ function PlanningView({
   onFocusHandled: () => void;
   onSaved: () => Promise<void>;
 }) {
+  const lang = useLang();
+  const L = (key: string) => t(lang, key);
   const [tab, setTab] = useState<PlanningTab>("Nieuwe planning");
   const [planningKind, setPlanningKind] = useState<PlanningKind>("Screening");
   const [name, setName] = useState("Screening");
@@ -4232,7 +4659,7 @@ function PlanningView({
             </div>
             <div className="linkedPlanningBox">
               <SearchableDropdownField
-                label="Ingeplande dag uit Planning"
+                label={L("Ingeplande dag uit Planning")}
                 value={planningSearch}
                 options={workflowPlanningOptions}
                 onInputChange={(value) => {
@@ -4243,41 +4670,41 @@ function PlanningView({
                   const planning = plannings.find((item) => item.id === Number(option.value));
                   if (planning) loadPlanningIntoEditor(planning);
                 }}
-                placeholder="Typ datum, WZC of soort planning"
-                emptyText="Geen ingeplande dag gevonden"
+                placeholder={L("Typ datum, WZC of soort planning")}
+                emptyText={L("Geen ingeplande dag gevonden")}
               />
               <div className={`linkedPlanningSummary ${linkedPlanning ? "" : "isMuted"}`.trim()}>
                 {linkedPlanning ? (
                   <>
-                    <strong>Gekoppeld aan Planning</strong>
-                    <span>{planningWorkflowLabel(linkedPlanning)}</span>
-                    <small>{planningWorkflowMeta(linkedPlanning)}</small>
+                    <strong>{L("Gekoppeld aan Planning")}</strong>
+                    <span>{planningWorkflowLabel(linkedPlanning, lang)}</span>
+                    <small>{planningWorkflowMeta(linkedPlanning, lang)}</small>
                   </>
                 ) : (
                   <>
-                    <strong>Geen ingeplande dag geselecteerd</strong>
-                    <span>Kies eerst een screening of behandeldag uit Planning om die hier verder aan te vullen.</span>
-                    <small>Losse planning blijft mogelijk, maar de normale flow start in Planning.</small>
+                    <strong>{L("Geen ingeplande dag geselecteerd")}</strong>
+                    <span>{L("Kies eerst een screening of behandeldag uit Planning om die hier verder aan te vullen.")}</span>
+                    <small>{L("Losse planning blijft mogelijk, maar de normale flow start in Planning.")}</small>
                   </>
                 )}
               </div>
             </div>
             <div className="planningKindSelector" aria-label="Type planning">
               <button className={planningKind === "Screening" ? "selected" : ""} onClick={() => changePlanningKind("Screening")}>
-                <strong>Screeningen</strong>
-                <span>Excel-lijst met bewoners en aantallen</span>
+                <strong>{L("Screeningen")}</strong>
+                <span>{L("Excel-lijst met bewoners en aantallen")}</span>
               </button>
               <button className={planningKind === "Behandeling" ? "selected" : ""} onClick={() => changePlanningKind("Behandeling")}>
-                <strong>Behandelingen</strong>
-                <span>PDF's uitlezen naar behandelplanning</span>
+                <strong>{L("Behandelingen")}</strong>
+                <span>{L("PDF's uitlezen naar behandelplanning")}</span>
               </button>
             </div>
             <div className="planningSetupGrid">
               <div className="formGrid planningMetaGrid">
-                <label>Naam planning<input value={name} onChange={(event) => setName(event.target.value)} /></label>
-                <label>Planningsdatum<input type="date" value={planningDate} onChange={(event) => setPlanningDate(event.target.value)} /></label>
-                <SearchableGroupSelect label="Groep/organisatie" value={planningGroupFilter} groups={planningGroupOptions} onChange={setPlanningGroupFilter} placeholder="Alle groepen" />
-                <SearchableWzcSelect label="WZC" value={wzcId} wzcs={selectableWzcs} onChange={setWzcId} placeholder="Kies WZC" />
+                <label>{L("Naam planning")}<input value={name} onChange={(event) => setName(event.target.value)} /></label>
+                <label>{L("Planningsdatum")}<input type="date" value={planningDate} onChange={(event) => setPlanningDate(event.target.value)} /></label>
+                <SearchableGroupSelect label={L("Groep/organisatie")} value={planningGroupFilter} groups={planningGroupOptions} onChange={setPlanningGroupFilter} placeholder={L("Alle groepen")} />
+                <SearchableWzcSelect label={L("WZC")} value={wzcId} wzcs={selectableWzcs} onChange={setWzcId} placeholder={lang === "nl" ? "Kies WZC" : "Select care home"} />
               </div>
               <div className={`uploadBox ${isScreening ? "" : "treatmentUploadBox"}`.trim()}>
                 {!isScreening && (
@@ -4293,7 +4720,7 @@ function PlanningView({
                         setSelectedRows({});
                       }}
                     />
-                    <small className={`uploadSelectionText ${treatmentRoster ? "hasFile" : ""}`}>{treatmentRoster ? treatmentRoster.name : "Gebruikt volgorde en goedkeuringstekst als voorstel."}</small>
+                    <small className={`uploadSelectionText ${treatmentRoster ? "hasFile" : ""}`}>{treatmentRoster ? treatmentRoster.name : L("Gebruikt volgorde en goedkeuringstekst als voorstel.")}</small>
                   </label>
                 )}
                 <label className="uploadSourceField"><span className="uploadSourceTitle">{uploadTitle}</span>
@@ -4305,18 +4732,18 @@ function PlanningView({
                       setSelectedRows({});
                     }
                   }} />
-                  <small className={`uploadSelectionText ${files.length > 0 ? "hasFile" : ""}`}>{files.length > 0 ? `${files.length} bestand${files.length === 1 ? "" : "en"} gekozen` : emptyUploadText}</small>
+                  <small className={`uploadSelectionText ${files.length > 0 ? "hasFile" : ""}`}>{files.length > 0 ? `${files.length} ${lang === "nl" ? `bestand${files.length === 1 ? "" : "en"} gekozen` : `file${files.length === 1 ? "" : "s"} selected`}` : emptyUploadText}</small>
                 </label>
                 {files.length > 0 ? (
                   <div className="fileSelection compactFiles">
                     <div className="fileSelectionHeader">
                       <div>
-                        <strong>{isScreening ? "Lijstselectie" : "Bestanden opnemen"}</strong>
-                        <span>{selectedUploadCount} van {files.length} geselecteerd</span>
+                        <strong>{isScreening ? L("Lijstselectie") : L("Bestanden opnemen")}</strong>
+                        <span>{selectedUploadCount} {L("van")} {files.length} {L("geselecteerd")}</span>
                       </div>
-                      <div className="fileSelectionActions" aria-label="Bestandsselectie aanpassen">
-                        <button type="button" onClick={() => setSelectedFiles(Object.fromEntries(files.map((file) => [file.name, true])))}>Alles</button>
-                        <button type="button" onClick={() => setSelectedFiles(Object.fromEntries(files.map((file) => [file.name, false])))}>Geen</button>
+                      <div className="fileSelectionActions" aria-label={lang === "nl" ? "Bestandsselectie aanpassen" : "Adjust file selection"}>
+                        <button type="button" onClick={() => setSelectedFiles(Object.fromEntries(files.map((file) => [file.name, true])))}>{lang === "nl" ? "Alles" : "All"}</button>
+                        <button type="button" onClick={() => setSelectedFiles(Object.fromEntries(files.map((file) => [file.name, false])))}>{lang === "nl" ? "Geen" : "None"}</button>
                       </div>
                     </div>
                     <div className="compactFileGrid">
@@ -4335,7 +4762,7 @@ function PlanningView({
             </div>
             <div className="inlineActions planningActions">
               <button className="primaryButton" disabled={selectedUploadCount === 0 || loading} onClick={preview}>{loading ? loadingButtonText : readButtonText}</button>
-              <button disabled={rows.length === 0} onClick={clearPreview}>Preview leegmaken</button>
+              <button disabled={rows.length === 0} onClick={clearPreview}>{lang === "nl" ? "Preview leegmaken" : "Clear preview"}</button>
             </div>
           </section>
           {rows.length > 0 && (
@@ -4343,32 +4770,32 @@ function PlanningView({
               <div className="sectionTitle previewHeader">
                 <div>
                   <h2>{previewTitle}</h2>
-                  <p className="sectionHint">{isScreening ? "Alle namen uit deze lijst worden meegenomen; controleer vooral aantal en schrijfwijze." : "Vink enkel bewoners aan die effectief in deze planning mogen meegaan."}</p>
+                  <p className="sectionHint">{isScreening ? L("Alle namen uit deze lijst worden meegenomen; controleer vooral aantal en schrijfwijze.") : L("Vink enkel bewoners aan die effectief in deze planning mogen meegaan.")}</p>
                 </div>
                 <div className="previewActions">
-                  {isScreening && <span className="softBadge">{selectedPreviewCount} persoon/personen</span>}
-                  {isScreening && <span className="softBadge">{formatDuration(screeningDurationMinutes)} geschat</span>}
+                  {isScreening && <span className="softBadge">{selectedPreviewCount} {L("persoon/personen")}</span>}
+                  {isScreening && <span className="softBadge">{formatDuration(screeningDurationMinutes)} {L("geschat")}</span>}
                   {!isScreening && (
                     <div className="previewSelectionSummary">
                       <strong>{selectedPreviewCount}</strong>
-                      <span>van {rows.length} geselecteerd{treatmentSelectionReport && treatmentSelectionReport.excel_count > 0 ? ` · ${treatmentSelectionReport.excel_count} Excelnamen` : ""}</span>
+                      <span>{L("van")} {rows.length} {L("geselecteerd")}{treatmentSelectionReport && treatmentSelectionReport.excel_count > 0 ? ` · ${treatmentSelectionReport.excel_count} ${L("Excelnamen")}` : ""}</span>
                     </div>
                   )}
                   {!isScreening && (
-                    <div className="previewBulkActions" aria-label="Selectie aanpassen">
-                      <button onClick={() => setSelectedRows(Object.fromEntries(rows.map((_, index) => [index, true])))}>Alles</button>
-                      <button onClick={() => setSelectedRows(Object.fromEntries(rows.map((_, index) => [index, false])))}>Geen</button>
+                    <div className="previewBulkActions" aria-label={lang === "nl" ? "Selectie aanpassen" : "Adjust selection"}>
+                      <button onClick={() => setSelectedRows(Object.fromEntries(rows.map((_, index) => [index, true])))}>{lang === "nl" ? "Alles" : "All"}</button>
+                      <button onClick={() => setSelectedRows(Object.fromEntries(rows.map((_, index) => [index, false])))}>{lang === "nl" ? "Geen" : "None"}</button>
                     </div>
                   )}
                   <div className="previewSaveActions">
-                    <button disabled={selectedPreviewCount === 0 || savingPlanning} onClick={() => savePlanning(false)}>{linkedPlanning ? "Opslaan in ingeplande dag" : isScreening ? "Screening bewaren" : "Planning bewaren"}</button>
-                    <button className="primaryButton" disabled={selectedPreviewCount === 0 || savingPlanning} onClick={() => savePlanning(true)}>{savingPlanning ? "Genereren..." : "Excel genereren"}</button>
+                    <button disabled={selectedPreviewCount === 0 || savingPlanning} onClick={() => savePlanning(false)}>{linkedPlanning ? L("Opslaan in ingeplande dag") : isScreening ? L("Screening bewaren") : L("Planning bewaren...")}</button>
+                    <button className="primaryButton" disabled={selectedPreviewCount === 0 || savingPlanning} onClick={() => savePlanning(true)}>{savingPlanning ? L("Genereren...") : L("Excel genereren")}</button>
                   </div>
                 </div>
               </div>
               {!isScreening && treatmentSelectionReport && treatmentSelectionReport.missing_names.length > 0 && (
                 <details className="matchDetail treatmentMissingNames">
-                  <summary>Wel in Excel, geen behandelplan gevonden ({treatmentSelectionReport.missing_names.length})</summary>
+                  <summary>{L("Wel in Excel, geen behandelplan gevonden")} ({treatmentSelectionReport.missing_names.length})</summary>
                   <div className="matchNameList">{treatmentSelectionReport.missing_names.map((patientName, index) => <span key={`${patientName}-${index}`}>{patientName}</span>)}</div>
                 </details>
               )}
@@ -4397,11 +4824,11 @@ function PlanningView({
                     {!isScreening && (
                       <label className="rowDecision" aria-label={`${row.patient_name} opnemen`}>
                         <input type="checkbox" checked={selectedRows[index] !== false} onChange={(event) => setSelectedRows({ ...selectedRows, [index]: event.target.checked })} />
-                        <span>Opnemen</span>
+                        <span>{lang === "nl" ? "Opnemen" : "Include"}</span>
                       </label>
                     )}
                     {isScreening ? (
-                      <label className="previewName">Naam bewoner<input value={row.patient_name} onChange={(event) => updatePreviewRow(index, { patient_name: event.target.value })} /></label>
+                      <label className="previewName">{L("Naam bewoner")}<input value={row.patient_name} onChange={(event) => updatePreviewRow(index, { patient_name: event.target.value })} /></label>
                     ) : (
                       <div className="previewPatient">
                         <div className="previewPatientHeading">
@@ -4412,21 +4839,21 @@ function PlanningView({
                         {selectionItem?.excel_name && (
                           <small className="excelSelectionMeta">
                             <span>Excel: {selectionItem.excel_name}</span>
-                            <span>Op te volgen behandeling: {selectionItem.excel_status || "leeg in Excel"}</span>
-                            {selectionItem.match_kind === "likely" && <span>Waarschijnlijke naamkoppeling</span>}
-                            {selectionItem.match_kind === "surname" && <span>Suggestie op achternaam, controleren</span>}
+                            <span>{L("Op te volgen behandeling")}: {selectionItem.excel_status || L("leeg in Excel")}</span>
+                            {selectionItem.match_kind === "likely" && <span>{lang === "nl" ? "Waarschijnlijke naamkoppeling" : "Likely name match"}</span>}
+                            {selectionItem.match_kind === "surname" && <span>{L("Suggestie op achternaam, controleren")}</span>}
                           </small>
                         )}
                         {needsNameReview && (
-                          <small className="nameReviewNotice">Akkoord gevonden · controleer alleen de naamkoppeling</small>
+                          <small className="nameReviewNotice">{L("Akkoord gevonden · controleer alleen de naamkoppeling")}</small>
                         )}
-                        {treatmentRoster && !selectionItem?.excel_name && <small className="excelSelectionMeta notApproved">Niet teruggevonden in Excel · controleer handmatig</small>}
+                        {treatmentRoster && !selectionItem?.excel_name && <small className="excelSelectionMeta notApproved">{L("Niet teruggevonden in Excel · controleer handmatig")}</small>}
                       </div>
                     )}
                     {!isScreening && (
                       <details className="previewRowDetails">
                         <summary>
-                          <span>Behandelingen en opmerking</span>
+                          <span>{L("Behandelingen en opmerking")}</span>
                           <small>{treatmentSummary}</small>
                         </summary>
                         <div className="previewDetailFields">
@@ -4450,8 +4877,8 @@ function PlanningView({
         <section className="panel">
           <div className="sectionTitle">
             <div>
-              <h2>Planningdetails</h2>
-              <p className="sectionHint">Alle ingeplande screenings en behandeldagen met hun bewonerslijst. PDF-bestanden zelf worden niet bewaard.</p>
+              <h2>{L("Planningdetails")}</h2>
+              <p className="sectionHint">{lang === "nl" ? "Alle ingeplande screenings en behandeldagen met hun bewonerslijst. PDF-bestanden zelf worden niet bewaard." : "All scheduled screenings and treatment days with their resident lists. PDF files themselves are not stored."}</p>
             </div>
           </div>
           <div className="savedPlanningLayout">
@@ -4459,28 +4886,28 @@ function PlanningView({
               {sortedPlannings.map((planning) => (
                 <button className={`portfolioRow ${expandedPlanning?.id === planning.id ? "selected" : ""}`} key={planning.id} onClick={() => setExpandedPlanningId(planning.id)}>
                   <strong>{formatDate(planning.planning_date)} · {planning.name}</strong>
-                  <span>{planning.location || "Geen locatie"} · {planning.start_time || "09:00"}-{planning.end_time || "16:00"} · {planning.planning_status || "Concept"}</span>
-                  <small>{planning.planning_type === "Screening" ? `Screening · ${planning.rows.length} persoon/personen · ${formatDuration(planning.rows.length * 4)} geschat` : `${planning.rows.length} patient(en) · ${treatmentCountForPlanning(planning)} behandeling(en)`}</small>
+                  <span>{planning.location || L("Geen locatie")} · {planning.start_time || "09:00"}-{planning.end_time || "16:00"} · {L(planning.planning_status || "Concept")}</span>
+                  <small>{planning.planning_type === "Screening" ? `${L("Screening")} · ${planning.rows.length} ${lang === "nl" ? "persoon/personen" : "person(s)"} · ${formatDuration(planning.rows.length * 4)} ${lang === "nl" ? "geschat" : "estimated"}` : `${planning.rows.length} ${lang === "nl" ? "patient(en)" : "patient(s)"} · ${treatmentCountForPlanning(planning)} ${lang === "nl" ? "behandeling(en)" : "treatment(s)"}`}</small>
                 </button>
               ))}
-              {sortedPlannings.length === 0 && <div className="empty">Nog geen ingeplande dagen.</div>}
+              {sortedPlannings.length === 0 && <div className="empty">{lang === "nl" ? "Nog geen ingeplande dagen." : "No scheduled days yet."}</div>}
             </div>
             {expandedPlanning && (
               <div className="savedPlanningDetail">
                 <div className="sectionTitle">
                   <div>
                     <h3>{expandedPlanning.name}</h3>
-                    <p className="sectionHint">{expandedPlanning.planning_type || "Behandeling"} · {expandedPlanning.location || "Geen locatie"} · {expandedPlanning.rows.length} bewoner(s){expandedPlanning.planning_type === "Screening" ? ` · ${formatDuration(expandedPlanning.rows.length * 4)} geschat` : ""}</p>
+                    <p className="sectionHint">{L(expandedPlanning.planning_type || "Behandeling")} · {expandedPlanning.location || L("Geen locatie")} · {expandedPlanning.rows.length} {lang === "nl" ? "bewoner(s)" : "resident(s)"}{expandedPlanning.planning_type === "Screening" ? ` · ${formatDuration(expandedPlanning.rows.length * 4)} ${lang === "nl" ? "geschat" : "estimated"}` : ""}</p>
                   </div>
                   <div className="inlineActions noMargin">
-                    <button onClick={() => openPlanning(expandedPlanning)}>Aanvullen</button>
-                    <button onClick={() => api.downloadPlanningExcel(expandedPlanning.id, cleanFileName(expandedPlanning.name))}>Excel downloaden</button>
-                    <button onClick={() => deletePlanning(expandedPlanning)}>Verwijderen</button>
+                    <button onClick={() => openPlanning(expandedPlanning)}>{lang === "nl" ? "Aanvullen" : "Supplement"}</button>
+                    <button onClick={() => api.downloadPlanningExcel(expandedPlanning.id, cleanFileName(expandedPlanning.name))}>{lang === "nl" ? "Excel downloaden" : "Download Excel"}</button>
+                    <button onClick={() => deletePlanning(expandedPlanning)}>{L("Verwijderen")}</button>
                   </div>
                 </div>
                 <div className="inlineForm">
-                  <label>Nieuwe datum<input type="date" value={savedDate} onChange={(event) => setSavedDate(event.target.value)} /></label>
-                  <button className="primaryButton" disabled={savedDate === expandedPlanning.planning_date} onClick={reschedulePlanning}>Datum bewaren</button>
+                  <label>{lang === "nl" ? "Nieuwe datum" : "New date"}<input type="date" value={savedDate} onChange={(event) => setSavedDate(event.target.value)} /></label>
+                  <button className="primaryButton" disabled={savedDate === expandedPlanning.planning_date} onClick={reschedulePlanning}>{lang === "nl" ? "Datum bewaren" : "Save date"}</button>
                 </div>
                 <div className="planningTable compactRows">
                   {expandedPlanning.rows.map((row, index) => (
@@ -4496,12 +4923,12 @@ function PlanningView({
                                 if (event.key === "Enter") saveSavedPatientName();
                                 if (event.key === "Escape") cancelSavedPatientNameEditing();
                               }}
-                              aria-label={`Naam van patient ${row.patient_number}`}
+                              aria-label={lang === "nl" ? `Naam van patient ${row.patient_number}` : `Name of patient ${row.patient_number}`}
                               autoFocus
                             />
                           </label>
-                          <button className="savedNameAction" title="Annuleren" aria-label="Naamwijziging annuleren" onClick={cancelSavedPatientNameEditing}>×</button>
-                          <button className="savedNameAction primaryButton" title="Naam bewaren" aria-label="Naam bewaren" disabled={savingSavedPatientNames || !savedPatientNameDraft.trim()} onClick={saveSavedPatientName}>{savingSavedPatientNames ? "…" : "✓"}</button>
+                          <button className="savedNameAction" title={L("Annuleren")} aria-label={lang === "nl" ? "Naamwijziging annuleren" : "Cancel name change"} onClick={cancelSavedPatientNameEditing}>×</button>
+                          <button className="savedNameAction primaryButton" title={lang === "nl" ? "Naam bewaren" : "Save name"} aria-label={lang === "nl" ? "Naam bewaren" : "Save name"} disabled={savingSavedPatientNames || !savedPatientNameDraft.trim()} onClick={saveSavedPatientName}>{savingSavedPatientNames ? "…" : "✓"}</button>
                         </div>
                       ) : (
                         <div className="savedPatientNameDisplay">
@@ -4514,15 +4941,15 @@ function PlanningView({
                           >
                             <button
                               className="patientNameMenuButton"
-                              title="Acties voor bewoner"
-                              aria-label={`Acties voor ${row.patient_name}`}
+                              title={lang === "nl" ? "Acties voor bewoner" : "Actions for resident"}
+                              aria-label={lang === "nl" ? `Acties voor ${row.patient_name}` : `Actions for ${row.patient_name}`}
                               aria-expanded={openSavedPatientMenu === savedPatientRowKey(row, index)}
                               onClick={() => setOpenSavedPatientMenu((current) => current === savedPatientRowKey(row, index) ? null : savedPatientRowKey(row, index))}
                             >⋯</button>
                             {openSavedPatientMenu === savedPatientRowKey(row, index) && (
                               <div className="savedPatientMenuList">
-                                {expandedPlanning.planning_type !== "Screening" && <button onClick={() => startSavedPatientNameEditing(row, index)}>Naam bewerken</button>}
-                                <button className="dangerMenuAction" disabled={!row.id} onClick={() => removeSavedRow(row)}>Bewoner verwijderen</button>
+                                {expandedPlanning.planning_type !== "Screening" && <button onClick={() => startSavedPatientNameEditing(row, index)}>{lang === "nl" ? "Naam bewerken" : "Edit name"}</button>}
+                                <button className="dangerMenuAction" disabled={!row.id} onClick={() => removeSavedRow(row)}>{lang === "nl" ? "Bewoner verwijderen" : "Remove resident"}</button>
                               </div>
                             )}
                           </div>
@@ -4534,16 +4961,16 @@ function PlanningView({
                   ))}
                 </div>
                 <div className="nestedPanel">
-                  <h3>Bewoners toevoegen via {expandedPlanning.planning_type === "Screening" ? "Excel/CSV" : "behandelplan-PDF's"}</h3>
+                  <h3>{lang === "nl" ? `Bewoners toevoegen via ${expandedPlanning.planning_type === "Screening" ? "Excel/CSV" : "behandelplan-PDF's"}` : `Add residents via ${expandedPlanning.planning_type === "Screening" ? "Excel/CSV" : "treatment plan PDFs"}`}</h3>
                   {expandedPlanning.planning_type !== "Screening" && (
-                    <label>Excel-werklijst <span className="optionalLabel">optioneel</span>
+                    <label>{lang === "nl" ? "Excel-werklijst" : "Excel worklist"} <span className="optionalLabel">{lang === "nl" ? "optioneel" : "optional"}</span>
                       <input type="file" accept=".xlsx,.xlsm,.xls,.csv" onChange={(event) => {
                         setSavedAddRoster(event.target.files?.[0] || null);
                         setSavedAddSelectionReport(null);
                         setSavedAddRows([]);
                         setSavedAddSelectedRows({});
                       }} />
-                      <small className="uploadSelectionText">{savedAddRoster ? savedAddRoster.name : "Gebruikt volgorde en goedkeuringstekst als voorstel."}</small>
+                      <small className="uploadSelectionText">{savedAddRoster ? savedAddRoster.name : (lang === "nl" ? "Gebruikt volgorde en goedkeuringstekst als voorstel." : "Uses order and approval text as suggestion.")}</small>
                     </label>
                   )}
                   <input type="file" accept={expandedPlanning.planning_type === "Screening" ? ".xlsx,.xlsm,.xls,.csv" : "application/pdf"} multiple onChange={(event) => {
@@ -4553,14 +4980,14 @@ function PlanningView({
                     setSavedAddSelectedRows({});
                   }} />
                   <div className="inlineActions">
-                    <button disabled={savedAddFiles.length === 0 || savedAddLoading} onClick={previewAdditionalRows}>{savedAddLoading ? "Inlezen..." : expandedPlanning.planning_type === "Screening" ? "Namenlijst inlezen" : "Behandelplannen uitlezen"}</button>
-                    {expandedPlanning.planning_type !== "Screening" && savedAddRows.length > 0 && <button onClick={() => setSavedAddSelectedRows(Object.fromEntries(savedAddRows.map((_, index) => [index, true])))}>Alles op ja</button>}
-                    {expandedPlanning.planning_type !== "Screening" && savedAddRows.length > 0 && <button onClick={() => setSavedAddSelectedRows(Object.fromEntries(savedAddRows.map((_, index) => [index, false])))}>Alles op nee</button>}
-                    <button className="primaryButton" disabled={savedAddSelectedCount === 0} onClick={addRowsToSavedPlanning}>Toevoegen aan planning</button>
+                    <button disabled={savedAddFiles.length === 0 || savedAddLoading} onClick={previewAdditionalRows}>{savedAddLoading ? (lang === "nl" ? "Inlezen..." : "Reading...") : expandedPlanning.planning_type === "Screening" ? (lang === "nl" ? "Namenlijst inlezen" : "Read name list") : (lang === "nl" ? "Behandelplannen uitlezen" : "Read treatment plans")}</button>
+                    {expandedPlanning.planning_type !== "Screening" && savedAddRows.length > 0 && <button onClick={() => setSavedAddSelectedRows(Object.fromEntries(savedAddRows.map((_, index) => [index, true])))}>{lang === "nl" ? "Alles op ja" : "All yes"}</button>}
+                    {expandedPlanning.planning_type !== "Screening" && savedAddRows.length > 0 && <button onClick={() => setSavedAddSelectedRows(Object.fromEntries(savedAddRows.map((_, index) => [index, false])))}>{lang === "nl" ? "Alles op nee" : "All no"}</button>}
+                    <button className="primaryButton" disabled={savedAddSelectedCount === 0} onClick={addRowsToSavedPlanning}>{lang === "nl" ? "Toevoegen aan planning" : "Add to planning"}</button>
                   </div>
                   {savedAddRows.length > 0 && (
                     <div className="savedAddSelectionList">
-                      <div className="sectionHint">{savedAddRows.length} bewoner(s) uitgelezen · {savedAddSelectedCount} opnemen.</div>
+                      <div className="sectionHint">{savedAddRows.length} {lang === "nl" ? "bewoner(s) uitgelezen" : "resident(s) read"} · {savedAddSelectedCount} {lang === "nl" ? "opnemen" : "include"}.</div>
                       {savedAddRows.map((row, index) => (
                         <label className={`savedAddSelectionRow ${savedAddSelectedRows[index] ? "isSelected" : ""}`} key={`${row.patient_name}-${index}`}>
                           <input
@@ -4571,26 +4998,26 @@ function PlanningView({
                           />
                           <span>
                             <strong>{index + 1}. {row.patient_name}</strong>
-                            {expandedPlanning.planning_type !== "Screening" && <small>{row.treatments || "Geen behandeling herkend"}</small>}
+                            {expandedPlanning.planning_type !== "Screening" && <small>{row.treatments || (lang === "nl" ? "Geen behandeling herkend" : "No treatment recognized")}</small>}
                             {savedAddSelectionReport?.items[index]?.excel_name && (
                               <small className={`excelSelectionMeta ${savedAddSelectionReport.items[index].excel_approved === true ? "approved" : "notApproved"}`}>
                                 Excel: {savedAddSelectionReport.items[index].excel_name}
-                                {` · Op te volgen behandeling: ${savedAddSelectionReport.items[index].excel_status || "leeg in Excel"}`}
-                                {savedAddSelectionReport.items[index].match_kind === "likely" ? " · waarschijnlijke naamkoppeling" : ""}
-                                {savedAddSelectionReport.items[index].match_kind === "surname" ? " · suggestie op achternaam, controleren" : ""}
+                                {lang === "nl" ? ` · Op te volgen behandeling: ${savedAddSelectionReport.items[index].excel_status || "leeg in Excel"}` : ` · Treatment to follow up: ${savedAddSelectionReport.items[index].excel_status || "empty in Excel"}`}
+                                {savedAddSelectionReport.items[index].match_kind === "likely" ? (lang === "nl" ? " · waarschijnlijke naamkoppeling" : " · probable name match") : ""}
+                                {savedAddSelectionReport.items[index].match_kind === "surname" ? (lang === "nl" ? " · suggestie op achternaam, controleren" : " · surname suggestion, please verify") : ""}
                               </small>
                             )}
                             {savedAddSelectionReport?.items[index]?.excel_approved === true && savedAddSelectionReport.items[index].match_kind !== "exact" && (
-                              <small className="nameReviewNotice">Akkoord gevonden · controleer alleen de naamkoppeling</small>
+                              <small className="nameReviewNotice">{L("Akkoord gevonden · controleer alleen de naamkoppeling")}</small>
                             )}
-                            {savedAddRoster && !savedAddSelectionReport?.items[index]?.excel_name && <small className="excelSelectionMeta notApproved">Niet teruggevonden in Excel · controleer handmatig</small>}
+                            {savedAddRoster && !savedAddSelectionReport?.items[index]?.excel_name && <small className="excelSelectionMeta notApproved">{lang === "nl" ? "Niet teruggevonden in Excel · controleer handmatig" : "Not found in Excel · check manually"}</small>}
                           </span>
-                          <b>{expandedPlanning.planning_type === "Screening" || savedAddSelectedRows[index] ? "Ja" : "Nee"}</b>
+                          <b>{expandedPlanning.planning_type === "Screening" || savedAddSelectedRows[index] ? (lang === "nl" ? "Ja" : "Yes") : (lang === "nl" ? "Nee" : "No")}</b>
                         </label>
                       ))}
                       {savedAddSelectionReport && savedAddSelectionReport.missing_names.length > 0 && (
                         <details className="matchDetail">
-                          <summary>Wel in Excel, geen behandelplan gevonden ({savedAddSelectionReport.missing_names.length})</summary>
+                          <summary>{lang === "nl" ? `Wel in Excel, geen behandelplan gevonden (${savedAddSelectionReport.missing_names.length})` : `In Excel but no treatment plan found (${savedAddSelectionReport.missing_names.length})`}</summary>
                           <div className="matchNameList">{savedAddSelectionReport.missing_names.map((patientName, index) => <span key={`${patientName}-${index}`}>{patientName}</span>)}</div>
                         </details>
                       )}
@@ -4607,6 +5034,8 @@ function PlanningView({
 }
 
 function AdminView({ users, auditLogs, onSaved }: { users: User[]; auditLogs: AuditLog[]; onSaved: () => Promise<void> }) {
+  const lang = useLang();
+  const L = (key: string) => t(lang, key);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("user");
@@ -4622,15 +5051,15 @@ function AdminView({ users, auditLogs, onSaved }: { users: User[]; auditLogs: Au
   return (
     <div className="twoColumn">
       <section className="panel">
-        <h2>Gebruikers</h2>
+        <h2>{L("Gebruikers")}</h2>
         <form className="formGrid compact" onSubmit={submit}>
-          <label>E-mail<input value={email} onChange={(event) => setEmail(event.target.value)} type="email" required /></label>
-          <label>Wachtwoord<input value={password} onChange={(event) => setPassword(event.target.value)} type="password" required /></label>
-          <label>Rol<select value={role} onChange={(event) => setRole(event.target.value)}>
+          <label>{L("E-mail")}<input value={email} onChange={(event) => setEmail(event.target.value)} type="email" required /></label>
+          <label>{L("Wachtwoord")}<input value={password} onChange={(event) => setPassword(event.target.value)} type="password" required /></label>
+          <label>{L("Rol")}<select value={role} onChange={(event) => setRole(event.target.value)}>
             <option value="user">user</option>
             <option value="admin">admin</option>
           </select></label>
-          <button className="primaryButton">Gebruiker toevoegen</button>
+          <button className="primaryButton">{lang === "nl" ? "Gebruiker toevoegen" : "Add user"}</button>
         </form>
         <div className="cardList">
           {users.map((user) => <div className="listRow" key={user.id}><strong>{user.email}</strong><span>{user.role}</span></div>)}
@@ -4638,8 +5067,8 @@ function AdminView({ users, auditLogs, onSaved }: { users: User[]; auditLogs: Au
       </section>
       <section className="panel">
         <div className="sectionTitle">
-          <h2>User log</h2>
-          <button onClick={async () => { await api.clearAuditLogs(); await onSaved(); }}>Log clearen</button>
+          <h2>{lang === "nl" ? "Gebruikerslog" : "User log"}</h2>
+          <button onClick={async () => { await api.clearAuditLogs(); await onSaved(); }}>{lang === "nl" ? "Log wissen" : "Clear log"}</button>
         </div>
         <div className="cardList">
           {auditLogs.slice(0, 20).map((log) => (
@@ -4656,6 +5085,7 @@ function AdminView({ users, auditLogs, onSaved }: { users: User[]; auditLogs: Au
 
 function App() {
   if (window.location.pathname.startsWith("/portal")) return <PortalApp />;
+  const [lang, setLang] = useState<Lang>(getSavedLang);
   const [user, setUser] = useState<User | null>(null);
   const [section, setSection] = useState<Section>("Home");
   const [wzcs, setWzcs] = useState<Wzc[]>([]);
@@ -4693,7 +5123,7 @@ function App() {
         setAuditLogs(logData);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Data laden mislukt.");
+      setError(err instanceof Error ? err.message : t(lang, "Data laden mislukt."));
     }
   }
 
@@ -4711,8 +5141,17 @@ function App() {
     restoreSession();
   }, []);
 
+  function changeLang(next: Lang) {
+    setLang(next);
+    try { localStorage.setItem("gsc-lang", next); } catch {}
+  }
+
   if (!user) {
-    return <LoginView onLogin={(currentUser) => { setUser(currentUser); loadData(currentUser); }} />;
+    return (
+      <LangContext.Provider value={lang}>
+        <LoginView onLogin={(currentUser) => { setUser(currentUser); loadData(currentUser); }} />
+      </LangContext.Provider>
+    );
   }
 
   function logout() {
@@ -4721,61 +5160,63 @@ function App() {
   }
 
   return (
-    <Shell user={user} section={section} setSection={setSection} onLogout={logout}>
-      <Header section={section} />
-      {error && <div className="error">{error}</div>}
-      {section === "Home" && (
-        <Home
-          wzcs={wzcs}
-          prospects={prospects}
-          urgencies={urgencies}
-          plannings={plannings}
-          onOpenUrgencies={() => setSection("Urgenties")}
-          onOpenWzcFiche={(wzc) => { setFollowupFocusWzc(wzc); setSection("WZC opvolging"); }}
-          onSelectWzcForPlanning={(wzc) => { setContextPlanningId(null); setContextWzc(wzc); setSection("Behandelplanning"); }}
-          onSelectWzcForUrgency={(wzc) => { setContextPlanningId(null); setContextWzc(wzc); setSection("Urgenties"); }}
-        />
-      )}
-      {section === "Planning" && (
-        <AgendaPlanningView
-          wzcs={wzcs}
-          plannings={plannings}
-          teams={teams}
-          onSaved={() => loadData()}
-          onOpenTreatmentPlanning={(planning) => {
-            setContextWzc(null);
-            setContextPlanningId(planning.id);
-            setSection("Behandelplanning");
-          }}
-        />
-      )}
-      {section === "Mondzorgdossiers" && <DossierView />}
-      {section === "Urgenties" && <UrgenciesView wzcs={wzcs} urgencies={urgencies} preselectedWzc={contextWzc} onSaved={() => loadData()} />}
-      {section === "WZC opvolging" && (
-        <WzcFollowupView
-          prospects={prospects}
-          wzcs={wzcs}
-          urgencies={urgencies}
-          focusWzc={followupFocusWzc}
-          focusProspect={followupFocusProspect}
-          onFocusHandled={() => { setFollowupFocusWzc(null); setFollowupFocusProspect(null); }}
-          onSaved={() => loadData()}
-          onPlan={(wzc) => { setContextPlanningId(null); setContextWzc(wzc); setSection("Behandelplanning"); }}
-          onUrgency={(wzc) => { setContextPlanningId(null); setContextWzc(wzc); setSection("Urgenties"); }}
-        />
-      )}
-      {section === "Behandelplanning" && (
-        <PlanningView
-          wzcs={wzcs}
-          plannings={plannings}
-          preselectedWzc={contextWzc}
-          focusPlanningId={contextPlanningId}
-          onFocusHandled={() => setContextPlanningId(null)}
-          onSaved={() => loadData()}
-        />
-      )}
-      {section === "WZC database" && user.role === "admin" && <WzcDatabaseView wzcs={wzcs} prospects={prospects} teams={teams} users={users} auditLogs={auditLogs} onSaved={() => loadData()} />}
-    </Shell>
+    <LangContext.Provider value={lang}>
+      <Shell user={user} section={section} setSection={setSection} onLogout={logout} lang={lang} onChangeLang={changeLang}>
+        <Header section={section} />
+        {error && <div className="error">{error}</div>}
+        {section === "Home" && (
+          <Home
+            wzcs={wzcs}
+            prospects={prospects}
+            urgencies={urgencies}
+            plannings={plannings}
+            onOpenUrgencies={() => setSection("Urgenties")}
+            onOpenWzcFiche={(wzc) => { setFollowupFocusWzc(wzc); setSection("WZC opvolging"); }}
+            onSelectWzcForPlanning={(wzc) => { setContextPlanningId(null); setContextWzc(wzc); setSection("Behandelplanning"); }}
+            onSelectWzcForUrgency={(wzc) => { setContextPlanningId(null); setContextWzc(wzc); setSection("Urgenties"); }}
+          />
+        )}
+        {section === "Planning" && (
+          <AgendaPlanningView
+            wzcs={wzcs}
+            plannings={plannings}
+            teams={teams}
+            onSaved={() => loadData()}
+            onOpenTreatmentPlanning={(planning) => {
+              setContextWzc(null);
+              setContextPlanningId(planning.id);
+              setSection("Behandelplanning");
+            }}
+          />
+        )}
+        {section === "Mondzorgdossiers" && <DossierView />}
+        {section === "Urgenties" && <UrgenciesView wzcs={wzcs} urgencies={urgencies} preselectedWzc={contextWzc} onSaved={() => loadData()} />}
+        {section === "WZC opvolging" && (
+          <WzcFollowupView
+            prospects={prospects}
+            wzcs={wzcs}
+            urgencies={urgencies}
+            focusWzc={followupFocusWzc}
+            focusProspect={followupFocusProspect}
+            onFocusHandled={() => { setFollowupFocusWzc(null); setFollowupFocusProspect(null); }}
+            onSaved={() => loadData()}
+            onPlan={(wzc) => { setContextPlanningId(null); setContextWzc(wzc); setSection("Behandelplanning"); }}
+            onUrgency={(wzc) => { setContextPlanningId(null); setContextWzc(wzc); setSection("Urgenties"); }}
+          />
+        )}
+        {section === "Behandelplanning" && (
+          <PlanningView
+            wzcs={wzcs}
+            plannings={plannings}
+            preselectedWzc={contextWzc}
+            focusPlanningId={contextPlanningId}
+            onFocusHandled={() => setContextPlanningId(null)}
+            onSaved={() => loadData()}
+          />
+        )}
+        {section === "WZC database" && user.role === "admin" && <WzcDatabaseView wzcs={wzcs} prospects={prospects} teams={teams} users={users} auditLogs={auditLogs} onSaved={() => loadData()} />}
+      </Shell>
+    </LangContext.Provider>
   );
 }
 

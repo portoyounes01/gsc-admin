@@ -26,14 +26,16 @@ class PortalAccountOut(BaseModel):
     id: int
     email: EmailStr
     wzc_id: int
+    wzc_name: str
     role: str
     is_active: bool
+    created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class PortalMeOut(PortalAccountOut):
-    wzc_name: str
+    pass
 
 
 class PortalDemoCentreOut(BaseModel):

@@ -1,4 +1,4 @@
-import type { AuditLog, DossierPreviewRow, Planning, PlanningRow, Prospect, SavedUrgencyRoutePlan, SavedUrgencyRoutePlanCreate, TeamProfile, TreatmentMatchReport, TreatmentSelectionReport, Urgency, UrgencyRoutePlan, UrgencyRoutePlanRequest, User, Wzc } from "./types";
+import type { AuditLog, DossierPreviewRow, Planning, PlanningRow, PortalAccount, Prospect, SavedUrgencyRoutePlan, SavedUrgencyRoutePlanCreate, TeamProfile, TreatmentMatchReport, TreatmentSelectionReport, Urgency, UrgencyRoutePlan, UrgencyRoutePlanRequest, User, Wzc } from "./types";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -172,5 +172,8 @@ export const api = {
     URL.revokeObjectURL(url);
   },
   auditLogs: () => request<AuditLog[]>("/audit-logs"),
-  clearAuditLogs: () => request<{ status: string }>("/audit-logs", { method: "DELETE" })
+  clearAuditLogs: () => request<{ status: string }>("/audit-logs", { method: "DELETE" }),
+  portalAccounts: () => request<PortalAccount[]>("/portal/accounts"),
+  createPortalAccount: (payload: { email: string; password: string; wzc_id: number; role: string }) =>
+    request<PortalAccount>("/portal/accounts", { method: "POST", body: JSON.stringify(payload) }),
 };

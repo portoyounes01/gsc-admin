@@ -1,8 +1,50 @@
 from __future__ import annotations
 
-from sqlalchemy import inspect, text
+from sqlalchemy import Engine, Connection, inspect, text
 
 from app.db.session import engine
+from app.services.portal_accounts import username_for_centre
+
+
+def ensure_portal_account_schema(bind: Engine | Connection = engine) -> None:
+    inspector = inspect(bind)
+    tables = set(inspector.get_table_names())
+    if "portal_accounts" not in tables or "wzcs" not in tables:
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("portal_accounts")}
+    legacy_email_column = "email" in columns and "username" not in columns
+    if "username" not in columns and not legacy_email_column:
+        raise RuntimeError("Portal-account table has neither username nor legacy email column.")
+
+    with bind.begin() as connection:
+        duplicate_centre = connection.execute(text(
+            "SELECT wzc_id FROM portal_accounts GROUP BY wzc_id HAVING COUNT(*) > 1 LIMIT 1"
+        )).scalar()
+        if duplicate_centre is not None:
+            raise RuntimeError("Cannot migrate portal accounts: multiple portal accounts exist for one WZC.")
+
+        rows = connection.execute(text(
+            "SELECT portal_accounts.id, wzcs.name FROM portal_accounts "
+            "JOIN wzcs ON wzcs.id = portal_accounts.wzc_id ORDER BY portal_accounts.id"
+        )).all()
+        used: set[str] = set()
+        usernames = [(account_id, username_for_centre(name, used)) for account_id, name in rows]
+        used.update(username for _, username in usernames)
+
+        if legacy_email_column:
+            connection.execute(text("ALTER TABLE portal_accounts RENAME COLUMN email TO username"))
+        for account_id, username in usernames:
+            connection.execute(
+                text("UPDATE portal_accounts SET username = :username WHERE id = :id"),
+                {"username": username, "id": account_id},
+            )
+        connection.execute(text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS ix_portal_accounts_username ON portal_accounts (username)"
+        ))
+        connection.execute(text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_portal_accounts_wzc_id ON portal_accounts (wzc_id)"
+        ))
 
 
 def ensure_lightweight_schema() -> None:
@@ -19,7 +61,7 @@ def ensure_lightweight_schema() -> None:
                     CREATE TABLE portal_accounts (
                         id INTEGER PRIMARY KEY,
                         wzc_id INTEGER NOT NULL REFERENCES wzcs(id),
-                        email VARCHAR(255) NOT NULL UNIQUE,
+                        username VARCHAR(255) NOT NULL UNIQUE,
                         password_hash VARCHAR(255) NOT NULL,
                         role VARCHAR(40) NOT NULL DEFAULT 'staff',
                         is_active BOOLEAN NOT NULL DEFAULT TRUE,
@@ -30,7 +72,10 @@ def ensure_lightweight_schema() -> None:
                 )
             )
             connection.execute(text("CREATE INDEX ix_portal_accounts_wzc_id ON portal_accounts (wzc_id)"))
-            connection.execute(text("CREATE INDEX ix_portal_accounts_email ON portal_accounts (email)"))
+            connection.execute(text("CREATE UNIQUE INDEX ix_portal_accounts_username ON portal_accounts (username)"))
+            connection.execute(text("CREATE UNIQUE INDEX uq_portal_accounts_wzc_id ON portal_accounts (wzc_id)"))
+
+    ensure_portal_account_schema(engine)
 
     wzc_columns = {column["name"] for column in inspector.get_columns("wzcs")}
     if "extra_contacts" not in wzc_columns:
