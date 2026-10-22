@@ -23,7 +23,7 @@ def ensure_portal_account_schema(bind: Engine | Connection = engine) -> None:
             ))
 
         # Add missing columns defensively
-        columns = {column["name"] for column in inspect(bind).get_columns("portal_accounts")}
+        columns = {column["name"] for column in inspect(connection).get_columns("portal_accounts")}
         if "email" not in columns:
             connection.execute(text("ALTER TABLE portal_accounts ADD COLUMN email VARCHAR(255)"))
         if "password_hash" not in columns:
