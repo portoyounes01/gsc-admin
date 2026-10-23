@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_portal_account, require_admin
 from app.core.config import settings
+from app.core.ratelimit import register_failure, register_success, retry_after_seconds
 from app.core.security import create_portal_access_token, hash_password, verify_password
 from app.db.session import get_db
 from app.models import Planning, PortalAccount, Urgency, User, Wzc
@@ -49,11 +50,21 @@ def planning_scope_statement(wzc_id: int):
 
 
 @router.post("/auth/login", response_model=TokenOut)
-def portal_login(payload: LoginIn, db: Session = Depends(get_db)) -> TokenOut:
+def portal_login(payload: LoginIn, request: Request, db: Session = Depends(get_db)) -> TokenOut:
     email = payload.email.strip().lower()
+    throttle_key = f"portal:{request.client.host if request.client else '?'}:{email}"
+    wait = retry_after_seconds(throttle_key)
+    if wait:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Te veel mislukte aanmeldpogingen. Probeer later opnieuw.",
+            headers={"Retry-After": str(wait)},
+        )
     account = db.scalar(select(PortalAccount).where(PortalAccount.email == email, PortalAccount.is_active.is_(True)))
     if not account or not verify_password(payload.password, account.password_hash):
+        register_failure(throttle_key)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Ongeldige portal-login.")
+    register_success(throttle_key)
     return TokenOut(access_token=create_portal_access_token(account.email, account.role))
 
 
