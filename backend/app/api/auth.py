@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.ratelimit import register_failure, register_success, retry_after_seconds
 from app.core.security import create_access_token, hash_password, verify_password
 from app.db.session import get_db
 from app.models import User
@@ -33,11 +34,21 @@ def ensure_bootstrap_admin(db: Session, email: str, password: str) -> None:
 
 
 @router.post("/login", response_model=TokenOut)
-def login(payload: LoginIn, db: Session = Depends(get_db)) -> TokenOut:
+def login(payload: LoginIn, request: Request, db: Session = Depends(get_db)) -> TokenOut:
     email = payload.email.strip().lower()
+    throttle_key = f"admin:{request.client.host if request.client else '?'}:{email}"
+    wait = retry_after_seconds(throttle_key)
+    if wait:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Te veel mislukte aanmeldpogingen. Probeer later opnieuw.",
+            headers={"Retry-After": str(wait)},
+        )
     user = db.scalar(select(User).where(User.email == email, User.is_active.is_(True)))
     if not user or not verify_password(payload.password, user.password_hash):
+        register_failure(throttle_key)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Ongeldige login.")
+    register_success(throttle_key)
     add_audit_log(db, user, "Login", "Aangemeld")
     db.commit()
     return TokenOut(access_token=create_access_token(user.email, user.role))

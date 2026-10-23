@@ -12,7 +12,13 @@ from app.services.geocoding import check_outbound_https
 
 
 def create_app() -> FastAPI:
-    api = FastAPI(title=settings.app_name)
+    expose_docs = settings.environment.strip().lower() == "local"
+    api = FastAPI(
+        title=settings.app_name,
+        docs_url="/docs" if expose_docs else None,
+        redoc_url="/redoc" if expose_docs else None,
+        openapi_url="/openapi.json" if expose_docs else None,
+    )
     api.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,
